@@ -15,10 +15,13 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Badge
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarData
 import androidx.compose.material3.SnackbarHost
@@ -56,6 +59,7 @@ import fr.baptiste.bank.ui.glass.kit.LiquidButton
 import fr.baptiste.bank.ui.rememberAppController
 import fr.baptiste.bank.ui.rememberUpdateAvailable
 import fr.baptiste.bank.ui.theme.BankTheme
+import fr.baptiste.bank.ui.theme.GlassSurfaceColors
 import fr.baptiste.bank.update.UpdateViewModel
 
 /** Thème de l'interface Liquid Glass : palette bleu et blanc, fenêtres translucides. */
@@ -91,8 +95,8 @@ fun GlassMainScreen(
     CompositionLocalProvider(
         LocalBackgroundBackdrop provides backgroundBackdrop,
         LocalScreenBackdrop provides screenBackdrop,
-        LocalContentColor provides MaterialTheme.colorScheme.onSurface,
     ) {
+        GlassSurfaceColors(onBackground = true) {
         Box(Modifier.fillMaxSize()) {
             // Couche enregistrée pour les éléments flottants : le fond liquide et le contenu.
             Box(Modifier.fillMaxSize().layerBackdrop(screenBackdrop)) {
@@ -107,6 +111,7 @@ fun GlassMainScreen(
                     when (tab) {
                         Tab.HOME -> GlassHomeContent(
                             dashboard = dashboard,
+                            onAddExpense = { controller.dialog = OpenDialog.Expense },
                             onEditIncome = { controller.dialog = OpenDialog.Income },
                             onOpenEnvelope = { controller.dialog = OpenDialog.EnvelopeDetail(it.envelope.id) },
                             onCover = { controller.dialog = OpenDialog.Cover(it.envelope.id) },
@@ -130,32 +135,66 @@ fun GlassMainScreen(
                 }
             }
 
-            // Bouton ⋮ flottant, en haut à droite.
-            Box(
-                Modifier
+            // Voile sous la barre d'état, pour que le contenu ne passe pas sous l'heure.
+            StatusBarScrim(
+                modifier = Modifier.align(Alignment.TopCenter),
+                height = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 24.dp,
+            )
+
+            // En haut à droite : l'action de l'onglet (+) et le menu ⋮, comme dans les apps iOS.
+            Row(
+                modifier = Modifier
                     .align(Alignment.TopEnd)
                     .statusBarsPadding()
-                    .padding(top = 12.dp, end = 16.dp),
+                    .padding(top = 8.dp, end = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                val (label, target) = controller.primaryAction
                 LiquidButton(
-                    onClick = { menuOpen = true },
+                    onClick = { controller.dialog = target },
                     backdrop = screenBackdrop,
-                    modifier = Modifier.size(width = 56.dp, height = 48.dp),
+                    tint = Color(0xFF2F6BFF),
+                    horizontalPadding = 0.dp,
+                    modifier = Modifier.size(48.dp),
                 ) {
-                    Box {
-                        Icon(painterResource(R.drawable.ic_more), contentDescription = "Plus d'options")
-                        if (updateAvailable) Badge(Modifier.align(Alignment.TopEnd))
-                    }
-                }
-                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                    AppMenuItems(
-                        controller = controller,
-                        viewModel = viewModel,
-                        updateAvailable = updateAvailable,
-                        style = UiStyle.GLASS,
-                        onStyleChange = onStyleChange,
-                        onClose = { menuOpen = false },
+                    Icon(
+                        painterResource(R.drawable.ic_add),
+                        contentDescription = "Ajouter : $label",
+                        tint = Color.White,
+                        modifier = Modifier.size(22.dp),
                     )
+                }
+                Box {
+                    LiquidButton(
+                        onClick = { menuOpen = true },
+                        backdrop = screenBackdrop,
+                        surfaceColor = Color(0xFF071233).copy(alpha = 0.35f),
+                        horizontalPadding = 0.dp,
+                        modifier = Modifier.size(48.dp),
+                    ) {
+                        Box {
+                            Icon(
+                                painterResource(R.drawable.ic_more),
+                                contentDescription = "Plus d'options",
+                                tint = Color.White,
+                                modifier = Modifier.size(22.dp),
+                            )
+                            if (updateAvailable) Badge(Modifier.align(Alignment.TopEnd))
+                        }
+                    }
+                    // Le menu s'affiche dans une fenêtre à part : il reprend les couleurs « sur verre ».
+                    GlassSurfaceColors(onBackground = false) {
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            AppMenuItems(
+                                controller = controller,
+                                viewModel = viewModel,
+                                updateAvailable = updateAvailable,
+                                style = UiStyle.GLASS,
+                                onStyleChange = onStyleChange,
+                                onClose = { menuOpen = false },
+                            )
+                        }
+                    }
                 }
             }
 
@@ -166,49 +205,32 @@ fun GlassMainScreen(
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
                     .padding(start = 16.dp, end = 16.dp, bottom = 92.dp),
-            ) { data -> GlassSnackbar(data) }
+            ) { data -> GlassSurfaceColors(onBackground = false) { GlassSnackbar(data) } }
 
-            // Barre d'onglets flottante et bouton d'action, comme la barre d'iOS 26.
-            Row(
+            // Barre d'onglets flottante et centrée, comme celle d'iOS 26.
+            LiquidBottomTabs(
+                selectedTabIndex = { controller.tab.ordinal },
+                onTabSelected = { controller.tab = Tab.entries[it] },
+                backdrop = screenBackdrop,
+                tabsCount = Tab.entries.size,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
                     .navigationBarsPadding()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .padding(bottom = 12.dp)
+                    .widthIn(max = 320.dp)
+                    .fillMaxWidth(0.86f),
             ) {
-                LiquidBottomTabs(
-                    selectedTabIndex = { controller.tab.ordinal },
-                    onTabSelected = { controller.tab = Tab.entries[it] },
-                    backdrop = screenBackdrop,
-                    tabsCount = Tab.entries.size,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Tab.entries.forEach { tab ->
-                        LiquidBottomTab(onClick = { controller.tab = tab }) {
-                            Icon(painterResource(tab.icon), contentDescription = null, modifier = Modifier.size(24.dp))
-                            Text(tab.title, style = MaterialTheme.typography.labelSmall)
-                        }
+                Tab.entries.forEach { tab ->
+                    LiquidBottomTab(onClick = { controller.tab = tab }) {
+                        Icon(painterResource(tab.icon), contentDescription = null, modifier = Modifier.size(24.dp))
+                        Text(tab.title, style = MaterialTheme.typography.labelSmall)
                     }
-                }
-                val (label, target) = controller.primaryAction
-                LiquidButton(
-                    onClick = { controller.dialog = target },
-                    backdrop = screenBackdrop,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(64.dp),
-                ) {
-                    Icon(
-                        painterResource(R.drawable.ic_add),
-                        contentDescription = "Ajouter : $label",
-                        tint = Color.White,
-                        modifier = Modifier.size(28.dp),
-                    )
                 }
             }
         }
+        }
 
+        // Les fenêtres (dialogues, panneaux) reprennent les couleurs « sur verre » du thème.
         AppDialogs(controller, viewModel, updateViewModel)
     }
 }

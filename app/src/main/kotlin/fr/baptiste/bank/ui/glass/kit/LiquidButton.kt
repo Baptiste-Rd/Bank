@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastCoerceAtMost
 import androidx.compose.ui.util.lerp
@@ -42,6 +43,8 @@ fun LiquidButton(
     isInteractive: Boolean = true,
     tint: Color = Color.Unspecified,
     surfaceColor: Color = Color.Unspecified,
+    // Bank : marge intérieure réglable, à 0 pour un bouton rond qui ne contient qu'une icône.
+    horizontalPadding: Dp = 16f.dp,
     content: @Composable RowScope.() -> Unit
 ) {
     val animationScope = rememberCoroutineScope()
@@ -116,7 +119,7 @@ fun LiquidButton(
                 }
             )
             .height(48f.dp)
-            .padding(horizontal = 16f.dp),
+            .padding(horizontal = horizontalPadding),
         horizontalArrangement = Arrangement.spacedBy(8f.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
         content = content

@@ -65,15 +65,11 @@ fun LiquidBottomTabs(
     backdrop: Backdrop,
     tabsCount: Int,
     modifier: Modifier = Modifier,
+    // Bank : couleurs paramétrables pour une barre sombre posée sur le fond bleu profond.
+    accentColor: Color = Color(0xFF7DD3FC),
+    containerColor: Color = Color(0xFF071233).copy(alpha = 0.45f),
     content: @Composable RowScope.() -> Unit
 ) {
-    val isLightTheme = !isSystemInDarkTheme()
-    val accentColor =
-        if (isLightTheme) Color(0xFF0088FF)
-        else Color(0xFF0091FF)
-    val containerColor =
-        if (isLightTheme) Color(0xFFFAFAFA).copy(0.4f)
-        else Color(0xFF121212).copy(0.4f)
 
     val tabsBackdrop = rememberLayerBackdrop()
 
@@ -275,11 +271,8 @@ fun LiquidBottomTabs(
                     },
                     onDrawSurface = {
                         val progress = dampedDragAnimation.pressProgress
-                        drawRect(
-                            if (isLightTheme) Color.Black.copy(0.1f)
-                            else Color.White.copy(0.1f),
-                            alpha = 1f - progress
-                        )
+                        // Bank : la barre est sombre dans les deux thèmes, l'indicateur au repos est donc clair.
+                        drawRect(Color.White.copy(0.16f), alpha = 1f - progress)
                         drawRect(Color.Black.copy(alpha = 0.03f * progress))
                     }
                 )

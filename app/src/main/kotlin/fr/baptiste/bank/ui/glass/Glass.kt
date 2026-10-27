@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -30,9 +31,9 @@ import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
-import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.shadow.Shadow
 import com.kyant.shapes.RoundedRectangle
+import fr.baptiste.bank.ui.theme.GlassSurfaceColors
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -67,33 +68,38 @@ data class GlassTokens(
     val blobs: List<Color>,
 )
 
+/*
+ * Fond bleu profond dans les deux modes : le verre ressort sur un fond riche et sombre, et le
+ * texte blanc posé dessus garde un contraste d'au moins 4,5:1 même là où les taches se superposent.
+ * En mode clair, les cartes sont presque blanches (verre dépoli) ; en mode sombre, bleu nuit.
+ */
 private val LightTokens = GlassTokens(
-    surface = Color.White.copy(alpha = 0.42f),
-    surfaceStrong = Color.White.copy(alpha = 0.62f),
-    shadow = Color(0xFF0B2A6B).copy(alpha = 0.10f),
-    baseTop = Color(0xFFF4F7FF),
-    baseBottom = Color(0xFFDCE7FF),
+    surface = Color.White.copy(alpha = 0.78f),
+    surfaceStrong = Color.White.copy(alpha = 0.88f),
+    shadow = Color(0xFF020A24).copy(alpha = 0.22f),
+    baseTop = Color(0xFF163A94),
+    baseBottom = Color(0xFF0B2366),
     blobs = listOf(
-        Color(0xFF2F6BFF).copy(alpha = 0.55f),
-        Color(0xFF5AC8FA).copy(alpha = 0.50f),
-        Color(0xFF5E5CE6).copy(alpha = 0.32f),
-        Color.White.copy(alpha = 0.95f),
-        Color(0xFF0A84FF).copy(alpha = 0.40f),
+        Color(0xFF2563EB).copy(alpha = 0.60f),
+        Color(0xFF0EA5E9).copy(alpha = 0.30f),
+        Color(0xFF4F46E5).copy(alpha = 0.45f),
+        Color(0xFF3B82F6).copy(alpha = 0.55f),
+        Color(0xFF1E40AF).copy(alpha = 0.60f),
     ),
 )
 
 private val DarkTokens = GlassTokens(
-    surface = Color(0xFF0B1630).copy(alpha = 0.34f),
-    surfaceStrong = Color(0xFF0B1630).copy(alpha = 0.55f),
-    shadow = Color.Black.copy(alpha = 0.35f),
+    surface = Color(0xFF0B1630).copy(alpha = 0.55f),
+    surfaceStrong = Color(0xFF0B1630).copy(alpha = 0.70f),
+    shadow = Color.Black.copy(alpha = 0.40f),
     baseTop = Color(0xFF040A1C),
-    baseBottom = Color(0xFF0B1A42),
+    baseBottom = Color(0xFF0A1A45),
     blobs = listOf(
-        Color(0xFF2F6BFF).copy(alpha = 0.60f),
-        Color(0xFF0A84FF).copy(alpha = 0.45f),
-        Color(0xFF5E5CE6).copy(alpha = 0.45f),
-        Color(0xFF64D2FF).copy(alpha = 0.22f),
-        Color(0xFF1E3A8A).copy(alpha = 0.70f),
+        Color(0xFF2563EB).copy(alpha = 0.55f),
+        Color(0xFF0EA5E9).copy(alpha = 0.22f),
+        Color(0xFF4F46E5).copy(alpha = 0.40f),
+        Color(0xFF1E40AF).copy(alpha = 0.60f),
+        Color(0xFF38BDF8).copy(alpha = 0.14f),
     ),
 )
 
@@ -157,16 +163,20 @@ fun LiquidBackground(modifier: Modifier = Modifier) {
     }
 }
 
+/** Arrondi des cartes : franc mais discret. Les petits contrôles restent en capsule. */
+val GlassCornerRadius: Dp = 18.dp
+
 /**
- * Carte de verre : elle floute, sature et réfracte le fond liquide sur ses bords (effet de
- * lentille), avec un liseré de lumière et une ombre portée légère.
- * Le flou demande Android 12 ; la réfraction, Android 13. En dessous, la carte reste une
- * surface translucide teintée.
+ * Carte de verre : elle floute et sature le fond liquide, et le réfracte légèrement sur ses bords
+ * (effet de lentille), avec une ombre portée douce. Pas de liseré de lumière : il soulignait les
+ * coins de façon inégale. Son contenu reprend les couleurs « sur verre ».
+ * Le flou demande Android 12 ; la réfraction, Android 13. En dessous, la carte reste une surface
+ * translucide teintée, assez opaque pour que le texte reste lisible.
  */
 @Composable
 fun GlassCard(
     modifier: Modifier = Modifier,
-    cornerRadius: Dp = 28.dp,
+    cornerRadius: Dp = GlassCornerRadius,
     strong: Boolean = false,
     onClick: (() -> Unit)? = null,
     contentPadding: Dp = 20.dp,
@@ -183,17 +193,32 @@ fun GlassCard(
                 shape = { RoundedRectangle(cornerRadius) },
                 effects = {
                     vibrancy()
-                    blur(14.dp.toPx())
-                    lens(refractionHeight = 14.dp.toPx(), refractionAmount = 28.dp.toPx())
+                    blur(18.dp.toPx())
+                    lens(refractionHeight = 10.dp.toPx(), refractionAmount = 18.dp.toPx())
                 },
-                highlight = { Highlight.Default },
-                shadow = { Shadow(radius = 24.dp, color = tokens.shadow) },
+                highlight = null,
+                shadow = { Shadow(radius = 20.dp, color = tokens.shadow) },
                 onDrawSurface = { drawRect(tint) },
             )
             .clip(RoundedRectangle(cornerRadius))
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(contentPadding),
         verticalArrangement = Arrangement.spacedBy(4.dp),
-        content = content,
-    )
+    ) {
+        GlassSurfaceColors(onBackground = false) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp), content = content)
+        }
+    }
+}
+
+/**
+ * Voile sous la barre d'état : le contenu qui remonte s'y fond progressivement au lieu de passer
+ * sous l'heure et les icônes système.
+ */
+@Composable
+fun StatusBarScrim(modifier: Modifier = Modifier, height: Dp) {
+    val tokens = Glass.tokens
+    Canvas(modifier.fillMaxWidth().then(Modifier.padding(0.dp)).height(height)) {
+        drawRect(Brush.verticalGradient(listOf(tokens.baseTop, tokens.baseTop.copy(alpha = 0f))))
+    }
 }
