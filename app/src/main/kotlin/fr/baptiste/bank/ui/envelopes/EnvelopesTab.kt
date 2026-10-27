@@ -32,7 +32,7 @@ import fr.baptiste.bank.ui.format.label
  * Modèles proposés pour créer une enveloppe en un geste. Le montant reste vide :
  * c'est à toi de le fixer, l'app ne devine pas ton budget.
  */
-private val templates: List<Pair<String, EnvelopeType>> = listOf(
+internal val envelopeTemplates: List<Pair<String, EnvelopeType>> = listOf(
     "Courses" to EnvelopeType.DAILY,
     "Essence" to EnvelopeType.DAILY,
     "Sorties" to EnvelopeType.DAILY,
@@ -44,7 +44,7 @@ private val templates: List<Pair<String, EnvelopeType>> = listOf(
     "Épargne" to EnvelopeType.SAVINGS,
 )
 
-private fun template(name: String, type: EnvelopeType) = Envelope(
+internal fun template(name: String, type: EnvelopeType) = Envelope(
     id = 0,
     name = name,
     type = type,
@@ -65,7 +65,7 @@ fun EnvelopesTab(
 ) {
     val lines = dashboard?.envelopes.orEmpty()
     val usedNames = lines.map { it.envelope.name.lowercase() }.toSet()
-    val suggestions = templates.filter { (name, _) -> name.lowercase() !in usedNames }
+    val suggestions = envelopeTemplates.filter { (name, _) -> name.lowercase() !in usedNames }
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -135,7 +135,7 @@ fun EnvelopesTab(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun TemplateChips(
+internal fun TemplateChips(
     suggestions: List<Pair<String, EnvelopeType>>,
     onPick: (Pair<String, EnvelopeType>) -> Unit,
 ) {

@@ -82,5 +82,9 @@ dependencies {
 
     implementation(libs.androidx.datastore.preferences)
 
+    // Effets Liquid Glass : flou d'arrière-plan, réfraction, reflets (Kyant0/AndroidLiquidGlass).
+    implementation(libs.kyant.backdrop)
+    implementation(libs.kyant.shapes)
+
     testImplementation(libs.junit)
 }

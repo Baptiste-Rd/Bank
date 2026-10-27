@@ -74,6 +74,7 @@ fun EnvelopeDialog(
             onDismissRequest = { confirmArchive = false },
             title = { Text("Archiver ${initial.name} ?") },
             text = {
+                BlurBehindWindow()
                 Text(
                     "Elle disparaît de tes budgets mais garde ses dépenses. " +
                         "Tu la retrouveras en bas de l'onglet Enveloppes, avec un bouton Restaurer.",
@@ -89,6 +90,7 @@ fun EnvelopeDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (isExisting) "Modifier l'enveloppe" else "Nouvelle enveloppe") },
         text = {
+            BlurBehindWindow()
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.verticalScroll(rememberScrollState()),
@@ -217,6 +219,7 @@ fun IncomeDialog(
         onDismissRequest = onDismiss,
         title = { Text("Salaire mensuel") },
         text = {
+            BlurBehindWindow()
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     "Montant net versé chaque mois. Il sert à calculer ce qui reste à répartir.",

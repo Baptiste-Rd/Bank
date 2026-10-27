@@ -128,7 +128,7 @@ private fun TodaySection(dashboard: Dashboard, onEditIncome: () -> Unit) {
     }
 }
 
-private fun todayExplanation(share: Money, spentToday: Money, daysRemaining: Int): String {
+internal fun todayExplanation(share: Money, spentToday: Money, daysRemaining: Int): String {
     val days = if (daysRemaining > 1) "$daysRemaining jours restants" else "dernier jour du mois"
     return if (spentToday.isPositive) {
         "Part du jour ${share.formatted()}, déjà ${spentToday.formatted()} dépensés. $days."

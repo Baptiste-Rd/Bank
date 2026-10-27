@@ -43,3 +43,16 @@ applications.
 Les APK sont signés avec la clé `signing/debug-updates.jks`, versionnée pour que chaque build
 de la CI porte la même signature (condition imposée par Android pour installer une mise à jour).
 C'est une clé de debug, à ne pas réutiliser pour une version publiée.
+
+## Styles d'interface
+
+Deux styles cohabitent, au choix depuis le menu ⋮ :
+
+- **Liquid Glass** (par défaut) : fond liquide animé, cartes et barres en verre qui floutent et
+  réfractent ce qui passe dessous, barre d'onglets flottante dont l'indicateur se fait glisser.
+  Le flou demande Android 12, la réfraction Android 13.
+- **Classique** : Material 3, sans effets.
+
+Les effets de verre viennent de la librairie [Kyant0/AndroidLiquidGlass](https://github.com/Kyant0/AndroidLiquidGlass)
+(Apache 2.0). Quelques composants de son catalogue d'exemples sont repris et adaptés dans
+`app/src/main/kotlin/fr/baptiste/bank/ui/glass/kit/` ; la licence est dans `third_party/`.

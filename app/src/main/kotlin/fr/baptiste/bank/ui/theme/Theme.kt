@@ -80,6 +80,46 @@ private val DarkColors = darkColorScheme(
     onErrorContainer = Color(0xFFFFD9DE),
 )
 
+/*
+ * Variante Liquid Glass : mêmes rôles de couleur, mais les surfaces des fenêtres sont
+ * translucides et le bleu tire vers le bleu système d'iOS. Le fond de l'écran est dessiné
+ * à part (fond liquide animé), d'où un fond transparent ici.
+ */
+private val BleuVerre = Color(0xFF0A6CFF)
+private val BleuVerreNuit = Color(0xFF5AA2FF)
+
+private val GlassLightColors = LightColors.copy(
+    primary = BleuVerre,
+    primaryContainer = Color(0xFFD6E6FF),
+    background = Color.Transparent,
+    surface = Color.Transparent,
+    onSurface = Color(0xFF0B1630),
+    onBackground = Color(0xFF0B1630),
+    onSurfaceVariant = Color(0xFF44506E),
+    surfaceContainerLow = Color(0xF2F7FAFF),
+    surfaceContainer = Color(0xEBF4F8FF),
+    surfaceContainerHigh = Color(0xE6F7FAFF),
+    surfaceContainerHighest = Color(0xE6EEF3FF),
+    surfaceVariant = Color(0x66B8C8EC),
+    outlineVariant = Color(0x55A9B8DA),
+)
+
+private val GlassDarkColors = DarkColors.copy(
+    primary = BleuVerreNuit,
+    primaryContainer = Color(0xFF173A7A),
+    background = Color.Transparent,
+    surface = Color.Transparent,
+    onSurface = Color(0xFFF2F5FF),
+    onBackground = Color(0xFFF2F5FF),
+    onSurfaceVariant = Color(0xFFB9C4E0),
+    surfaceContainerLow = Color(0xF20E1834),
+    surfaceContainer = Color(0xEB121D3C),
+    surfaceContainerHigh = Color(0xE6142042),
+    surfaceContainerHighest = Color(0xE61A2850),
+    surfaceVariant = Color(0x55425A8C),
+    outlineVariant = Color(0x553A4A70),
+)
+
 /** Couleurs de statut qui n'existent pas dans le schéma Material. */
 @Immutable
 data class StatusColors(val good: Color, val warning: Color, val over: Color)
@@ -87,6 +127,9 @@ data class StatusColors(val good: Color, val warning: Color, val over: Color)
 private val LocalStatusColors = staticCompositionLocalOf {
     StatusColors(good = Bleu, warning = RougeClair, over = Rouge)
 }
+
+/** Vrai quand l'interface Liquid Glass est active : les fenêtres floutent alors ce qu'il y a derrière. */
+val LocalGlassStyle = staticCompositionLocalOf { false }
 
 object BankTheme {
     val status: StatusColors
@@ -126,16 +169,25 @@ val AmountStyle: TextStyle
 @Composable
 fun BankTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    glass: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val status = if (darkTheme) {
-        StatusColors(good = BleuClair, warning = RougeClairNuit, over = RougeNuit)
+        StatusColors(good = if (glass) BleuVerreNuit else BleuClair, warning = RougeClairNuit, over = RougeNuit)
     } else {
-        StatusColors(good = Bleu, warning = RougeClair, over = Rouge)
+        StatusColors(good = if (glass) BleuVerre else Bleu, warning = RougeClair, over = Rouge)
     }
-    androidx.compose.runtime.CompositionLocalProvider(LocalStatusColors provides status) {
+    androidx.compose.runtime.CompositionLocalProvider(
+        LocalStatusColors provides status,
+        LocalGlassStyle provides glass,
+    ) {
         MaterialTheme(
-            colorScheme = if (darkTheme) DarkColors else LightColors,
+            colorScheme = when {
+                glass && darkTheme -> GlassDarkColors
+                glass -> GlassLightColors
+                darkTheme -> DarkColors
+                else -> LightColors
+            },
             typography = BankTypography,
             content = content,
         )

@@ -1,5 +1,6 @@
 package fr.baptiste.bank.ui.operations
 
+import fr.baptiste.bank.ui.components.BlurBehindWindow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -40,7 +41,7 @@ import java.util.Locale
 private val dayHeader = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.FRANCE)
 
 /** Titre d'un groupe de jour : « Aujourd'hui », « Hier », sinon « lundi 20 octobre ». */
-private fun dayTitle(date: LocalDate, today: LocalDate): String = when (date) {
+internal fun dayTitle(date: LocalDate, today: LocalDate): String = when (date) {
     today -> "Aujourd'hui"
     today.minusDays(1) -> "Hier"
     else -> date.format(dayHeader).replaceFirstChar { it.titlecase(Locale.FRANCE) }
@@ -102,7 +103,10 @@ fun OperationsTab(
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
             title = { Text("Supprimer cette dépense ?") },
-            text = { Text("${operation.label}, ${Money(-operation.amountCents).formatted()}") },
+            text = {
+                BlurBehindWindow()
+                Text("${operation.label}, ${Money(-operation.amountCents).formatted()}")
+            },
             confirmButton = {
                 TextButton(onClick = {
                     onDelete(operation.id)
@@ -115,7 +119,7 @@ fun OperationsTab(
 }
 
 @Composable
-private fun OperationItem(operation: OperationRow, onDelete: () -> Unit) {
+internal fun OperationItem(operation: OperationRow, onDelete: () -> Unit) {
     val manual = operation.source == TransactionSource.MANUAL
     val details = buildList {
         add(operation.envelopeNames ?: "À trier")

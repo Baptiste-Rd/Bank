@@ -1,5 +1,6 @@
 package fr.baptiste.bank.update
 
+import fr.baptiste.bank.ui.components.BlurBehindWindow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -44,6 +45,7 @@ fun UpdateDialog(viewModel: UpdateViewModel, onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = { Text("Mises à jour") },
         text = {
+            BlurBehindWindow()
             UpdateCard(
                 state = state,
                 onCheck = viewModel::check,

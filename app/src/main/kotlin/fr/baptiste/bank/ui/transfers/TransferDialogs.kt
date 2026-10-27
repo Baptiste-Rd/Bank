@@ -1,5 +1,6 @@
 package fr.baptiste.bank.ui.transfers
 
+import fr.baptiste.bank.ui.components.BlurBehindWindow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -68,6 +69,7 @@ fun CoverDialog(
         onDismissRequest = onDismiss,
         title = { Text("Couvrir ${target.envelope.name}") },
         text = {
+            BlurBehindWindow()
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
                     if (target.remaining.isNegative) {
@@ -148,6 +150,7 @@ fun TransferDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (incoming) "Ajouter à ${line.envelope.name}" else "Retirer de ${line.envelope.name}") },
         text = {
+            BlurBehindWindow()
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.verticalScroll(rememberScrollState()),
@@ -200,6 +203,7 @@ fun EnvelopeSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     ) {
+        BlurBehindWindow()
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -288,6 +292,7 @@ fun JournalDialog(
         onDismissRequest = onDismiss,
         title = { Text("Journal des transferts") },
         text = {
+            BlurBehindWindow()
             if (transfers.isEmpty()) {
                 Text(
                     "Aucun transfert. Depuis une enveloppe, Ajouter ou Retirer déplace de l'argent " +
