@@ -81,8 +81,9 @@ fun GlassMainScreen(
     viewModel: BudgetViewModel,
     updateViewModel: UpdateViewModel,
     onStyleChange: (UiStyle) -> Unit,
+    initialTab: Tab = Tab.HOME,
 ) {
-    val controller = rememberAppController()
+    val controller = rememberAppController(initialTab)
     val dashboard by viewModel.dashboard.collectAsStateWithLifecycle()
     val operations by viewModel.operations.collectAsStateWithLifecycle()
     val archived by viewModel.archivedEnvelopes.collectAsStateWithLifecycle()

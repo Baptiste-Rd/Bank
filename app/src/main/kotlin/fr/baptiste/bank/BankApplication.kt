@@ -26,8 +26,22 @@ class BankApplication : Application() {
  * La base n'est ouverte qu'au premier accès.
  */
 class AppContainer(application: Application) {
-    val database: BankDatabase by lazy { BankDatabase.create(application) }
-    val settingsRepository: SettingsRepository by lazy { SettingsRepository(application) }
+    /**
+     * Mode démo : une base et des réglages séparés, remplis de données d'exemple. Il sert aux
+     * captures d'écran automatiques et ne touche jamais aux vraies données. Il doit être activé
+     * avant le premier accès à la base.
+     */
+    var isDemo: Boolean = false
+        private set
+
+    fun enableDemo() {
+        isDemo = true
+    }
+
+    val database: BankDatabase by lazy { BankDatabase.create(application, if (isDemo) "demo.db" else "bank.db") }
+    val settingsRepository: SettingsRepository by lazy {
+        SettingsRepository(application, if (isDemo) "settings_demo" else "settings")
+    }
     val budgetRepository: BudgetRepository by lazy { BudgetRepository(database, settingsRepository) }
     val updateRepository: UpdateRepository by lazy { UpdateRepository(BuildConfig.UPDATE_REPOSITORY) }
     val apkInstaller: ApkInstaller by lazy { ApkInstaller(application) }

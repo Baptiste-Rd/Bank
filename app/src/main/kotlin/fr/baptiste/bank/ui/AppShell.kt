@@ -95,8 +95,8 @@ class AppController(
 }
 
 @Composable
-fun rememberAppController(): AppController {
-    var savedTab by rememberSaveable { mutableStateOf(Tab.HOME) }
+fun rememberAppController(initialTab: Tab = Tab.HOME): AppController {
+    var savedTab by rememberSaveable { mutableStateOf(initialTab) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val controller = remember { AppController(savedTab, snackbar, scope) }

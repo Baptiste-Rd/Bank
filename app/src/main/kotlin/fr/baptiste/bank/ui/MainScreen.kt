@@ -39,8 +39,9 @@ fun ClassicMainScreen(
     viewModel: BudgetViewModel,
     updateViewModel: UpdateViewModel,
     onStyleChange: (UiStyle) -> Unit,
+    initialTab: Tab = Tab.HOME,
 ) {
-    val controller = rememberAppController()
+    val controller = rememberAppController(initialTab)
     var menuOpen by remember { mutableStateOf(false) }
 
     val dashboard by viewModel.dashboard.collectAsStateWithLifecycle()

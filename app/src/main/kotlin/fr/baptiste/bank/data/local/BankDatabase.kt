@@ -31,8 +31,9 @@ abstract class BankDatabase : RoomDatabase() {
     abstract fun transferDao(): TransferDao
 
     companion object {
-        fun create(context: Context): BankDatabase =
-            Room.databaseBuilder(context, BankDatabase::class.java, "bank.db")
+        /** [name] permet au mode démo d'utiliser une base séparée, sans toucher aux vraies données. */
+        fun create(context: Context, name: String = "bank.db"): BankDatabase =
+            Room.databaseBuilder(context, BankDatabase::class.java, name)
                 .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
     }
