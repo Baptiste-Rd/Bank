@@ -1,6 +1,7 @@
 package fr.baptiste.bank.domain.budget
 
 import fr.baptiste.bank.domain.model.Envelope
+import fr.baptiste.bank.domain.model.EnvelopeStatus
 import fr.baptiste.bank.domain.model.EnvelopeType
 import fr.baptiste.bank.domain.money.Money
 import fr.baptiste.bank.domain.money.sumOfMoney
@@ -24,15 +25,39 @@ data class Spending(
     val wholePeriod: Boolean = false,
 )
 
-/** Situation d'une enveloppe sur sa période en cours. */
+/**
+ * Mouvement d'argent daté entre deux enveloppes, ou entre une enveloppe et le portefeuille
+ * (une extrémité à null). Il compte sur la période de chaque enveloppe qui contient [date] :
+ * les périodes déjà closes ne changent pas, la période en cours est recalculée à partir de lui.
+ */
+data class Transfer(
+    val id: Long,
+    val date: LocalDate,
+    val sourceEnvelopeId: Long?,
+    val targetEnvelopeId: Long?,
+    val amount: Money,
+    val reason: String? = null,
+)
+
+/**
+ * Situation d'une enveloppe sur sa période en cours.
+ *
+ * @property allocated montant prévu pour la période (montant de l'enveloppe ou allocation de la période).
+ * @property transferred solde des transferts de la période (positif si l'enveloppe a reçu de l'argent).
+ * @property available ce qui peut être dépensé sur la période : [allocated] + [transferred].
+ */
 data class EnvelopeLine(
     val envelope: Envelope,
     val period: Period,
+    val allocated: Money,
+    val transferred: Money,
     val available: Money,
     val spent: Money,
     val remaining: Money,
     val projection: Projection,
-)
+) {
+    val needsCover: Boolean get() = remaining.isNegative || projection.isAlert
+}
 
 /** Un jour du mois en cours dans la bande de l'accueil. */
 data class DayCell(
@@ -65,7 +90,7 @@ data class Dashboard(
     val unallocated: Money?,
     val envelopes: List<EnvelopeLine>,
 ) {
-    val alerts: List<EnvelopeLine> get() = envelopes.filter { it.projection.isAlert || it.remaining.isNegative }
+    val alerts: List<EnvelopeLine> get() = envelopes.filter { it.needsCover }
 }
 
 /**
@@ -73,7 +98,8 @@ data class Dashboard(
  *
  * @param allocations montants alloués pour une période précise, indexés par (id d'enveloppe, clé de période).
  *   En l'absence d'allocation, le montant par défaut de l'enveloppe s'applique.
- * @param spendings dépenses couvrant au moins l'année en cours et la semaine en cours.
+ * @param spendings dépenses couvrant au moins la période en cours de chaque enveloppe.
+ * @param transfers transferts non annulés, couvrant la même plage.
  */
 fun computeDashboard(
     envelopes: List<Envelope>,
@@ -82,19 +108,30 @@ fun computeDashboard(
     monthlyIncome: Money?,
     today: LocalDate,
     alertThresholdPercent: Int = 10,
+    transfers: List<Transfer> = emptyList(),
 ): Dashboard {
     val active = envelopes.filterNot { it.archived }
     val spendingsByEnvelope = spendings.groupBy { it.envelopeId }
+    val month = Scale.MONTH.periodContaining(today)
+
+    /** Solde des transferts d'une enveloppe dont la date tombe dans [window]. */
+    fun netTransfers(envelopeId: Long, window: Period): Money =
+        transfers.filter { it.date in window && it.targetEnvelopeId == envelopeId }.sumOfMoney { it.amount } -
+            transfers.filter { it.date in window && it.sourceEnvelopeId == envelopeId }.sumOfMoney { it.amount }
 
     val lines = active.map { envelope ->
         val period = envelope.periodContaining(today)
-        val available = allocations[envelope.id to period.key] ?: envelope.amount
+        val allocated = allocations[envelope.id to period.key] ?: envelope.amount
+        val transferred = netTransfers(envelope.id, period)
+        val available = allocated + transferred
         val inPeriod = spendingsByEnvelope[envelope.id].orEmpty().filter { it.date in period }
         val spent = inPeriod.sumOfMoney { it.amount }
         val lumpSum = inPeriod.filter { it.wholePeriod }.sumOfMoney { it.amount }
         EnvelopeLine(
             envelope = envelope,
             period = period,
+            allocated = allocated,
+            transferred = transferred,
             available = available,
             spent = spent,
             remaining = available - spent,
@@ -103,8 +140,11 @@ fun computeDashboard(
     }
 
     val dailyLines = lines.filter { it.envelope.type == EnvelopeType.DAILY }
-    val dailyBudget = dailyLines.sumOfMoney { it.available.convert(it.envelope.frequency, Frequency.MONTHLY) }
-    val month = Scale.MONTH.periodContaining(today)
+    // Le budget quotidien du mois : la part mensuelle prévue de chaque enveloppe quotidienne,
+    // plus les transferts du mois. Un transfert n'est pas converti : c'est un montant ponctuel.
+    val dailyBudget = dailyLines.sumOfMoney {
+        it.allocated.convert(it.envelope.frequency, Frequency.MONTHLY) + netTransfers(it.envelope.id, month)
+    }
     val dailyIds = dailyLines.map { it.envelope.id }.toSet()
     val dailyThisMonth = spendings.filter { it.envelopeId in dailyIds && it.date in month }
     val (catchUps, dated) = dailyThisMonth.partition { it.wholePeriod }
@@ -129,6 +169,14 @@ fun computeDashboard(
     }
 
     val suggested = monthlyIncome?.let { suggestedDailyBudget(it, active) }
+    // Portefeuille : le salaire moins la part mensuelle de chaque enveloppe, plus ce qui lui a
+    // été rendu ce mois-ci, moins ce qui en est sorti.
+    val wallet = monthlyIncome?.let { income ->
+        val reserved = lines.sumOfMoney { it.allocated.convert(it.envelope.frequency, Frequency.MONTHLY) }
+        val walletIn = transfers.filter { it.date in month && it.targetEnvelopeId == null }.sumOfMoney { it.amount }
+        val walletOut = transfers.filter { it.date in month && it.sourceEnvelopeId == null }.sumOfMoney { it.amount }
+        income - reserved + walletIn - walletOut
+    }
 
     return Dashboard(
         today = today,
@@ -140,7 +188,7 @@ fun computeDashboard(
         catchUpSpent = catchUps.sumOfMoney { it.amount },
         monthDays = monthDays,
         suggestedDailyBudget = suggested,
-        unallocated = suggested?.let { it - dailyBudget },
+        unallocated = wallet,
         envelopes = lines,
     )
 }
@@ -153,4 +201,59 @@ fun dashboardDateRange(today: LocalDate, envelopes: List<Envelope> = emptyList()
     val periods = envelopes.map { it.periodContaining(today) } +
         Scale.YEAR.periodContaining(today) + Scale.WEEK.periodContaining(today)
     return periods.minOf { it.start }..periods.maxOf { it.endInclusive }
+}
+
+/** Une part d'un plan de couverture : d'où vient l'argent (null = portefeuille) et combien. */
+data class TransferLeg(val sourceEnvelopeId: Long?, val amount: Money)
+
+/**
+ * Proposition pour couvrir une enveloppe en dépassement (constaté ou prévu).
+ * @property shortfall ce qui manque encore si les sources disponibles ne suffisent pas.
+ */
+data class CoveragePlan(
+    val target: EnvelopeLine,
+    val needed: Money,
+    val legs: List<TransferLeg>,
+    val shortfall: Money,
+)
+
+/**
+ * Prépare le transfert qui couvre [target], sans rien enregistrer : l'utilisateur valide.
+ *
+ * Le besoin est le dépassement constaté, sinon le dépassement prévu, arrondi à l'euro supérieur.
+ * L'argent vient d'abord du portefeuille, puis des enveloppes flexibles qui ont du restant et ne
+ * sont pas elles-mêmes en alerte, par priorité croissante puis par restant décroissant.
+ * Une enveloppe protégée n'est jamais sollicitée.
+ */
+fun Dashboard.coveragePlan(target: EnvelopeLine): CoveragePlan? {
+    val raw = when {
+        target.remaining.isNegative -> -target.remaining
+        target.projection.isAlert -> target.projection.overrun
+        else -> return null
+    }
+    val needed = raw.divideCeil(100) * 100
+    val legs = mutableListOf<TransferLeg>()
+    var left = needed
+
+    val wallet = unallocated
+    if (wallet != null && wallet.isPositive && left.isPositive) {
+        val taken = minOf(wallet, left)
+        legs += TransferLeg(sourceEnvelopeId = null, amount = taken)
+        left -= taken
+    }
+    val sources = envelopes
+        .filter {
+            it.envelope.id != target.envelope.id &&
+                it.envelope.status == EnvelopeStatus.FLEXIBLE &&
+                it.remaining.isPositive &&
+                !it.needsCover
+        }
+        .sortedWith(compareBy<EnvelopeLine> { it.envelope.priority }.thenByDescending { it.remaining })
+    for (source in sources) {
+        if (!left.isPositive) break
+        val taken = minOf(source.remaining, left)
+        legs += TransferLeg(sourceEnvelopeId = source.envelope.id, amount = taken)
+        left -= taken
+    }
+    return CoveragePlan(target = target, needed = needed, legs = legs, shortfall = left)
 }

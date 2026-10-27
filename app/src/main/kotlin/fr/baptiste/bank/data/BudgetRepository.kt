@@ -7,8 +7,12 @@ import fr.baptiste.bank.data.local.EnvelopeEntity
 import fr.baptiste.bank.data.local.ImputationEntity
 import fr.baptiste.bank.data.local.OperationRow
 import fr.baptiste.bank.data.local.TransactionEntity
+import fr.baptiste.bank.data.local.TransferEntity
+import fr.baptiste.bank.data.local.TransferRow
 import fr.baptiste.bank.domain.budget.Dashboard
 import fr.baptiste.bank.domain.budget.Spending
+import fr.baptiste.bank.domain.budget.Transfer
+import fr.baptiste.bank.domain.budget.TransferLeg
 import fr.baptiste.bank.domain.budget.computeDashboard
 import fr.baptiste.bank.domain.budget.dashboardDateRange
 import fr.baptiste.bank.domain.model.AccountType
@@ -35,6 +39,7 @@ class BudgetRepository(
     private val envelopeDao = database.envelopeDao()
     private val imputationDao = database.imputationDao()
     private val transactionDao = database.transactionDao()
+    private val transferDao = database.transferDao()
 
     val envelopes: Flow<List<Envelope>> = envelopeDao.observeActive()
         .map { entities -> entities.map { it.toDomain() } }
@@ -52,10 +57,41 @@ class BudgetRepository(
             val range = dashboardDateRange(today, envelopes)
             val spendings = imputationDao.observeSpendings(range.start, range.endInclusive)
                 .map { rows -> rows.map { Spending(it.envelopeId, it.date, Money(it.amountCents), it.wholePeriod) } }
-            combine(allocations, spendings, settings.monthlyIncome) { allocs, spent, income ->
-                computeDashboard(envelopes, allocs, spent, income, today)
+            val transfers = transferDao.observeActive(range.start, range.endInclusive)
+                .map { rows -> rows.map { it.toDomain() } }
+            combine(allocations, spendings, transfers, settings.monthlyIncome) { allocs, spent, moves, income ->
+                computeDashboard(envelopes, allocs, spent, income, today, transfers = moves)
             }
         }
+    }
+
+    fun transferJournal(limit: Int = 200): Flow<List<TransferRow>> = transferDao.observeJournal(limit)
+
+    /**
+     * Enregistre un ou plusieurs transferts datés d'aujourd'hui vers ou depuis [envelopeId].
+     * Chaque part indique l'autre extrémité (null = portefeuille). Tout est écrit d'un bloc.
+     */
+    suspend fun addTransfers(
+        legs: List<TransferLeg>,
+        envelopeId: Long,
+        incoming: Boolean,
+        reason: String?,
+        date: LocalDate = LocalDate.now(),
+    ) {
+        val rows = legs.filter { it.amount.isPositive }.map { leg ->
+            TransferEntity(
+                effectiveDate = date,
+                sourceEnvelopeId = if (incoming) leg.sourceEnvelopeId else envelopeId,
+                targetEnvelopeId = if (incoming) envelopeId else leg.sourceEnvelopeId,
+                amountCents = leg.amount.cents,
+                reason = reason?.takeIf { it.isNotBlank() },
+            )
+        }
+        if (rows.isNotEmpty()) transferDao.insertAll(rows)
+    }
+
+    suspend fun cancelTransfer(id: Long) {
+        transferDao.cancel(id)
     }
 
     fun recentOperations(limit: Int = 200): Flow<List<OperationRow>> =
@@ -127,6 +163,15 @@ class BudgetRepository(
             ?: accountDao.insert(AccountEntity(name = "Compte courant", type = AccountType.CURRENT))
     }
 }
+
+private fun TransferEntity.toDomain() = Transfer(
+    id = id,
+    date = effectiveDate,
+    sourceEnvelopeId = sourceEnvelopeId,
+    targetEnvelopeId = targetEnvelopeId,
+    amount = Money(amountCents),
+    reason = reason,
+)
 
 private fun EnvelopeEntity.toDomain() = Envelope(
     id = id,

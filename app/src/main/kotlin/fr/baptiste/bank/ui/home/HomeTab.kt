@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import fr.baptiste.bank.domain.budget.Dashboard
+import fr.baptiste.bank.domain.budget.EnvelopeLine
 import fr.baptiste.bank.domain.model.EnvelopeType
 import fr.baptiste.bank.domain.money.Money
 import fr.baptiste.bank.ui.envelopes.EnvelopeRow
@@ -33,6 +34,8 @@ fun HomeTab(
     dashboard: Dashboard?,
     onEditIncome: () -> Unit,
     onCreateEnvelope: () -> Unit,
+    onCover: (EnvelopeLine) -> Unit,
+    onOpenEnvelope: (EnvelopeLine) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (dashboard == null) {
@@ -53,14 +56,14 @@ fun HomeTab(
         if (watched.isNotEmpty()) {
             item { SectionTitle("À surveiller") }
             items(watched, key = { "watch-${it.envelope.id}" }) { line ->
-                EnvelopeRow(line)
+                EnvelopeRow(line, onClick = { onOpenEnvelope(line) }, onCover = { onCover(line) })
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
         }
         if (daily.isNotEmpty()) {
             item { SectionTitle("Quotidien") }
             items(daily, key = { "daily-${it.envelope.id}" }) { line ->
-                EnvelopeRow(line)
+                EnvelopeRow(line, onClick = { onOpenEnvelope(line) })
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
         }

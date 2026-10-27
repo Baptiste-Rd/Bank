@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import fr.baptiste.bank.domain.budget.Dashboard
+import fr.baptiste.bank.domain.budget.EnvelopeLine
 import fr.baptiste.bank.domain.model.Envelope
 import fr.baptiste.bank.domain.model.EnvelopeType
 import fr.baptiste.bank.domain.money.Money
@@ -52,6 +53,8 @@ private fun template(name: String, type: EnvelopeType) = Envelope(
 fun EnvelopesTab(
     dashboard: Dashboard?,
     onEdit: (Envelope) -> Unit,
+    onOpen: (EnvelopeLine) -> Unit,
+    onCover: (EnvelopeLine) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val lines = dashboard?.envelopes.orEmpty()
@@ -86,7 +89,7 @@ fun EnvelopesTab(
                 )
             }
             items(typeLines, key = { it.envelope.id }) { line ->
-                EnvelopeRow(line, onClick = { onEdit(line.envelope) })
+                EnvelopeRow(line, onClick = { onOpen(line) }, onCover = { onCover(line) })
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
         }

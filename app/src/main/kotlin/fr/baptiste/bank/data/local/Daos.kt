@@ -108,3 +108,41 @@ interface TransactionDao {
     )
     fun observeRecentOperations(limit: Int): Flow<List<OperationRow>>
 }
+
+/** Une ligne du journal des transferts, avec le nom des enveloppes (NULL = portefeuille). */
+data class TransferRow(
+    val id: Long,
+    @ColumnInfo(name = "effective_date") val date: LocalDate,
+    @ColumnInfo(name = "amount_cents") val amountCents: Long,
+    val reason: String?,
+    val cancelled: Boolean,
+    @ColumnInfo(name = "source_name") val sourceName: String?,
+    @ColumnInfo(name = "target_name") val targetName: String?,
+)
+
+@Dao
+interface TransferDao {
+    @Insert
+    suspend fun insertAll(transfers: List<TransferEntity>)
+
+    @Query("SELECT * FROM transfer WHERE cancelled = 0 AND effective_date BETWEEN :from AND :to")
+    fun observeActive(from: LocalDate, to: LocalDate): Flow<List<TransferEntity>>
+
+    @Query(
+        """
+        SELECT t.id AS id, t.effective_date AS effective_date, t.amount_cents AS amount_cents,
+               t.reason AS reason, t.cancelled AS cancelled,
+               s.name AS source_name, d.name AS target_name
+        FROM transfer t
+        LEFT JOIN envelope s ON s.id = t.source_envelope_id
+        LEFT JOIN envelope d ON d.id = t.target_envelope_id
+        ORDER BY t.effective_date DESC, t.id DESC
+        LIMIT :limit
+        """,
+    )
+    fun observeJournal(limit: Int): Flow<List<TransferRow>>
+
+    /** Annuler ne supprime pas : le transfert reste visible dans le journal, barré. */
+    @Query("UPDATE transfer SET cancelled = 1 WHERE id = :id")
+    suspend fun cancel(id: Long)
+}

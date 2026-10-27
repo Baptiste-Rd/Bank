@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,7 +30,12 @@ import fr.baptiste.bank.ui.theme.BankTheme
  * vert dans le budget, ambre si le rythme actuel mène au dépassement, brique si c'est dépassé.
  */
 @Composable
-fun EnvelopeRow(line: EnvelopeLine, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
+fun EnvelopeRow(
+    line: EnvelopeLine,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    onCover: (() -> Unit)? = null,
+) {
     val status = BankTheme.status
     val overspent = line.remaining.isNegative
     val color = when {
@@ -81,12 +87,22 @@ fun EnvelopeRow(line: EnvelopeLine, modifier: Modifier = Modifier, onClick: (() 
             drawStopIndicator = {},
             modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
         )
-        if (line.projection.isAlert && !overspent) {
-            Text(
-                "À ce rythme, ${line.projection.overrun.formatted()} de trop à la fin de ${line.period.noun}.",
-                style = MaterialTheme.typography.bodySmall,
-                color = status.warning,
-            )
+        if (line.needsCover) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    if (overspent) {
+                        "Dépassé de ${(-line.remaining).formatted()}."
+                    } else {
+                        "À ce rythme, ${line.projection.overrun.formatted()} de trop à la fin de ${line.period.noun}."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (overspent) status.over else status.warning,
+                    modifier = Modifier.weight(1f),
+                )
+                if (onCover != null) {
+                    TextButton(onClick = onCover) { Text("Couvrir") }
+                }
+            }
         }
     }
 }

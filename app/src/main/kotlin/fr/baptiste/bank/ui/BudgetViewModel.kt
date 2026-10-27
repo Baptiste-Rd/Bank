@@ -8,7 +8,9 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import fr.baptiste.bank.BankApplication
 import fr.baptiste.bank.data.BudgetRepository
 import fr.baptiste.bank.data.local.OperationRow
+import fr.baptiste.bank.data.local.TransferRow
 import fr.baptiste.bank.domain.budget.Dashboard
+import fr.baptiste.bank.domain.budget.TransferLeg
 import fr.baptiste.bank.domain.model.Envelope
 import fr.baptiste.bank.domain.money.Money
 import kotlinx.coroutines.flow.Flow
@@ -35,6 +37,13 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
     val operations: StateFlow<List<OperationRow>> = repository.recentOperations().asState(emptyList())
 
     val monthlyIncome: StateFlow<Money?> = repository.monthlyIncome.asState(null)
+
+    val transferJournal: StateFlow<List<TransferRow>> = repository.transferJournal().asState(emptyList())
+
+    fun addTransfers(legs: List<TransferLeg>, envelopeId: Long, incoming: Boolean, reason: String?) =
+        perform { repository.addTransfers(legs, envelopeId, incoming, reason) }
+
+    fun cancelTransfer(id: Long) = perform { repository.cancelTransfer(id) }
 
     fun saveEnvelope(envelope: Envelope) = perform { repository.saveEnvelope(envelope) }
 

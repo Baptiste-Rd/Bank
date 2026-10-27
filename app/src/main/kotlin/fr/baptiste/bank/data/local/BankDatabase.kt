@@ -28,6 +28,7 @@ abstract class BankDatabase : RoomDatabase() {
     abstract fun allocationDao(): AllocationDao
     abstract fun imputationDao(): ImputationDao
     abstract fun transactionDao(): TransactionDao
+    abstract fun transferDao(): TransferDao
 
     companion object {
         fun create(context: Context): BankDatabase =

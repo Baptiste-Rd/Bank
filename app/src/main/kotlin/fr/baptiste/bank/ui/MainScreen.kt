@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,6 +30,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import fr.baptiste.bank.R
+import fr.baptiste.bank.domain.budget.TransferLeg
+import fr.baptiste.bank.domain.budget.coveragePlan
 import fr.baptiste.bank.domain.model.Envelope
 import fr.baptiste.bank.ui.components.EnvelopeDialog
 import fr.baptiste.bank.ui.components.ExpenseSheet
@@ -37,6 +40,10 @@ import fr.baptiste.bank.ui.envelopes.EnvelopesTab
 import fr.baptiste.bank.ui.format.formatted
 import fr.baptiste.bank.ui.home.HomeTab
 import fr.baptiste.bank.ui.operations.OperationsTab
+import fr.baptiste.bank.ui.transfers.CoverDialog
+import fr.baptiste.bank.ui.transfers.EnvelopeSheet
+import fr.baptiste.bank.ui.transfers.JournalDialog
+import fr.baptiste.bank.ui.transfers.TransferDialog
 import fr.baptiste.bank.update.UpdateDialog
 import fr.baptiste.bank.update.UpdateUiState
 import fr.baptiste.bank.update.UpdateViewModel
@@ -52,7 +59,13 @@ private sealed interface OpenDialog {
     data object Expense : OpenDialog
     data object Income : OpenDialog
     data object Updates : OpenDialog
+    data object Journal : OpenDialog
     data class EnvelopeEditor(val envelope: Envelope?) : OpenDialog
+    /** Les fenêtres liées à une enveloppe gardent son identifiant, pas sa ligne : elles suivent ainsi
+     *  les derniers chiffres du tableau de bord pendant qu'elles sont ouvertes. */
+    data class EnvelopeDetail(val envelopeId: Long) : OpenDialog
+    data class Cover(val envelopeId: Long) : OpenDialog
+    data class Move(val envelopeId: Long, val incoming: Boolean) : OpenDialog
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,6 +82,7 @@ fun MainScreen(
     val envelopes by viewModel.envelopes.collectAsStateWithLifecycle()
     val operations by viewModel.operations.collectAsStateWithLifecycle()
     val income by viewModel.monthlyIncome.collectAsStateWithLifecycle()
+    val journal by viewModel.transferJournal.collectAsStateWithLifecycle()
     val updateState by updateViewModel.state.collectAsStateWithLifecycle()
     val updateAvailable = updateState is UpdateUiState.Available
 
@@ -108,6 +122,13 @@ fun MainScreen(
                                     dialog = OpenDialog.Updates
                                 },
                             )
+                            DropdownMenuItem(
+                                text = { Text("Journal des transferts") },
+                                onClick = {
+                                    menuOpen = false
+                                    dialog = OpenDialog.Journal
+                                },
+                            )
                         }
                     }
                 },
@@ -143,11 +164,15 @@ fun MainScreen(
                 dashboard = dashboard,
                 onEditIncome = { dialog = OpenDialog.Income },
                 onCreateEnvelope = { dialog = OpenDialog.EnvelopeEditor(null) },
+                onCover = { dialog = OpenDialog.Cover(it.envelope.id) },
+                onOpenEnvelope = { dialog = OpenDialog.EnvelopeDetail(it.envelope.id) },
                 modifier = modifier,
             )
             Tab.ENVELOPES -> EnvelopesTab(
                 dashboard = dashboard,
                 onEdit = { dialog = OpenDialog.EnvelopeEditor(it) },
+                onOpen = { dialog = OpenDialog.EnvelopeDetail(it.envelope.id) },
+                onCover = { dialog = OpenDialog.Cover(it.envelope.id) },
                 modifier = modifier,
             )
             Tab.OPERATIONS -> OperationsTab(
@@ -181,6 +206,74 @@ fun MainScreen(
             },
         )
         OpenDialog.Updates -> UpdateDialog(viewModel = updateViewModel, onDismiss = { dialog = null })
+        OpenDialog.Journal -> JournalDialog(
+            transfers = journal,
+            onDismiss = { dialog = null },
+            onCancel = viewModel::cancelTransfer,
+        )
+        is OpenDialog.EnvelopeDetail -> {
+            val line = dashboard?.envelopes?.firstOrNull { it.envelope.id == current.envelopeId }
+            if (line == null) {
+                // L'enveloppe a disparu (archivée) : on ferme la fenêtre, hors de la composition.
+                LaunchedEffect(current) { dialog = null }
+            } else {
+                EnvelopeSheet(
+                    line = line,
+                    onDismiss = { dialog = null },
+                    onAdd = { dialog = OpenDialog.Move(line.envelope.id, incoming = true) },
+                    onWithdraw = { dialog = OpenDialog.Move(line.envelope.id, incoming = false) },
+                    onCover = if (line.needsCover) {
+                        { dialog = OpenDialog.Cover(line.envelope.id) }
+                    } else {
+                        null
+                    },
+                    onEdit = { dialog = OpenDialog.EnvelopeEditor(line.envelope) },
+                )
+            }
+        }
+        is OpenDialog.Cover -> {
+            val board = dashboard
+            val line = board?.envelopes?.firstOrNull { it.envelope.id == current.envelopeId }
+            val plan = line?.let { board.coveragePlan(it) }
+            if (board == null || plan == null) {
+                // L'enveloppe a disparu (archivée) : on ferme la fenêtre, hors de la composition.
+                LaunchedEffect(current) { dialog = null }
+            } else {
+                CoverDialog(
+                    dashboard = board,
+                    plan = plan,
+                    onDismiss = { dialog = null },
+                    onConfirm = { legs ->
+                        viewModel.addTransfers(legs, plan.target.envelope.id, incoming = true, reason = "Couverture")
+                        dialog = null
+                    },
+                )
+            }
+        }
+        is OpenDialog.Move -> {
+            val board = dashboard
+            val line = board?.envelopes?.firstOrNull { it.envelope.id == current.envelopeId }
+            if (board == null || line == null) {
+                // L'enveloppe a disparu (archivée) : on ferme la fenêtre, hors de la composition.
+                LaunchedEffect(current) { dialog = null }
+            } else {
+                TransferDialog(
+                    dashboard = board,
+                    line = line,
+                    incoming = current.incoming,
+                    onDismiss = { dialog = null },
+                    onConfirm = { counterpart, amount, reason ->
+                        viewModel.addTransfers(
+                            legs = listOf(TransferLeg(counterpart, amount)),
+                            envelopeId = line.envelope.id,
+                            incoming = current.incoming,
+                            reason = reason,
+                        )
+                        dialog = null
+                    },
+                )
+            }
+        }
         is OpenDialog.EnvelopeEditor -> EnvelopeDialog(
             initial = current.envelope,
             onDismiss = { dialog = null },
