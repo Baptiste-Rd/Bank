@@ -27,7 +27,7 @@ import androidx.compose.ui.unit.dp
 import fr.baptiste.bank.domain.budget.EnvelopeLine
 import fr.baptiste.bank.ui.format.formatted
 import fr.baptiste.bank.ui.format.label
-import fr.baptiste.bank.ui.format.noun
+import fr.baptiste.bank.ui.format.endPhrase
 import fr.baptiste.bank.ui.theme.BankTheme
 
 /**
@@ -120,7 +120,7 @@ private fun EnvelopeDetails(
                     if (overspent) {
                         "Dépassé de ${(-line.remaining).formatted()}."
                     } else {
-                        "À ce rythme, ${line.projection.overrun.formatted()} de trop à la fin de ${line.period.noun}."
+                        "À ce rythme, ${line.projection.overrun.formatted()} de trop ${line.period.endPhrase}."
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = if (overspent) status.over else status.warning,
@@ -145,7 +145,7 @@ fun CategoryAvatar(name: String, color: Color, modifier: Modifier = Modifier) {
         modifier = modifier
             .size(36.dp)
             .clip(CircleShape)
-            .background(color.copy(alpha = 0.16f)),
+            .background(color.copy(alpha = 0.24f)),
         contentAlignment = Alignment.Center,
     ) {
         Text(

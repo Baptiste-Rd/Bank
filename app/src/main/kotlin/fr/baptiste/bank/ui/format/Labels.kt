@@ -79,4 +79,8 @@ val Period.noun: String
         is Period.Span -> if (start == endInclusive) "la journée" else "la période"
     }
 
+/** « à la fin du mois », « à la fin de l'année » : la contraction de « de le » en « du ». */
+val Period.endPhrase: String
+    get() = noun.let { if (it.startsWith("le ")) "à la fin du ${it.removePrefix("le ")}" else "à la fin de $it" }
+
 fun LocalDate.formatted(): String = format(shortDate)

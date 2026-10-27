@@ -134,10 +134,6 @@ private fun List<EnvelopeLine>.remainingLabel(): String {
     return if (total.isNegative) "${(-total).formatted()} de dépassement" else "${total.formatted()} restants"
 }
 
-/** Teintes des cartes d'alerte : chaudes et claires, pour ressortir sans assombrir. */
-private val WarningTint = Color(0xFFFFD98A).copy(alpha = 0.12f)
-private val OverTint = Color(0xFFFFB3BD).copy(alpha = 0.13f)
-
 private val todayTitle = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.FRANCE)
 
 @Composable
@@ -257,7 +253,7 @@ fun GlassHomeContent(
                 dot = if (anyOver) status.over else status.warning,
             )
             item(key = "watched") {
-                GlassCard(tint = if (anyOver) OverTint else WarningTint, contentPadding = 16.dp) {
+                GlassCard(contentPadding = 16.dp) {
                     watched.forEachIndexed { index, line ->
                         if (index > 0) RowGap()
                         EnvelopeRow(
