@@ -48,6 +48,7 @@ fun ClassicMainScreen(
     val dashboard by viewModel.dashboard.collectAsStateWithLifecycle()
     val operations by viewModel.operations.collectAsStateWithLifecycle()
     val archived by viewModel.archivedEnvelopes.collectAsStateWithLifecycle()
+    val savingsHistory by viewModel.savingsHistory.collectAsStateWithLifecycle()
     val updateAvailable = rememberUpdateAvailable(updateViewModel)
 
     Scaffold(
@@ -102,6 +103,7 @@ fun ClassicMainScreen(
         when (controller.tab) {
             Tab.HOME -> HomeTab(
                 dashboard = dashboard,
+                savingsHistory = savingsHistory,
                 onEditIncome = { controller.dialog = OpenDialog.Income },
                 onCreateEnvelope = { controller.dialog = OpenDialog.EnvelopeEditor(null) },
                 onCover = { controller.dialog = OpenDialog.Cover(it.envelope.id) },

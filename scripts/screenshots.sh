@@ -79,3 +79,28 @@ adb exec-out screencap -p > "$OUT/glass-banque.png"
 adb shell input swipe 540 1800 540 600 600
 sleep 2
 adb exec-out screencap -p > "$OUT/glass-banque-suite.png"
+
+# Scénario épargne : l'accueil défilé jusqu'au bloc Épargne, la liste des enveloppes avec
+# l'achat prévu, et le formulaire d'un nouvel achat prévu.
+adb shell am force-stop "$PKG"
+adb shell am start -W -n "$PKG/.MainActivity" --ez demo true --es style GLASS --es tab HOME > /dev/null
+sleep 8
+close_dialogs
+adb shell input swipe 540 1900 540 500 900
+sleep 2
+adb exec-out screencap -p > "$OUT/glass-epargne.png"
+adb shell input swipe 540 1900 540 900 900
+sleep 2
+adb exec-out screencap -p > "$OUT/glass-epargne-suite.png"
+adb shell am force-stop "$PKG"
+adb shell am start -W -n "$PKG/.MainActivity" --ez demo true --es style GLASS --es tab ENVELOPES > /dev/null
+sleep 8
+close_dialogs
+adb shell input swipe 540 1900 540 400 900
+sleep 2
+adb exec-out screencap -p > "$OUT/glass-envelopes-suite.png"
+adb shell am force-stop "$PKG"
+adb shell am start -W -n "$PKG/.MainActivity" --ez demo true --es style GLASS --es tab ENVELOPES --es dialog PLANNED > /dev/null
+sleep 8
+close_dialogs
+adb exec-out screencap -p > "$OUT/glass-achat-prevu.png"

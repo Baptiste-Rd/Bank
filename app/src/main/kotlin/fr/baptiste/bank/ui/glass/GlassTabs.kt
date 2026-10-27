@@ -40,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import fr.baptiste.bank.R
+import fr.baptiste.bank.data.MonthSavings
 import fr.baptiste.bank.data.local.OperationRow
 import fr.baptiste.bank.domain.budget.Dashboard
 import fr.baptiste.bank.domain.budget.EnvelopeLine
@@ -57,6 +58,7 @@ import fr.baptiste.bank.ui.envelopes.template
 import fr.baptiste.bank.ui.format.formatted
 import fr.baptiste.bank.ui.format.label
 import fr.baptiste.bank.ui.home.MonthStrip
+import fr.baptiste.bank.ui.home.SavingsSummary
 import fr.baptiste.bank.ui.home.todayExplanation
 import fr.baptiste.bank.ui.operations.dayTitle
 import fr.baptiste.bank.ui.theme.BankTheme
@@ -139,6 +141,7 @@ private val todayTitle = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.FRANC
 @Composable
 fun GlassHomeContent(
     dashboard: Dashboard?,
+    savingsHistory: List<MonthSavings>,
     onAddExpense: () -> Unit,
     onEditIncome: () -> Unit,
     onOpenEnvelope: (EnvelopeLine) -> Unit,
@@ -241,6 +244,13 @@ fun GlassHomeContent(
                         modifier = Modifier.weight(1f),
                     )
                 }
+            }
+        }
+        // L'épargne du mois : la prévision, ses écarts à l'objectif et au mois précédent.
+        sectionLabel("savings-label", "Épargne", dot = envelopeTypeColor(EnvelopeType.SAVINGS))
+        item(key = "savings") {
+            GlassCard {
+                SavingsSummary(dashboard, savingsHistory, accent = envelopeTypeColor(EnvelopeType.SAVINGS))
             }
         }
         val watched = dashboard.alerts

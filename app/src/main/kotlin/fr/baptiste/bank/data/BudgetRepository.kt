@@ -18,6 +18,7 @@ import fr.baptiste.bank.domain.bank.findManualMatch
 import fr.baptiste.bank.domain.bank.importKeys
 import fr.baptiste.bank.domain.bank.matching
 import fr.baptiste.bank.domain.budget.Dashboard
+import fr.baptiste.bank.domain.budget.SavingsOutlook
 import fr.baptiste.bank.domain.budget.Spending
 import fr.baptiste.bank.domain.budget.Transfer
 import fr.baptiste.bank.domain.budget.TransferLeg
@@ -36,6 +37,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
+import java.time.YearMonth
 
 /**
  * Point d'accès unique aux données du budget pour les écrans.
@@ -70,6 +72,36 @@ class BudgetRepository(
                 .map { rows -> rows.map { it.toDomain() } }
             combine(allocations, spendings, transfers, settings.monthlyIncome) { allocs, spent, moves, income ->
                 computeDashboard(envelopes, allocs, spent, income, today, transfers = moves)
+            }
+        }
+    }
+
+    /**
+     * Épargne des [months] derniers mois, le mois en cours compris (en dernier). Chaque mois passé
+     * est calculé comme le tableau de bord de son dernier jour : ses chiffres sont alors réels.
+     * Les enveloppes sont celles d'aujourd'hui ; une enveloppe glissante (achat prévu...) ne
+     * compte qu'à partir de son début.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun savingsHistory(today: LocalDate = LocalDate.now(), months: Int = 6): Flow<List<MonthSavings>> {
+        val allocations = database.allocationDao().observeAll()
+            .map { rows -> rows.associate { (it.envelopeId to it.periodKey) to Money(it.amountCents) } }
+        val current = YearMonth.from(today)
+        val dates = (months - 1 downTo 1).map { current.minusMonths(it.toLong()).atEndOfMonth() } + today
+        return envelopes.flatMapLatest { active ->
+            val ranges = dates.map { dashboardDateRange(it, active) }
+            val from = ranges.minOf { it.start }
+            val to = ranges.maxOf { it.endInclusive }
+            val spendings = imputationDao.observeSpendings(from, to)
+                .map { rows -> rows.map { Spending(it.envelopeId, it.date, Money(it.amountCents), it.wholePeriod) } }
+            val transfers = transferDao.observeActive(from, to).map { rows -> rows.map { it.toDomain() } }
+            combine(allocations, spendings, transfers, settings.monthlyIncome) { allocs, spent, moves, income ->
+                dates.map { date ->
+                    MonthSavings(
+                        month = YearMonth.from(date),
+                        outlook = computeDashboard(active, allocs, spent, income, date, transfers = moves).savings,
+                    )
+                }
             }
         }
     }
@@ -293,6 +325,9 @@ class BudgetRepository(
             ?: accountDao.insert(AccountEntity(name = "Compte courant", type = AccountType.CURRENT))
     }
 }
+
+/** Épargne d'un mois, pour l'historique. */
+data class MonthSavings(val month: YearMonth, val outlook: SavingsOutlook)
 
 /** Résultat d'une synchronisation : opérations nouvelles, rapprochées d'une saisie, rangées par une règle. */
 data class ImportResult(val added: Int, val reconciled: Int, val sortedByRule: Int) {

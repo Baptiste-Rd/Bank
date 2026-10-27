@@ -45,6 +45,7 @@ internal val envelopeTemplates: List<Pair<String, EnvelopeType>> = listOf(
     "Projets" to EnvelopeType.ANNUAL,
     "CBD" to EnvelopeType.ANNUAL,
     "Épargne" to EnvelopeType.SAVINGS,
+    "Achat prévu" to EnvelopeType.PLANNED,
 )
 
 internal fun template(name: String, type: EnvelopeType) = Envelope(

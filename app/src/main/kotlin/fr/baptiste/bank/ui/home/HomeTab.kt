@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import fr.baptiste.bank.data.MonthSavings
 import fr.baptiste.bank.domain.budget.Dashboard
 import fr.baptiste.bank.domain.budget.EnvelopeLine
 import fr.baptiste.bank.domain.model.EnvelopeType
@@ -32,6 +33,7 @@ import fr.baptiste.bank.ui.theme.BankTheme
 @Composable
 fun HomeTab(
     dashboard: Dashboard?,
+    savingsHistory: List<MonthSavings>,
     onEditIncome: () -> Unit,
     onCreateEnvelope: () -> Unit,
     onCover: (EnvelopeLine) -> Unit,
@@ -53,6 +55,8 @@ fun HomeTab(
     ) {
         item { TodaySection(dashboard, onEditIncome) }
         item { WalletLine(dashboard.unallocated, onEditIncome) }
+        item { SectionTitle("Épargne") }
+        item { SavingsSummary(dashboard, savingsHistory, accent = BankTheme.status.good) }
         if (watched.isNotEmpty()) {
             item { SectionTitle("À surveiller") }
             items(watched, key = { "watch-${it.envelope.id}" }) { line ->

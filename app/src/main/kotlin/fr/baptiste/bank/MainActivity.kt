@@ -14,6 +14,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import fr.baptiste.bank.data.DemoData
 import fr.baptiste.bank.data.UiStyle
 import fr.baptiste.bank.ui.BudgetViewModel
+import fr.baptiste.bank.domain.budget.plannedPurchase
+import fr.baptiste.bank.domain.money.Money
 import fr.baptiste.bank.ui.ClassicMainScreen
 import fr.baptiste.bank.ui.OpenDialog
 import fr.baptiste.bank.ui.Tab
@@ -22,11 +24,13 @@ import fr.baptiste.bank.ui.glass.GlassTheme
 import fr.baptiste.bank.ui.theme.BankTheme
 import fr.baptiste.bank.update.UpdateViewModel
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.YearMonth
 
 /**
  * Paramètres de lancement facultatifs, utilisés par les captures d'écran automatiques :
  * `demo` (base d'exemple séparée), `style` (GLASS ou CLASSIC, sans enregistrer le choix)
- * `tab` (HOME, ENVELOPES ou OPERATIONS) et `dialog` (BANK).
+ * `tab` (HOME, ENVELOPES ou OPERATIONS) et `dialog` (BANK ou PLANNED).
  */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -40,8 +44,15 @@ class MainActivity : ComponentActivity() {
         val forcedStyle = intent.getStringExtra(EXTRA_STYLE)?.let { name -> UiStyle.entries.firstOrNull { it.name == name } }
         val initialTab = intent.getStringExtra(EXTRA_TAB)?.let { name -> Tab.entries.firstOrNull { it.name == name } }
             ?: Tab.HOME
-        // Seule fenêtre ouvrable au lancement, pour les captures : la connexion bancaire.
-        val initialDialog = if (intent.getStringExtra(EXTRA_DIALOG) == "BANK") OpenDialog.Bank else null
+        // Fenêtres ouvrables au lancement, pour les captures : la connexion bancaire, un achat prévu.
+        val initialDialog = when (intent.getStringExtra(EXTRA_DIALOG)) {
+            "BANK" -> OpenDialog.Bank
+            // Formulaire d'un nouvel achat prévu, pré-rempli comme depuis le modèle.
+            "PLANNED" -> OpenDialog.EnvelopeEditor(
+                plannedPurchase("Vélo", Money.euros(600), YearMonth.now().plusMonths(5), LocalDate.now()),
+            )
+            else -> null
+        }
         val settings = container.settingsRepository
 
         setContent {

@@ -19,6 +19,7 @@ val EnvelopeType.label: String
         EnvelopeType.ANNUAL -> "Annuel"
         EnvelopeType.FIXED -> "Charge fixe"
         EnvelopeType.SAVINGS -> "Épargne"
+        EnvelopeType.PLANNED -> "Achat prévu"
     }
 
 val EnvelopeType.hint: String
@@ -28,6 +29,7 @@ val EnvelopeType.hint: String
         EnvelopeType.ANNUAL -> "Consommée irrégulièrement sur l'année (projets, CBD)"
         EnvelopeType.FIXED -> "Prélèvement certain (prêt, loyer)"
         EnvelopeType.SAVINGS -> "Objectif d'épargne (livret A, PEA)"
+        EnvelopeType.PLANNED -> "Un achat à une date (vélo, ordinateur) : le prix est réparti sur les mois d'ici là"
     }
 
 /** Nom de l'unité, accordé : « jour » / « jours », « mois » est invariable. */
@@ -84,3 +86,8 @@ val Period.endPhrase: String
     get() = noun.let { if (it.startsWith("le ")) "à la fin du ${it.removePrefix("le ")}" else "à la fin de $it" }
 
 fun LocalDate.formatted(): String = format(shortDate)
+
+private val monthYear = DateTimeFormatter.ofPattern("MMMM yyyy", french)
+
+/** « mars 2027 ». */
+val java.time.YearMonth.label: String get() = format(monthYear)

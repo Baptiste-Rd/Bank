@@ -141,7 +141,7 @@ fun GlassSurfaceColors(onBackground: Boolean, content: @Composable () -> Unit) {
 
 /**
  * Couleur d'identification de chaque type d'enveloppe, dans l'interface verre. Une palette
- * catégorielle : des teintes nettement séparées (bleu, violet, cyan, ardoise, vert), qui
+ * catégorielle : des teintes nettement séparées (bleu, violet, cyan, ardoise, vert, fuchsia), qui
  * évitent l'ambre et le rouge réservés aux statuts. Toutes dépassent 6:1 sur une carte, donc
  * utilisables aussi pour du texte. La couleur n'est jamais seule à porter l'information : le
  * type est toujours écrit en toutes lettres (WCAG 2.2, critère 1.4.1).
@@ -152,6 +152,7 @@ fun envelopeTypeColor(type: fr.baptiste.bank.domain.model.EnvelopeType): Color =
     fr.baptiste.bank.domain.model.EnvelopeType.ANNUAL -> Color(0xFF67E8F9)
     fr.baptiste.bank.domain.model.EnvelopeType.FIXED -> Color(0xFFCBD5E1)
     fr.baptiste.bank.domain.model.EnvelopeType.SAVINGS -> Color(0xFF6EE7B7)
+    fr.baptiste.bank.domain.model.EnvelopeType.PLANNED -> Color(0xFFF0ABFC)
 }
 
 /** Couleurs de statut qui n'existent pas dans le schéma Material. */

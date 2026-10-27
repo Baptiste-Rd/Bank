@@ -22,12 +22,15 @@ enum class EnvelopeType {
 
     /** Objectif d'épargne (virements vers le livret A, le PEA...). */
     SAVINGS,
+
+    /** Achat prévu à une date : son prix est réparti sur les mois qui la précèdent. */
+    PLANNED,
     ;
 
     /** Statut proposé à la création : on ne prélève jamais automatiquement sur un engagement. */
     val defaultStatus: EnvelopeStatus
         get() = when (this) {
-            FIXED, SAVINGS -> EnvelopeStatus.PROTECTED
+            FIXED, SAVINGS, PLANNED -> EnvelopeStatus.PROTECTED
             DAILY, RECURRING, ANNUAL -> EnvelopeStatus.FLEXIBLE
         }
 
@@ -36,6 +39,7 @@ enum class EnvelopeType {
         get() = when (this) {
             DAILY, FIXED, SAVINGS -> Frequency.MONTHLY
             RECURRING, ANNUAL -> Frequency.YEARLY
+            PLANNED -> Frequency(6, Scale.MONTH)
         }
 }
 
@@ -69,6 +73,12 @@ data class Envelope(
     val anchor: LocalDate? = null,
 ) {
     val scale: Scale get() = frequency.scale
+
+    /**
+     * Une enveloppe glissante commence à son ancre : avant, elle n'existait pas encore et ne
+     * compte dans aucun calcul (un achat prévu créé en octobre ne pèse pas sur septembre).
+     */
+    fun existsOn(date: LocalDate): Boolean = frequency.isCalendar || anchor == null || !anchor.isAfter(date)
 
     /** Période de cette enveloppe qui contient [date]. */
     fun periodContaining(date: LocalDate): Period =

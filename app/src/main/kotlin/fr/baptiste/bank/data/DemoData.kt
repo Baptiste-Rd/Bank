@@ -1,6 +1,7 @@
 package fr.baptiste.bank.data
 
 import fr.baptiste.bank.domain.bank.BankOperation
+import fr.baptiste.bank.domain.budget.plannedPurchase
 import fr.baptiste.bank.domain.model.Envelope
 import fr.baptiste.bank.domain.model.EnvelopeType
 import fr.baptiste.bank.domain.money.Money
@@ -10,11 +11,12 @@ import androidx.room.withTransaction
 import fr.baptiste.bank.data.local.BankDatabase
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
+import java.time.YearMonth
 
 /**
  * Données d'exemple du mode démo : un mois type, avec des courses régulières, une enveloppe
- * Essence qui dérape (pour montrer une alerte), un achat de projet et un coiffeur toutes les
- * 6 semaines. Elles vont dans la base de démo, jamais dans la vraie.
+ * Essence qui dérape (pour montrer une alerte), un achat de projet, un coiffeur toutes les
+ * 6 semaines, des budgets annuels, un achat prévu et cinq mois d'historique pour l'épargne. Elles vont dans la base de démo, jamais dans la vraie.
  */
 object DemoData {
 
@@ -48,7 +50,10 @@ object DemoData {
             envelope("Abonnements", EnvelopeType.FIXED, 45),
             envelope("Prêt", EnvelopeType.FIXED, 400),
             envelope("Projets", EnvelopeType.ANNUAL, 1200),
+            envelope("Vacances", EnvelopeType.ANNUAL, 1800),
             envelope("Épargne", EnvelopeType.SAVINGS, 300),
+            // L'achat prévu du scénario : créé ce mois-ci, il ne pèse pas sur les mois passés.
+            plannedPurchase("Ordinateur", Money.euros(1200), YearMonth.from(today).plusMonths(5), today),
         ).forEach { repository.saveEnvelope(it) }
 
         val byName = repository.envelopes.first().associateBy { it.name }
@@ -67,6 +72,21 @@ object DemoData {
         spend("Sorties", 20, 3650L, "Restaurant")
         spend("Projets", 5, 10000L, "Vélo")
         spend("Coiffeur", maxOf(1, today.dayOfMonth - 10), 3000L)
+
+        // Cinq mois d'historique, pour l'épargne mois par mois : le quotidien varie d'un mois à l'autre.
+        val monthlyDaily = listOf(118000L, 131000L, 96000L, 124000L, 109000L)
+        monthlyDaily.forEachIndexed { index, total ->
+            val month = YearMonth.from(today).minusMonths(index + 1L)
+            val split = listOf("Courses" to 0.62, "Essence" to 0.18, "Sorties" to 0.20)
+            split.forEachIndexed { part, (name, share) ->
+                repository.addManualExpense(
+                    Money((total * share).toLong()),
+                    month.atDay(5 + part * 7),
+                    if (name == "Courses") "Supermarché" else name,
+                    byName.getValue(name),
+                )
+            }
+        }
 
         // Opérations « reçues de la banque », passées par le vrai chemin d'import :
         // la boulangerie du jour est rapprochée de la saisie manuelle (même montant, même date)

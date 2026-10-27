@@ -93,6 +93,8 @@ data class Dashboard(
     val suggestedDailyBudget: Money?,
     val unallocated: Money?,
     val envelopes: List<EnvelopeLine>,
+    /** Épargne du mois : objectif, part à l'abri, prévision de fin de mois. */
+    val savings: SavingsOutlook,
 ) {
     val alerts: List<EnvelopeLine> get() = envelopes.filter { it.needsCover }
 }
@@ -114,7 +116,7 @@ fun computeDashboard(
     alertThresholdPercent: Int = 10,
     transfers: List<Transfer> = emptyList(),
 ): Dashboard {
-    val active = envelopes.filterNot { it.archived }
+    val active = envelopes.filter { !it.archived && it.existsOn(today) }
     val spendingsByEnvelope = spendings.groupBy { it.envelopeId }
     val month = Scale.MONTH.periodContaining(today)
 
@@ -186,6 +188,31 @@ fun computeDashboard(
 
     val suggested = monthlyIncome?.let { suggestedDailyBudget(it, active) }
 
+    // Épargne : objectif, transferts du mois, reste du quotidien au rythme actuel, dépassements.
+    val savingsLines = lines.filter { it.envelope.type == EnvelopeType.SAVINGS }
+    val savingsIds = savingsLines.map { it.envelope.id }.toSet()
+    val dailyProjected = project(
+        spent = dailyThisMonth.sumOfMoney { it.amount },
+        available = dailyBudget,
+        period = month,
+        today = today,
+        lumpSum = catchUps.sumOfMoney { it.amount },
+    ).projected
+    // Un dépassement compte le mois où sa période se termine (un mois pour une charge mensuelle,
+    // le mois de l'achat pour un achat prévu) : pas une fois par mois tant qu'il dure.
+    val overruns = lines
+        .filter { it.envelope.type != EnvelopeType.DAILY && it.envelope.type != EnvelopeType.SAVINGS }
+        .filter { it.period.endInclusive in month }
+        .sumOfMoney { if (it.remaining.isNegative) -it.remaining else Money.ZERO }
+    val savingsSpent = spendings.filter { it.envelopeId in savingsIds && it.date in month }.sumOfMoney { it.amount }
+    val savings = SavingsOutlook(
+        target = savingsLines.sumOfMoney { it.allocated.convert(it.envelope.frequency, Frequency.MONTHLY) },
+        transferred = savingsIds.fold(Money.ZERO) { total, id -> total + netTransfers(id, month) },
+        dailyMargin = dailyBudget - dailyProjected,
+        overruns = overruns + savingsSpent,
+        isFinal = today == month.endInclusive,
+    )
+
     return Dashboard(
         today = today,
         dailyAllowance = allowance,
@@ -199,6 +226,7 @@ fun computeDashboard(
         suggestedDailyBudget = suggested,
         unallocated = wallet,
         envelopes = lines,
+        savings = savings,
     )
 }
 

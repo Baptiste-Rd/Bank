@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import fr.baptiste.bank.BankApplication
 import fr.baptiste.bank.data.BudgetRepository
+import fr.baptiste.bank.data.MonthSavings
 import fr.baptiste.bank.data.local.OperationRow
 import fr.baptiste.bank.data.local.TransferRow
 import fr.baptiste.bank.domain.budget.Dashboard
@@ -33,6 +34,9 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
     val dashboard: StateFlow<Dashboard?> = repository.dashboard().asState(null)
 
     val envelopes: StateFlow<List<Envelope>> = repository.envelopes.asState(emptyList())
+
+    /** Épargne des 6 derniers mois, le mois en cours en dernier. */
+    val savingsHistory: StateFlow<List<MonthSavings>> = repository.savingsHistory().asState(emptyList())
 
     val operations: StateFlow<List<OperationRow>> = repository.recentOperations().asState(emptyList())
 

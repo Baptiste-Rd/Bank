@@ -24,6 +24,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import fr.baptiste.bank.domain.budget.convert
+import fr.baptiste.bank.domain.budget.monthsUntil
+import fr.baptiste.bank.domain.budget.purchaseMonth
 import fr.baptiste.bank.domain.model.Envelope
 import fr.baptiste.bank.domain.model.EnvelopeStatus
 import fr.baptiste.bank.domain.model.EnvelopeType
@@ -31,10 +34,12 @@ import fr.baptiste.bank.domain.money.Money
 import fr.baptiste.bank.domain.money.parseMoney
 import fr.baptiste.bank.domain.period.Frequency
 import fr.baptiste.bank.domain.period.Scale
+import fr.baptiste.bank.ui.format.formatted
 import fr.baptiste.bank.ui.format.hint
 import fr.baptiste.bank.ui.format.label
 import fr.baptiste.bank.ui.format.unitName
 import java.time.LocalDate
+import java.time.YearMonth
 
 /** Montant de départ d'un champ : vide pour zéro, sinon « 12,50 ». */
 private fun Money.toFieldText(): String =
@@ -61,9 +66,18 @@ fun EnvelopeDialog(
     var status by rememberSaveable { mutableStateOf(initial?.status ?: type.defaultStatus) }
     var amountText by rememberSaveable { mutableStateOf(initial?.amount?.toFieldText().orEmpty()) }
 
+    // Achat prévu : on choisit le mois de l'achat, la période en découle (du mois de création à celui-ci).
+    var purchaseMonth by remember { mutableStateOf(initial?.purchaseMonth ?: YearMonth.from(today).plusMonths(5)) }
+    val plannedStart = initial?.takeIf { it.type == EnvelopeType.PLANNED }?.anchor ?: today.withDayOfMonth(1)
+    val plannedMonths = monthsUntil(purchaseMonth, plannedStart)
+
     val amount = if (amountText.isBlank()) Money.ZERO else parseMoney(amountText)
     val every = everyText.toIntOrNull()?.takeIf { it in 1..999 }
-    val frequency = every?.let { Frequency(it, scale) }
+    val frequency = if (type == EnvelopeType.PLANNED) {
+        Frequency(plannedMonths, Scale.MONTH)
+    } else {
+        every?.let { Frequency(it, scale) }
+    }
     val canSave = name.isNotBlank() && amount != null && !amount.isNegative && frequency != null
     // Un modèle (id 0) pré-remplit le formulaire mais reste une création.
     val isExisting = initial != null && initial.id != 0L
@@ -115,6 +129,26 @@ fun EnvelopeDialog(
                     },
                 )
                 Text(type.hint, style = MaterialTheme.typography.bodySmall)
+                if (type == EnvelopeType.PLANNED) {
+                    MoneyField(value = amountText, onValueChange = { amountText = it }, label = "Prix")
+                    val months = (0L..36L).map { YearMonth.from(plannedStart).plusMonths(it) }
+                    ChoiceField(
+                        label = "Mois de l'achat",
+                        selected = purchaseMonth,
+                        options = months,
+                        optionLabel = { it.label },
+                        onSelect = { purchaseMonth = it },
+                    )
+                    if (amount != null && frequency != null && amount.isPositive) {
+                        Text(
+                            "${amount.convert(frequency, Frequency.MONTHLY).formatted()} réservés chaque mois pendant " +
+                                "$plannedMonths mois, de ${YearMonth.from(plannedStart).label} à ${purchaseMonth.label}. " +
+                                "Ils sortent de ton portefeuille, donc de ton budget du quotidien.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                } else {
                 MoneyField(value = amountText, onValueChange = { amountText = it }, label = "Montant par période")
 
                 Text("Période", style = MaterialTheme.typography.labelMedium)
@@ -153,6 +187,7 @@ fun EnvelopeDialog(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -195,7 +230,11 @@ fun EnvelopeDialog(
                                 frequency = frequency,
                                 amount = amount,
                                 status = status,
-                                anchor = if (frequency.isCalendar) null else anchor,
+                                anchor = when {
+                                    type == EnvelopeType.PLANNED -> plannedStart
+                                    frequency.isCalendar -> null
+                                    else -> anchor
+                                },
                             ),
                         )
                     }

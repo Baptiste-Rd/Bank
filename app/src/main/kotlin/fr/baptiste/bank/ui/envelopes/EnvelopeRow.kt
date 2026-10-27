@@ -25,6 +25,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import fr.baptiste.bank.domain.budget.EnvelopeLine
+import fr.baptiste.bank.domain.budget.monthlyShare
+import fr.baptiste.bank.domain.budget.purchaseMonth
 import fr.baptiste.bank.ui.format.formatted
 import fr.baptiste.bank.ui.format.label
 import fr.baptiste.bank.ui.format.endPhrase
@@ -87,7 +89,9 @@ private fun EnvelopeDetails(
             Column(modifier = Modifier.weight(1f)) {
                 Text(line.envelope.name, style = MaterialTheme.typography.bodyLarge)
                 Text(
-                    "${line.spent.formatted()} sur ${line.available.formatted()}, ${line.period.label}",
+                    line.envelope.purchaseMonth?.let { month ->
+                        "${line.envelope.monthlyShare.formatted()} par mois, achat en ${month.label}"
+                    } ?: "${line.spent.formatted()} sur ${line.available.formatted()}, ${line.period.label}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

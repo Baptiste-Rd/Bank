@@ -72,6 +72,7 @@ fun GlassMainScreen(
     val archived by viewModel.archivedEnvelopes.collectAsStateWithLifecycle()
     val envelopes by viewModel.envelopes.collectAsStateWithLifecycle()
     val unsortedCount by viewModel.unsortedCount.collectAsStateWithLifecycle()
+    val savingsHistory by viewModel.savingsHistory.collectAsStateWithLifecycle()
     val updateAvailable = rememberUpdateAvailable(updateViewModel)
     var menuOpen by remember { mutableStateOf(false) }
 
@@ -90,6 +91,7 @@ fun GlassMainScreen(
                 when (controller.tab) {
                     Tab.HOME -> GlassHomeContent(
                         dashboard = dashboard,
+                        savingsHistory = savingsHistory,
                         onAddExpense = { controller.dialog = OpenDialog.Expense },
                         onEditIncome = { controller.dialog = OpenDialog.Income },
                         onOpenEnvelope = { controller.dialog = OpenDialog.EnvelopeDetail(it.envelope.id) },
