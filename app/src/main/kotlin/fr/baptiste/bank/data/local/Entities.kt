@@ -77,6 +77,8 @@ data class EnvelopeEntity(
     @ColumnInfo(defaultValue = "1") val every: Int = 1,
     /** Début d'une des périodes pour une fréquence glissante ; NULL pour une période calendaire. */
     @ColumnInfo(name = "anchor_date") val anchorDate: LocalDate? = null,
+    /** Groupe d'affichage, sans budget propre (NULL : hors groupe). */
+    @ColumnInfo(name = "group_name") val groupName: String? = null,
 )
 
 @Entity(

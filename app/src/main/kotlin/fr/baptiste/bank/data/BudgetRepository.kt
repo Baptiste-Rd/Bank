@@ -106,6 +106,22 @@ class BudgetRepository(
         }
     }
 
+    /**
+     * Bilan d'une année : l'épargne de chaque mois (de janvier au mois en cours, ou aux douze pour
+     * une année passée), ce qui a été dépensé dans chaque enveloppe sur l'année, et le tableau de
+     * bord du dernier jour compté (budgets et provisions annuelles).
+     */
+    fun yearOverview(year: Int, today: LocalDate = LocalDate.now()): Flow<YearOverview> {
+        val end = if (year == today.year) today else LocalDate.of(year, 12, 31)
+        val spent = imputationDao.observeSpendings(LocalDate.of(year, 1, 1), LocalDate.of(year, 12, 31))
+            .map { rows ->
+                rows.groupBy { it.envelopeId }.mapValues { (_, list) -> Money(list.sumOf { it.amountCents }) }
+            }
+        return combine(savingsHistory(end, end.monthValue), dashboard(end), spent) { months, board, byEnvelope ->
+            YearOverview(year, months, byEnvelope, board, end.monthValue)
+        }
+    }
+
     fun transferJournal(limit: Int = 200): Flow<List<TransferRow>> = transferDao.observeJournal(limit)
 
     /**
@@ -138,8 +154,11 @@ class BudgetRepository(
     fun recentOperations(limit: Int = 200): Flow<List<OperationRow>> =
         transactionDao.observeRecentOperations(limit)
 
-    suspend fun saveEnvelope(envelope: Envelope) {
-        envelopeDao.upsert(envelope.toEntity())
+    /** Crée ou met à jour une enveloppe ; renvoie son identifiant. */
+    suspend fun saveEnvelope(envelope: Envelope): Long {
+        val rowId = envelopeDao.upsert(envelope.toEntity())
+        // Upsert renvoie -1 pour une mise à jour : l'identifiant est alors celui qu'on avait.
+        return if (envelope.id != 0L) envelope.id else rowId
     }
 
     suspend fun archiveEnvelope(id: Long) {
@@ -329,6 +348,21 @@ class BudgetRepository(
 /** Épargne d'un mois, pour l'historique. */
 data class MonthSavings(val month: YearMonth, val outlook: SavingsOutlook)
 
+/**
+ * Bilan d'une année.
+ * @property monthsCounted mois écoulés pris en compte (le mois en cours compris).
+ */
+data class YearOverview(
+    val year: Int,
+    val months: List<MonthSavings>,
+    val spentByEnvelope: Map<Long, Money>,
+    val dashboard: Dashboard,
+    val monthsCounted: Int,
+) {
+    /** Épargne de l'année : réelle pour les mois passés, prévue pour le mois en cours. */
+    val savings: Money get() = months.fold(Money.ZERO) { total, month -> total + month.outlook.forecast }
+}
+
 /** Résultat d'une synchronisation : opérations nouvelles, rapprochées d'une saisie, rangées par une règle. */
 data class ImportResult(val added: Int, val reconciled: Int, val sortedByRule: Int) {
     val toSort: Int get() = added - reconciled - sortedByRule
@@ -369,6 +403,7 @@ private fun EnvelopeEntity.toDomain() = Envelope(
     carryOver = carryOver,
     archived = archived,
     anchor = anchorDate,
+    group = groupName,
 )
 
 private fun Envelope.toEntity() = EnvelopeEntity(
@@ -383,4 +418,5 @@ private fun Envelope.toEntity() = EnvelopeEntity(
     archived = archived,
     every = frequency.every,
     anchorDate = anchor,
+    groupName = group?.trim()?.takeIf { it.isNotEmpty() },
 )

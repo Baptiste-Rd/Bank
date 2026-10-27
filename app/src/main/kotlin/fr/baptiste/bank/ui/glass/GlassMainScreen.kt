@@ -44,6 +44,8 @@ import fr.baptiste.bank.ui.rememberUpdateAvailable
 import fr.baptiste.bank.ui.theme.BankTheme
 import fr.baptiste.bank.ui.theme.GlassSurfaceColors
 import fr.baptiste.bank.update.UpdateViewModel
+import java.time.LocalDate
+import java.time.YearMonth
 
 /** Thème de l'interface Liquid Glass : toujours bleu nuit, texte blanc. */
 @Composable
@@ -75,6 +77,10 @@ fun GlassMainScreen(
     val unsortedCount by viewModel.unsortedCount.collectAsStateWithLifecycle()
     val savingsHistory by viewModel.savingsHistory.collectAsStateWithLifecycle()
     val income by viewModel.monthlyIncome.collectAsStateWithLifecycle()
+    val monthDashboard by viewModel.monthDashboard.collectAsStateWithLifecycle()
+    val monthHistory by viewModel.monthSavingsHistory.collectAsStateWithLifecycle()
+    val selectedMonth by viewModel.selectedMonth.collectAsStateWithLifecycle()
+    val selectedYear by viewModel.selectedYear.collectAsStateWithLifecycle()
     val updateAvailable = rememberUpdateAvailable(updateViewModel)
     var menuOpen by remember { mutableStateOf(false) }
 
@@ -103,26 +109,42 @@ fun GlassMainScreen(
                         onOpenEnvelope = openEnvelope,
                         onOpenTab = { controller.tab = it },
                     )
-                    Tab.BUDGET -> GlassBudgetContent(
-                        dashboard = dashboard,
-                        monthlyIncome = income,
-                        archived = archived,
-                        onEditIncome = { controller.dialog = OpenDialog.Income },
-                        onOpen = openEnvelope,
-                        onCover = cover,
-                        onEdit = { controller.dialog = OpenDialog.EnvelopeEditor(it) },
-                        onRestore = {
-                            viewModel.restoreEnvelope(it.id)
-                            controller.notify("${it.name} est de nouveau active.")
-                        },
-                    )
+                    Tab.BUDGET -> {
+                        val yearOverview by viewModel.yearOverview.collectAsStateWithLifecycle()
+                        GlassBudgetContent(
+                            dashboard = monthDashboard,
+                            monthlyIncome = income,
+                            archived = archived,
+                            month = selectedMonth,
+                            canNextMonth = selectedMonth < YearMonth.now(),
+                            onPreviousMonth = viewModel::previousMonth,
+                            onNextMonth = viewModel::nextMonth,
+                            yearOverview = yearOverview,
+                            year = selectedYear,
+                            canNextYear = selectedYear < LocalDate.now().year,
+                            onPreviousYear = viewModel::previousYear,
+                            onNextYear = viewModel::nextYear,
+                            onEditIncome = { controller.dialog = OpenDialog.Income },
+                            onOpen = openEnvelope,
+                            onCover = cover,
+                            onEdit = { controller.dialog = OpenDialog.EnvelopeEditor(it) },
+                            onRestore = {
+                                viewModel.restoreEnvelope(it.id)
+                                controller.notify("${it.name} est de nouveau active.")
+                            },
+                        )
+                    }
                     Tab.SAVINGS -> GlassSavingsContent(
-                        dashboard = dashboard,
-                        history = savingsHistory,
+                        dashboard = monthDashboard,
+                        history = monthHistory,
                         onPutAside = { controller.dialog = OpenDialog.Move(it.envelope.id, incoming = true) },
                         onPlanPurchase = { controller.dialog = controller.primaryAction.second },
                         onOpenEnvelope = openEnvelope,
                         onCover = cover,
+                        selectedMonth = selectedMonth,
+                        canNextMonth = selectedMonth < YearMonth.now(),
+                        onPreviousMonth = viewModel::previousMonth,
+                        onNextMonth = viewModel::nextMonth,
                     )
                     Tab.OPERATIONS -> GlassOperationsContent(
                         operations = operations,

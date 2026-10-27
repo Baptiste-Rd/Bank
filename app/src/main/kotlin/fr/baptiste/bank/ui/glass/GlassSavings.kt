@@ -31,6 +31,7 @@ import fr.baptiste.bank.ui.components.InfoLine
 import fr.baptiste.bank.ui.components.InfoSheet
 import fr.baptiste.bank.ui.envelopes.EnvelopeRow
 import fr.baptiste.bank.ui.format.formatted
+import fr.baptiste.bank.ui.format.label
 import fr.baptiste.bank.ui.home.SavingsBarsChart
 import fr.baptiste.bank.ui.theme.BankTheme
 import fr.baptiste.bank.ui.theme.envelopeTypeColor
@@ -56,8 +57,14 @@ fun GlassSavingsContent(
     onPlanPurchase: () -> Unit,
     onOpenEnvelope: (EnvelopeLine) -> Unit,
     onCover: (EnvelopeLine) -> Unit,
+    selectedMonth: java.time.YearMonth = java.time.YearMonth.now(),
+    canNextMonth: Boolean = false,
+    onPreviousMonth: () -> Unit = {},
+    onNextMonth: () -> Unit = {},
 ) {
     var showInfo by remember { mutableStateOf(false) }
+    // Un mois passé se consulte : ses chiffres sont définitifs, on n'y range plus rien.
+    val readOnly = selectedMonth != java.time.YearMonth.now()
     val accent = envelopeTypeColor(EnvelopeType.SAVINGS)
 
     LazyColumn(
@@ -65,7 +72,17 @@ fun GlassSavingsContent(
         contentPadding = glassContentPadding(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        largeTitle("Épargne", dashboard?.today?.monthTitle())
+        largeTitle("Épargne")
+        item(key = "month-switch") {
+            PeriodSwitcher(
+                label = selectedMonth.label.replaceFirstChar { it.titlecase() },
+                canPrevious = true,
+                canNext = canNextMonth,
+                onPrevious = onPreviousMonth,
+                onNext = onNextMonth,
+                note = if (readOnly) "Mois terminé" else null,
+            )
+        }
         if (dashboard == null) {
             item { Box(Modifier.fillMaxWidth().padding(48.dp), Alignment.Center) { CircularProgressIndicator() } }
             return@LazyColumn
@@ -96,7 +113,7 @@ fun GlassSavingsContent(
                 adviceFor(dashboard)?.let {
                     Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                savingsLines.firstOrNull()?.let { target ->
+                if (!readOnly) savingsLines.firstOrNull()?.let { target ->
                     GlassPillButton("Mettre de côté", onClick = { onPutAside(target) }, modifier = Modifier.padding(top = 12.dp))
                 }
             }
@@ -137,7 +154,12 @@ fun GlassSavingsContent(
             sectionHeader("put-aside-label", "Mis de côté", dot = accent)
             item(key = "put-aside") {
                 GlassRowsCard(savingsLines) { line ->
-                    EnvelopeRow(line, onClick = { onOpenEnvelope(line) }, onCover = { onCover(line) }, accent = accent)
+                    EnvelopeRow(
+                        line,
+                        onClick = if (readOnly) null else ({ onOpenEnvelope(line) }),
+                        onCover = if (readOnly) null else ({ onCover(line) }),
+                        accent = accent,
+                    )
                 }
             }
         }
@@ -155,7 +177,12 @@ fun GlassSavingsContent(
                 }
             } else {
                 GlassRowsCard(planned) { line ->
-                    EnvelopeRow(line, onClick = { onOpenEnvelope(line) }, onCover = { onCover(line) }, accent = plannedColor)
+                    EnvelopeRow(
+                        line,
+                        onClick = if (readOnly) null else ({ onOpenEnvelope(line) }),
+                        onCover = if (readOnly) null else ({ onCover(line) }),
+                        accent = plannedColor,
+                    )
                 }
             }
         }

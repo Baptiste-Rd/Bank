@@ -43,7 +43,9 @@ object DemoData {
                 anchor = if (frequency.isCalendar) null else today.minusDays(20),
             )
         listOf(
-            envelope("Courses", EnvelopeType.DAILY, 320),
+            // Un groupe : Courses et Bar sont réunis sous « Nourriture ».
+            envelope("Courses", EnvelopeType.DAILY, 320).copy(group = "Nourriture"),
+            envelope("Bar", EnvelopeType.DAILY, 60).copy(group = "Nourriture"),
             envelope("Essence", EnvelopeType.DAILY, 120),
             envelope("Sorties", EnvelopeType.DAILY, 80),
             envelope("Coiffeur", EnvelopeType.RECURRING, 30, Frequency(6, Scale.WEEK)),
@@ -70,6 +72,7 @@ object DemoData {
         spend("Essence", 14, 6250L, "Station")
         spend("Sorties", 8, 2400L, "Cinéma")
         spend("Sorties", 20, 3650L, "Restaurant")
+        spend("Bar", 16, 1800L, "Bar du coin")
         spend("Projets", 5, 10000L, "Vélo")
         spend("Coiffeur", maxOf(1, today.dayOfMonth - 10), 3000L)
 

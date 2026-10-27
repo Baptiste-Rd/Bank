@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -47,9 +48,14 @@ fun SortOperationDialog(
     onSort: (envelope: Envelope, ruleKeyword: String?) -> Unit,
     onIgnore: () -> Unit,
     onDismiss: () -> Unit,
+    /** Ouvre la création d'une enveloppe ; on revient ici ensuite, avec elle déjà choisie. */
+    onCreateEnvelope: () -> Unit = {},
+    preselectedId: Long? = null,
 ) {
     val currentName = operation.envelopeNames?.split(", ")?.firstOrNull()
-    var selectedId by rememberSaveable { mutableStateOf(envelopes.firstOrNull { it.name == currentName }?.id) }
+    var selectedId by rememberSaveable {
+        mutableStateOf(preselectedId ?: envelopes.firstOrNull { it.name == currentName }?.id)
+    }
     var createRule by rememberSaveable { mutableStateOf(true) }
     var keyword by rememberSaveable { mutableStateOf(suggestedRuleKeyword(operation.label)) }
     val selected = envelopes.firstOrNull { it.id == selectedId }
@@ -77,6 +83,8 @@ fun SortOperationDialog(
                             label = { Text(envelope.name) },
                         )
                     }
+                    // Aucune enveloppe ne convient : on la crée sans quitter le tri.
+                    AssistChip(onClick = onCreateEnvelope, label = { Text("+ Nouvelle enveloppe") })
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = createRule, onCheckedChange = { createRule = it })

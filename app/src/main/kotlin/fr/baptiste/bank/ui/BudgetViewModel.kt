@@ -8,18 +8,25 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import fr.baptiste.bank.BankApplication
 import fr.baptiste.bank.data.BudgetRepository
 import fr.baptiste.bank.data.MonthSavings
+import fr.baptiste.bank.data.YearOverview
 import fr.baptiste.bank.data.local.OperationRow
 import fr.baptiste.bank.data.local.TransferRow
 import fr.baptiste.bank.domain.budget.Dashboard
 import fr.baptiste.bank.domain.budget.TransferLeg
 import fr.baptiste.bank.domain.model.Envelope
 import fr.baptiste.bank.domain.money.Money
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.YearMonth
 
 /**
  * ViewModel partagé par les trois onglets. Chaque flux est recalculé dès que la base change :
@@ -38,6 +45,50 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
     /** Épargne des 6 derniers mois, le mois en cours en dernier. */
     val savingsHistory: StateFlow<List<MonthSavings>> = repository.savingsHistory().asState(emptyList())
 
+    /*
+     * Mois consulté dans les onglets Budget et Épargne. Le mois en cours se calcule à aujourd'hui ;
+     * un mois passé, à son dernier jour : ses chiffres sont alors définitifs. L'accueil, lui, reste
+     * toujours sur aujourd'hui.
+     */
+    private val _selectedMonth = MutableStateFlow(YearMonth.now())
+    val selectedMonth: StateFlow<YearMonth> = _selectedMonth.asStateFlow()
+
+    private fun YearMonth.referenceDate(): LocalDate =
+        if (this == YearMonth.now()) LocalDate.now() else atEndOfMonth()
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val monthDashboard: StateFlow<Dashboard?> = _selectedMonth
+        .flatMapLatest { repository.dashboard(it.referenceDate()) }
+        .asState(null)
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val monthSavingsHistory: StateFlow<List<MonthSavings>> = _selectedMonth
+        .flatMapLatest { repository.savingsHistory(it.referenceDate()) }
+        .asState(emptyList())
+
+    /** Mois précédent ; au plus 36 mois en arrière. */
+    fun previousMonth() {
+        _selectedMonth.update { if (it > YearMonth.now().minusMonths(36)) it.minusMonths(1) else it }
+    }
+
+    /** Année consultée dans la vue à l'année de l'onglet Budget. */
+    private val _selectedYear = MutableStateFlow(LocalDate.now().year)
+    val selectedYear: StateFlow<Int> = _selectedYear.asStateFlow()
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val yearOverview: StateFlow<YearOverview?> = _selectedYear
+        .flatMapLatest { repository.yearOverview(it) }
+        .asState(null)
+
+    fun previousYear() = _selectedYear.update { if (it > LocalDate.now().year - 3) it - 1 else it }
+
+    fun nextYear() = _selectedYear.update { if (it < LocalDate.now().year) it + 1 else it }
+
+    /** Mois suivant, sans dépasser le mois en cours. */
+    fun nextMonth() {
+        _selectedMonth.update { if (it < YearMonth.now()) it.plusMonths(1) else it }
+    }
+
     val operations: StateFlow<List<OperationRow>> = repository.recentOperations().asState(emptyList())
 
     val monthlyIncome: StateFlow<Money?> = repository.monthlyIncome.asState(null)
@@ -49,7 +100,10 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
 
     fun cancelTransfer(id: Long) = perform { repository.cancelTransfer(id) }
 
-    fun saveEnvelope(envelope: Envelope) = perform { repository.saveEnvelope(envelope) }
+    /** Enregistre l'enveloppe ; [onSaved] reçoit son identifiant (utile juste après une création). */
+    fun saveEnvelope(envelope: Envelope, onSaved: (Long) -> Unit = {}) {
+        viewModelScope.launch { onSaved(repository.saveEnvelope(envelope)) }
+    }
 
     fun archiveEnvelope(id: Long) = perform { repository.archiveEnvelope(id) }
 

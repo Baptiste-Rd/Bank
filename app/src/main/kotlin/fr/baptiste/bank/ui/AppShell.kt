@@ -71,9 +71,10 @@ sealed interface OpenDialog {
     data object Income : OpenDialog
     data object Updates : OpenDialog
     data object Journal : OpenDialog
-    data class EnvelopeEditor(val envelope: Envelope?) : OpenDialog
+    /** [returnToSort] : création lancée depuis le tri d'une opération, où l'on revient ensuite. */
+    data class EnvelopeEditor(val envelope: Envelope?, val returnToSort: OperationRow? = null) : OpenDialog
     data object Bank : OpenDialog
-    data class SortOperation(val operation: OperationRow) : OpenDialog
+    data class SortOperation(val operation: OperationRow, val preselectedEnvelopeId: Long? = null) : OpenDialog
 
     /** Les fenêtres liées à une enveloppe gardent son identifiant, pas sa ligne : elles suivent ainsi
      *  les derniers chiffres du tableau de bord pendant qu'elles sont ouvertes. */
@@ -255,6 +256,8 @@ fun AppDialogs(
                 close()
             },
             onDismiss = ::close,
+            onCreateEnvelope = { controller.dialog = OpenDialog.EnvelopeEditor(null, returnToSort = current.operation) },
+            preselectedId = current.preselectedEnvelopeId,
         )
         OpenDialog.Journal -> JournalDialog(
             transfers = journal,
@@ -332,10 +335,20 @@ fun AppDialogs(
         }
         is OpenDialog.EnvelopeEditor -> EnvelopeDialog(
             initial = current.envelope,
-            onDismiss = ::close,
-            onSave = {
-                viewModel.saveEnvelope(it)
-                close()
+            groups = envelopes.mapNotNull { it.group }.distinct().sorted(),
+            onDismiss = {
+                val operation = current.returnToSort
+                controller.dialog = if (operation != null) OpenDialog.SortOperation(operation) else null
+            },
+            onSave = { envelope ->
+                val operation = current.returnToSort
+                if (operation != null) {
+                    // Retour au tri, la nouvelle enveloppe déjà choisie.
+                    viewModel.saveEnvelope(envelope) { id -> controller.dialog = OpenDialog.SortOperation(operation, id) }
+                } else {
+                    viewModel.saveEnvelope(envelope)
+                    close()
+                }
             },
             onArchive = { archivedEnvelope ->
                 viewModel.archiveEnvelope(archivedEnvelope.id)

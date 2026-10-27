@@ -56,9 +56,12 @@ fun EnvelopeDialog(
     onDismiss: () -> Unit,
     onSave: (Envelope) -> Unit,
     onArchive: (Envelope) -> Unit,
+    /** Groupes déjà utilisés, proposés en un geste. */
+    groups: List<String> = emptyList(),
 ) {
     val today = LocalDate.now()
     var name by rememberSaveable { mutableStateOf(initial?.name.orEmpty()) }
+    var group by rememberSaveable { mutableStateOf(initial?.group.orEmpty()) }
     var type by rememberSaveable { mutableStateOf(initial?.type ?: EnvelopeType.DAILY) }
     var scale by rememberSaveable { mutableStateOf(initial?.frequency?.scale ?: type.defaultFrequency.scale) }
     var everyText by rememberSaveable { mutableStateOf((initial?.frequency?.every ?: 1).toString()) }
@@ -116,6 +119,24 @@ fun EnvelopeDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
+                // Groupe : un niveau, sans budget propre ; il additionne ses enveloppes (Courses et Bar
+                // dans Nourriture). Une dépense reste imputée à l'enveloppe, jamais au groupe.
+                OutlinedTextField(
+                    value = group,
+                    onValueChange = { group = it },
+                    label = { Text("Groupe (facultatif)") },
+                    supportingText = { Text("Ex. « Nourriture » pour Courses et Bar : le groupe additionne ses enveloppes.") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                val otherGroups = groups.filter { it != group.trim() }
+                if (otherGroups.isNotEmpty()) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        otherGroups.take(3).forEach { existing ->
+                            androidx.compose.material3.AssistChip(onClick = { group = existing }, label = { Text(existing) })
+                        }
+                    }
+                }
                 ChoiceField(
                     label = "Type",
                     selected = type,
@@ -230,6 +251,7 @@ fun EnvelopeDialog(
                                 frequency = frequency,
                                 amount = amount,
                                 status = status,
+                                group = group.trim().ifEmpty { null },
                                 anchor = when {
                                     type == EnvelopeType.PLANNED -> plannedStart
                                     frequency.isCalendar -> null

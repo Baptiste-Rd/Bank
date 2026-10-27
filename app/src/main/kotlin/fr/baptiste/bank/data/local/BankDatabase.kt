@@ -18,7 +18,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TransferEntity::class,
         RuleEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -35,7 +35,7 @@ abstract class BankDatabase : RoomDatabase() {
         /** [name] permet au mode démo d'utiliser une base séparée, sans toucher aux vraies données. */
         fun create(context: Context, name: String = "bank.db"): BankDatabase =
             Room.databaseBuilder(context, BankDatabase::class.java, name)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build()
     }
 }
@@ -63,5 +63,12 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE account ADD COLUMN external_uid TEXT")
         db.execSQL("ALTER TABLE transaction_record ADD COLUMN ignored INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+/** Version 5 : groupes d'enveloppes (un niveau, sans budget propre). */
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE envelope ADD COLUMN group_name TEXT")
     }
 }

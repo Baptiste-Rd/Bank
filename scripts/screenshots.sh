@@ -104,3 +104,24 @@ adb shell am start -W -n "$PKG/.MainActivity" --ez demo true --es style GLASS --
 sleep 8
 close_dialogs
 adb exec-out screencap -p > "$OUT/glass-achat-prevu.png"
+
+# Budget : groupes, mois précédent (flèche ‹), vue à l'année (bascule « Année »).
+# Coordonnées pour un Pixel 7 : bascule Mois/Année vers y = 330, flèche ‹ du mois vers (100, 485).
+adb shell am force-stop "$PKG"
+adb shell am start -W -n "$PKG/.MainActivity" --ez demo true --es style GLASS --es tab BUDGET > /dev/null
+sleep 8
+close_dialogs
+adb shell input swipe 540 1900 540 900 900
+sleep 2
+adb exec-out screencap -p > "$OUT/glass-budget-groupes.png"
+adb shell input swipe 540 600 540 1900 600
+sleep 2
+adb shell input tap 100 485
+sleep 4
+adb exec-out screencap -p > "$OUT/glass-budget-mois-precedent.png"
+adb shell input tap 810 330
+sleep 5
+adb exec-out screencap -p > "$OUT/glass-budget-annee.png"
+adb shell input swipe 540 1900 540 800 900
+sleep 2
+adb exec-out screencap -p > "$OUT/glass-budget-annee-suite.png"

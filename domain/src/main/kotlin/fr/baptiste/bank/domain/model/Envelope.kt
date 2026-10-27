@@ -71,6 +71,12 @@ data class Envelope(
      * Ignoré pour une fréquence calendaire (mois civil, année civile, semaine ISO).
      */
     val anchor: LocalDate? = null,
+    /**
+     * Groupe d'affichage (« Nourriture » pour « Courses » et « Bar ») : un seul niveau, sans budget
+     * propre. Le groupe additionne les budgets et les dépenses de ses enveloppes ; une dépense est
+     * toujours imputée à une enveloppe, jamais au groupe, et n'est donc comptée qu'une fois.
+     */
+    val group: String? = null,
 ) {
     val scale: Scale get() = frequency.scale
 

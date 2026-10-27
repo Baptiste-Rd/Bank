@@ -145,3 +145,77 @@ internal fun LegendRow(color: Color, label: String, value: String, detail: Strin
         Text(value, style = MaterialTheme.typography.titleSmall)
     }
 }
+
+/**
+ * Sélecteur de période : ‹ libellé ›. La flèche suivante disparaît sur la période en cours (on ne
+ * consulte pas l'avenir) ; un mois passé se signale par la mention « terminé ».
+ */
+@Composable
+internal fun PeriodSwitcher(
+    label: String,
+    canPrevious: Boolean,
+    canNext: Boolean,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    note: String? = null,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        PeriodArrow(R.drawable.ic_chevron_left, "Période précédente", canPrevious, onPrevious)
+        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(label, style = MaterialTheme.typography.titleMedium)
+            if (note != null) {
+                Text(note, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        PeriodArrow(R.drawable.ic_chevron_right, "Période suivante", canNext, onNext)
+    }
+}
+
+@Composable
+private fun PeriodArrow(icon: Int, description: String, enabled: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .then(if (enabled) Modifier.clickable(onClick = onClick, role = Role.Button) else Modifier),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (enabled) {
+            Icon(painterResource(icon), contentDescription = description, tint = MaterialTheme.colorScheme.onSurface)
+        }
+    }
+}
+
+/**
+ * Bascule entre deux ou trois vues (« Mois | Année ») : une capsule claire, l'option choisie en
+ * pastille plus claire. Chaque option fait 40 dp de haut.
+ */
+@Composable
+internal fun SegmentedToggle(options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+            .padding(4.dp),
+    ) {
+        options.forEachIndexed { index, option ->
+            val isSelected = index == selected
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(CircleShape)
+                    .then(if (isSelected) Modifier.background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f)) else Modifier)
+                    .clickable(role = Role.Tab) { onSelect(index) }
+                    .padding(vertical = 10.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    option,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
