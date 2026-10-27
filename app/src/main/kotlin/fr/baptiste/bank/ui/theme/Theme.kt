@@ -82,32 +82,10 @@ private val DarkColors = darkColorScheme(
 )
 
 /*
- * Variante Liquid Glass. Deux jeux de couleurs, choisis pour un contraste d'au moins 4,5:1
- * (WCAG AA) sur le texte courant :
- * - « sur verre » : le texte posé sur les cartes et dans les fenêtres. En mode clair, cartes
- *   presque blanches et texte bleu nuit ; en mode sombre, cartes bleu nuit et texte clair.
- *   C'est le schéma par défaut du thème, donc aussi celui des fenêtres et des menus.
- * - « sur fond » : le texte posé directement sur le fond liquide bleu profond, toujours blanc.
+ * Variante Liquid Glass : toujours sombre, quel que soit le thème du téléphone. Le fond est un
+ * bleu presque noir, les cartes et les fenêtres sont un cran plus claires, le texte est blanc
+ * (contraste supérieur à 12:1 sur le fond, et à 4,5:1 pour le texte secondaire).
  */
-private val GlassLightColors = LightColors.copy(
-    primary = Color(0xFF0952C4),
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFD6E6FF),
-    onPrimaryContainer = Color(0xFF082456),
-    background = Color.Transparent,
-    surface = Color.Transparent,
-    onSurface = Color(0xFF0B1630),
-    onBackground = Color(0xFF0B1630),
-    onSurfaceVariant = Color(0xFF3B4763),
-    surfaceContainerLow = Color(0xF5F5F8FF),
-    surfaceContainer = Color(0xF2F2F6FF),
-    surfaceContainerHigh = Color(0xF0F4F7FF),
-    surfaceContainerHighest = Color(0xF0EAF0FC),
-    surfaceVariant = Color(0x1F0B1630),
-    outline = Color(0xFF6B7899),
-    outlineVariant = Color(0x1F0B1630),
-)
-
 private val GlassDarkColors = DarkColors.copy(
     primary = Color(0xFF7DB4FF),
     onPrimary = Color(0xFF041C45),
@@ -117,16 +95,17 @@ private val GlassDarkColors = DarkColors.copy(
     onSurface = Color(0xFFFFFFFF),
     onBackground = Color(0xFFFFFFFF),
     onSurfaceVariant = Color(0xFFC3CDE6),
-    surfaceContainerLow = Color(0xF20D1733),
-    surfaceContainer = Color(0xF0101C3D),
-    surfaceContainerHigh = Color(0xF0122045),
-    surfaceContainerHighest = Color(0xF0182A55),
+    // Fenêtres et menus : bleu nuit un peu plus clair que le fond, presque opaque.
+    surfaceContainerLow = Color(0xF5111D3F),
+    surfaceContainer = Color(0xF5142247),
+    surfaceContainerHigh = Color(0xF517264E),
+    surfaceContainerHighest = Color(0xF51C2D58),
     surfaceVariant = Color(0x29FFFFFF),
     outline = Color(0xFF8E9BBA),
     outlineVariant = Color(0x29FFFFFF),
 )
 
-/** Texte posé sur le fond liquide : blanc, en clair comme en sombre. */
+/** Texte posé directement sur le fond : blanc, avec un secondaire plus lumineux que sur les cartes. */
 private fun ColorScheme.onGlassBackground(): ColorScheme = copy(
     primary = Color(0xFFBFDBFF),
     onSurface = Color.White,
@@ -136,24 +115,17 @@ private fun ColorScheme.onGlassBackground(): ColorScheme = copy(
     outlineVariant = Color(0x33FFFFFF),
 )
 
-private val GlassCardStatusLight = StatusColors(good = Color(0xFF0952C4), warning = Color(0xFFB3122E), over = Color(0xFFB3122E))
 private val GlassCardStatusDark = StatusColors(good = Color(0xFF7DB4FF), warning = Color(0xFFFF8F9C), over = Color(0xFFFF6B7D))
 private val GlassBackgroundStatus = StatusColors(good = Color(0xFFBFDBFF), warning = Color(0xFFFFC2CA), over = Color(0xFFFFB3BD))
 
 /**
  * Applique les couleurs « sur fond » ([onBackground] = true) ou « sur verre » au contenu.
- * Le fond liquide est entouré du premier ; chaque carte de verre revient au second.
+ * Le fond est entouré du premier ; chaque carte de verre revient au second.
  */
 @Composable
 fun GlassSurfaceColors(onBackground: Boolean, content: @Composable () -> Unit) {
-    val dark = isSystemInDarkTheme()
-    val card = if (dark) GlassDarkColors else GlassLightColors
-    val scheme = if (onBackground) card.onGlassBackground() else card
-    val status = when {
-        onBackground -> GlassBackgroundStatus
-        dark -> GlassCardStatusDark
-        else -> GlassCardStatusLight
-    }
+    val scheme = if (onBackground) GlassDarkColors.onGlassBackground() else GlassDarkColors
+    val status = if (onBackground) GlassBackgroundStatus else GlassCardStatusDark
     androidx.compose.runtime.CompositionLocalProvider(
         LocalStatusColors provides status,
         androidx.compose.material3.LocalContentColor provides scheme.onSurface,
@@ -214,10 +186,10 @@ fun BankTheme(
     glass: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    val status = if (darkTheme) {
-        if (glass) GlassCardStatusDark else StatusColors(good = BleuClair, warning = RougeClairNuit, over = RougeNuit)
-    } else {
-        if (glass) GlassCardStatusLight else StatusColors(good = Bleu, warning = RougeClair, over = Rouge)
+    val status = when {
+        glass -> GlassCardStatusDark
+        darkTheme -> StatusColors(good = BleuClair, warning = RougeClairNuit, over = RougeNuit)
+        else -> StatusColors(good = Bleu, warning = RougeClair, over = Rouge)
     }
     androidx.compose.runtime.CompositionLocalProvider(
         LocalStatusColors provides status,
@@ -225,8 +197,7 @@ fun BankTheme(
     ) {
         MaterialTheme(
             colorScheme = when {
-                glass && darkTheme -> GlassDarkColors
-                glass -> GlassLightColors
+                glass -> GlassDarkColors
                 darkTheme -> DarkColors
                 else -> LightColors
             },

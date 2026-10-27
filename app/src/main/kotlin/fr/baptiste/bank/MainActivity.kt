@@ -2,8 +2,10 @@ package fr.baptiste.bank
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -46,6 +48,17 @@ class MainActivity : ComponentActivity() {
             val budgetViewModel: BudgetViewModel = viewModel(factory = BudgetViewModel.Factory)
             val updateViewModel: UpdateViewModel = viewModel(factory = UpdateViewModel.Factory)
             val onStyleChange: (UiStyle) -> Unit = { scope.launch { settings.setUiStyle(it) } }
+            // L'interface verre est toujours sombre : icônes de la barre d'état en blanc.
+            LaunchedEffect(style) {
+                if (style == UiStyle.GLASS) {
+                    enableEdgeToEdge(
+                        statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+                        navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+                    )
+                } else if (style == UiStyle.CLASSIC) {
+                    enableEdgeToEdge()
+                }
+            }
             when (style) {
                 // Premier instant, avant la lecture du réglage : rien à afficher.
                 null -> Unit

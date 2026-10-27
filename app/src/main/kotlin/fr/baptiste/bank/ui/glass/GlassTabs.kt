@@ -5,21 +5,20 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -30,7 +29,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -44,7 +42,6 @@ import fr.baptiste.bank.domain.model.EnvelopeType
 import fr.baptiste.bank.domain.money.Money
 import fr.baptiste.bank.ui.components.BlurBehindWindow
 import fr.baptiste.bank.ui.envelopes.EnvelopeRow
-import fr.baptiste.bank.ui.glass.kit.LiquidButton
 import fr.baptiste.bank.ui.envelopes.TemplateChips
 import fr.baptiste.bank.ui.envelopes.envelopeTemplates
 import fr.baptiste.bank.ui.envelopes.template
@@ -156,20 +153,12 @@ fun GlassHomeContent(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     // L'action la plus fréquente, à portée de pouce juste sous le chiffre du jour.
-                    LiquidButton(
+                    GlassPillButton(
+                        text = "Ajouter une dépense",
                         onClick = onAddExpense,
-                        backdrop = LocalBackgroundBackdrop.current,
-                        tint = Color(0xFF2F6BFF),
+                        icon = painterResource(R.drawable.ic_add),
                         modifier = Modifier.padding(top = 16.dp),
-                    ) {
-                        Icon(
-                            painterResource(R.drawable.ic_add),
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp),
-                        )
-                        Text("Ajouter une dépense", color = Color.White, style = MaterialTheme.typography.labelLarge)
-                    }
+                    )
                 }
             }
             item(key = "month") {
@@ -235,7 +224,7 @@ fun GlassHomeContent(
             item(key = "daily") {
                 GlassCard(contentPadding = 16.dp) {
                     daily.forEachIndexed { index, line ->
-                        if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        if (index > 0) RowGap()
                         EnvelopeRow(line, onClick = { onOpenEnvelope(line) })
                     }
                 }
@@ -281,7 +270,7 @@ fun GlassEnvelopesContent(
             item(key = "group-$type") {
                 GlassCard(contentPadding = 16.dp) {
                     typeLines.forEachIndexed { index, line ->
-                        if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        if (index > 0) RowGap()
                         EnvelopeRow(line, onClick = { onOpen(line) }, onCover = { onCover(line) })
                     }
                 }
@@ -299,7 +288,7 @@ fun GlassEnvelopesContent(
             item(key = "archived") {
                 GlassCard(contentPadding = 16.dp) {
                     archived.forEachIndexed { index, envelope ->
-                        if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        if (index > 0) RowGap()
                         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(envelope.name, style = MaterialTheme.typography.bodyLarge)
@@ -349,7 +338,7 @@ fun GlassOperationsContent(
             item(key = "day-$date") {
                 GlassCard(contentPadding = 12.dp) {
                     dayOperations.forEachIndexed { index, operation ->
-                        if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        if (index > 0) RowGap()
                         Box(modifier = Modifier.padding(start = 8.dp)) {
                             OperationItem(operation, onDelete = { pendingDelete = operation })
                         }
@@ -376,4 +365,10 @@ fun GlassOperationsContent(
             dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("Annuler") } },
         )
     }
+}
+
+/** Espace entre deux lignes d'une même carte : pas de trait, la respiration suffit. */
+@Composable
+private fun RowGap() {
+    Spacer(Modifier.height(10.dp))
 }

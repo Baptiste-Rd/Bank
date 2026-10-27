@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -19,6 +20,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import fr.baptiste.bank.domain.budget.Dashboard
 import fr.baptiste.bank.domain.budget.EnvelopeLine
@@ -27,6 +29,7 @@ import fr.baptiste.bank.domain.model.EnvelopeType
 import fr.baptiste.bank.domain.money.Money
 import fr.baptiste.bank.ui.format.formatted
 import fr.baptiste.bank.ui.format.label
+import fr.baptiste.bank.ui.theme.LocalGlassStyle
 
 /**
  * Modèles proposés pour créer une enveloppe en un geste. Le montant reste vide :
@@ -149,10 +152,18 @@ internal fun TemplateChips(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.padding(top = 8.dp),
         ) {
+            // En verre : pastilles pleines légèrement claires, sans contour.
+            val glass = LocalGlassStyle.current
             suggestions.forEach { suggestion ->
                 AssistChip(
                     onClick = { onPick(suggestion) },
                     label = { Text(suggestion.first) },
+                    border = if (glass) null else AssistChipDefaults.assistChipBorder(enabled = true),
+                    colors = if (glass) {
+                        AssistChipDefaults.assistChipColors(containerColor = Color.White.copy(alpha = 0.10f))
+                    } else {
+                        AssistChipDefaults.assistChipColors()
+                    },
                 )
             }
         }

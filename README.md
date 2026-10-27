@@ -48,11 +48,10 @@ C'est une clé de debug, à ne pas réutiliser pour une version publiée.
 
 Deux styles cohabitent, au choix depuis le menu ⋮ :
 
-- **Liquid Glass** (par défaut) : fond liquide animé, cartes et barres en verre qui floutent et
-  réfractent ce qui passe dessous, barre d'onglets flottante dont l'indicateur se fait glisser.
-  Le flou demande Android 12, la réfraction Android 13.
+- **Liquid Glass** (par défaut) : fond bleu nuit, cartes en verre dépoli un peu plus claires que le
+  fond, barre d'onglets flottante dont l'indicateur glisse d'un onglet à l'autre. Pas de liseré ni
+  de bordure : le verre se lit par le flou (Android 12 et plus) et une teinte claire.
 - **Classique** : Material 3, sans effets.
 
-Les effets de verre viennent de la librairie [Kyant0/AndroidLiquidGlass](https://github.com/Kyant0/AndroidLiquidGlass)
-(Apache 2.0). Quelques composants de son catalogue d'exemples sont repris et adaptés dans
-`app/src/main/kotlin/fr/baptiste/bank/ui/glass/kit/` ; la licence est dans `third_party/`.
+Le flou s'appuie sur la librairie [Kyant0/AndroidLiquidGlass](https://github.com/Kyant0/AndroidLiquidGlass)
+(Apache 2.0).
