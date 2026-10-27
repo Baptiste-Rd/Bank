@@ -1,6 +1,8 @@
 package fr.baptiste.bank
 
 import android.app.Application
+import fr.baptiste.bank.data.BudgetRepository
+import fr.baptiste.bank.data.SettingsRepository
 import fr.baptiste.bank.data.local.BankDatabase
 import fr.baptiste.bank.update.ApkInstaller
 import fr.baptiste.bank.update.UpdateRepository
@@ -25,6 +27,8 @@ class BankApplication : Application() {
  */
 class AppContainer(application: Application) {
     val database: BankDatabase by lazy { BankDatabase.create(application) }
+    val settingsRepository: SettingsRepository by lazy { SettingsRepository(application) }
+    val budgetRepository: BudgetRepository by lazy { BudgetRepository(database, settingsRepository) }
     val updateRepository: UpdateRepository by lazy { UpdateRepository(BuildConfig.UPDATE_REPOSITORY) }
     val apkInstaller: ApkInstaller by lazy { ApkInstaller(application) }
 }

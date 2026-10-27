@@ -19,6 +19,21 @@ enum class EnvelopeType {
 
     /** Objectif d'épargne (virements vers le livret A, le PEA...). */
     SAVINGS,
+    ;
+
+    /** Statut proposé à la création : on ne prélève jamais automatiquement sur un engagement. */
+    val defaultStatus: EnvelopeStatus
+        get() = when (this) {
+            FIXED, SAVINGS -> EnvelopeStatus.PROTECTED
+            DAILY, RECURRING, ANNUAL -> EnvelopeStatus.FLEXIBLE
+        }
+
+    /** Échelle proposée à la création. */
+    val defaultScale: Scale
+        get() = when (this) {
+            DAILY, FIXED, SAVINGS -> Scale.MONTH
+            RECURRING, ANNUAL -> Scale.YEAR
+        }
 }
 
 /** Une enveloppe flexible peut servir de source à un transfert ; une enveloppe protégée jamais automatiquement. */

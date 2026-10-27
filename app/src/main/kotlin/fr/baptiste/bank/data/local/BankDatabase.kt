@@ -21,7 +21,10 @@ import androidx.room.TypeConverters
 )
 @TypeConverters(Converters::class)
 abstract class BankDatabase : RoomDatabase() {
+    abstract fun accountDao(): AccountDao
     abstract fun envelopeDao(): EnvelopeDao
+    abstract fun allocationDao(): AllocationDao
+    abstract fun imputationDao(): ImputationDao
     abstract fun transactionDao(): TransactionDao
 
     companion object {
