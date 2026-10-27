@@ -4,7 +4,7 @@ name: Captures d'écran
 # « screenshots », dans un dossier par commit. Sert à vérifier le rendu sans téléphone.
 on:
   push:
-    branches: ['poc/**', 'ui/**']
+    branches: ['poc/**', 'ui/**', 'feature/**']
   workflow_dispatch:
 
 jobs:
