@@ -114,8 +114,14 @@ object Glass {
     val Surface = Color.White.copy(alpha = 0.075f)
     val SurfaceStrong = Color.White.copy(alpha = 0.11f)
 
-    /** Barre d'onglets et boutons flottants, un cran plus clairs que les cartes. */
+    /** Boutons flottants, un cran plus clairs que les cartes. */
     val Floating = Color.White.copy(alpha = 0.10f)
+
+    /**
+     * Barre d'onglets : avec un flou léger, le contenu reste net dessous ; un voile bleu nuit
+     * garde les libellés blancs lisibles (contraste supérieur à 7:1 sur une carte qui passe dessous).
+     */
+    val Bar = Color(0xFF1A2A55).copy(alpha = 0.50f)
     val Indicator = Color.White.copy(alpha = 0.12f)
 
     /** Bouton principal : verre teinté de bleu, texte blanc (contraste 5,2:1 sur le bleu pur). */
@@ -184,9 +190,15 @@ private class GlassOptics(
     val refractionAmount: Dp,
 )
 
+/*
+ * Le flou est appliqué avant la lentille : plus il est fort, plus il efface les contours que
+ * l'aberration chromatique doit irriser. Les cartes ne courbent que le fond, déjà lisse, et
+ * peuvent flouter fort. Les éléments flottants courbent le contenu qui défile dessous : un flou
+ * léger y garde des contours nets, et l'irisation suit alors le contenu en mouvement.
+ */
 private val CardOptics = GlassOptics(blur = 12.dp, refractionHeight = 14.dp, refractionAmount = 28.dp)
-private val BarOptics = GlassOptics(blur = 8.dp, refractionHeight = 20.dp, refractionAmount = 24.dp)
-private val ButtonOptics = GlassOptics(blur = 6.dp, refractionHeight = 12.dp, refractionAmount = 20.dp)
+private val BarOptics = GlassOptics(blur = 3.dp, refractionHeight = 22.dp, refractionAmount = 32.dp)
+private val ButtonOptics = GlassOptics(blur = 2.dp, refractionHeight = 16.dp, refractionAmount = 28.dp)
 
 /**
  * Surface de verre : flou, saturation, lentille et aberration chromatique de ce qui est derrière,
@@ -319,7 +331,7 @@ data class GlassTabItem(val title: String, val icon: Painter)
 /**
  * Barre d'onglets flottante. L'indicateur est une goutte de verre posée sur la barre : il courbe
  * les icônes qui passent dessous, avec l'aberration chromatique. Il glisse d'un onglet à l'autre en
- * ligne droite (250 ms, sans rebond) ; la barre et le reste de l'écran ne bougent pas.
+ * ligne droite (320 ms, sans rebond) ; la barre et le reste de l'écran ne bougent pas.
  *
  * Pour que l'indicateur puisse courber les icônes, la barre (verre et icônes) est enregistrée
  * dans sa propre couche, que l'indicateur, dessiné par-dessus, utilise comme arrière-plan.
@@ -335,7 +347,7 @@ fun GlassTabBar(
     val barBackdrop = rememberLayerBackdrop()
     val position by animateFloatAsState(
         targetValue = selectedIndex.toFloat(),
-        animationSpec = tween(250, easing = FastOutSlowInEasing),
+        animationSpec = tween(320, easing = FastOutSlowInEasing),
         label = "indicateur",
     )
     Box(modifier.height(64.dp)) {
@@ -343,7 +355,7 @@ fun GlassTabBar(
             Modifier
                 .matchParentSize()
                 .layerBackdrop(barBackdrop)
-                .glass(backdrop, Glass.Floating, BarOptics)
+                .glass(backdrop, Glass.Bar, BarOptics)
                 .padding(4.dp),
         ) {
             items.forEachIndexed { index, item ->
@@ -361,9 +373,12 @@ fun GlassTabBar(
                         backdrop = barBackdrop,
                         shape = { Capsule() },
                         effects = {
+                            // Effet de profondeur : toute la goutte grossit ce qui est dessous,
+                            // pas seulement ses bords ; les icônes se déforment en la traversant.
                             lens(
-                                refractionHeight = 10.dp.toPx(),
-                                refractionAmount = 14.dp.toPx(),
+                                refractionHeight = 14.dp.toPx(),
+                                refractionAmount = 22.dp.toPx(),
+                                depthEffect = true,
                                 chromaticAberration = true,
                             )
                         },
