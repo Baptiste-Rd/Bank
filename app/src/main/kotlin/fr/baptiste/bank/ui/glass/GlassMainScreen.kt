@@ -64,12 +64,14 @@ fun GlassMainScreen(
     updateViewModel: UpdateViewModel,
     onStyleChange: (UiStyle) -> Unit,
     initialTab: Tab = Tab.HOME,
+    initialDialog: OpenDialog? = null,
 ) {
-    val controller = rememberAppController(initialTab)
+    val controller = rememberAppController(initialTab, initialDialog)
     val dashboard by viewModel.dashboard.collectAsStateWithLifecycle()
     val operations by viewModel.operations.collectAsStateWithLifecycle()
     val archived by viewModel.archivedEnvelopes.collectAsStateWithLifecycle()
     val envelopes by viewModel.envelopes.collectAsStateWithLifecycle()
+    val unsortedCount by viewModel.unsortedCount.collectAsStateWithLifecycle()
     val updateAvailable = rememberUpdateAvailable(updateViewModel)
     var menuOpen by remember { mutableStateOf(false) }
 
@@ -107,7 +109,10 @@ fun GlassMainScreen(
                     Tab.OPERATIONS -> GlassOperationsContent(
                         operations = operations,
                         envelopes = envelopes + archived,
+                        unsortedCount = unsortedCount,
                         onDelete = viewModel::deleteExpense,
+                        onSort = { controller.dialog = OpenDialog.SortOperation(it) },
+                        onOpenBank = { controller.dialog = OpenDialog.Bank },
                     )
                 }
             }

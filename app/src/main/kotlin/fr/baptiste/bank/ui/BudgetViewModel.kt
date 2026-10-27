@@ -60,6 +60,16 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
 
     fun deleteExpense(transactionId: Long) = perform { repository.deleteManualExpense(transactionId) }
 
+    /** Opérations de la banque qui attendent d'être rangées. */
+    val unsortedCount: StateFlow<Int> = repository.unsortedCount.asState(0)
+
+    /** Range une opération ; [onDone] reçoit le nombre d'autres opérations rangées par la nouvelle règle. */
+    fun sortOperation(transactionId: Long, envelope: Envelope, ruleKeyword: String?, onDone: (Int) -> Unit) {
+        viewModelScope.launch { onDone(repository.sortOperation(transactionId, envelope, ruleKeyword)) }
+    }
+
+    fun ignoreOperation(transactionId: Long) = perform { repository.ignoreOperation(transactionId) }
+
     private fun perform(block: suspend () -> Unit) {
         viewModelScope.launch { block() }
     }

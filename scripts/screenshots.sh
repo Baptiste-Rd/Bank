@@ -68,3 +68,14 @@ adb exec-out screencap -p > "$OUT/glass-home-defile2.png"
 wait $REC || true
 adb pull /sdcard/motion.mp4 "$OUT/glass-mouvement.mp4" || echo "pas de vidéo"
 adb shell settings put global animator_duration_scale 0
+
+# Connexion bancaire (base de démo, réglages bancaires de démo séparés).
+adb shell am force-stop "$PKG"
+adb shell am start -W -n "$PKG/.MainActivity" --ez demo true --es style GLASS --es tab HOME --es dialog BANK > /dev/null
+sleep 8
+close_dialogs
+sleep 1
+adb exec-out screencap -p > "$OUT/glass-banque.png"
+adb shell input swipe 540 1800 540 600 600
+sleep 2
+adb exec-out screencap -p > "$OUT/glass-banque-suite.png"

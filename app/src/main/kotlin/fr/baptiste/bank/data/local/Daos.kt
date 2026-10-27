@@ -17,6 +17,25 @@ interface AccountDao {
 
     @Insert
     suspend fun insert(account: AccountEntity): Long
+
+    @Query("SELECT * FROM account WHERE external_uid = :uid LIMIT 1")
+    suspend fun findByExternalUid(uid: String): AccountEntity?
+
+    /** Le compte courant créé pour les saisies manuelles, pas encore relié à la banque. */
+    @Query("SELECT * FROM account WHERE type = 'CURRENT' AND external_uid IS NULL ORDER BY id LIMIT 1")
+    suspend fun unlinkedCurrentAccount(): AccountEntity?
+
+    @Query("UPDATE account SET external_uid = :uid, name = :name, iban_suffix = :ibanSuffix WHERE id = :id")
+    suspend fun link(id: Long, uid: String, name: String, ibanSuffix: String?)
+}
+
+@Dao
+interface RuleDao {
+    @Query("SELECT * FROM rule ORDER BY priority, id")
+    suspend fun all(): List<RuleEntity>
+
+    @Insert
+    suspend fun insert(rule: RuleEntity): Long
 }
 
 @Dao
@@ -35,6 +54,9 @@ interface EnvelopeDao {
 
     @Query("UPDATE envelope SET archived = 0 WHERE id = :id")
     suspend fun restore(id: Long)
+
+    @Query("SELECT * FROM envelope WHERE archived = 0")
+    suspend fun active(): List<EnvelopeEntity>
 }
 
 @Dao
@@ -58,6 +80,8 @@ data class OperationRow(
     @ColumnInfo(name = "amount_cents") val amountCents: Long,
     @ColumnInfo(name = "clean_label") val label: String,
     val source: TransactionSource,
+    /** Mise hors budget par l'utilisateur. */
+    val ignored: Boolean,
     @ColumnInfo(name = "envelope_names") val envelopeNames: String?,
     /** Vrai pour un rattrapage : [periodKey] indique alors la période concernée. */
     @ColumnInfo(name = "whole_period") val wholePeriod: Boolean,
@@ -71,6 +95,10 @@ interface ImputationDao {
 
     @Query("DELETE FROM imputation WHERE transaction_id = :transactionId")
     suspend fun deleteForTransaction(transactionId: Long)
+
+    /** Rapprochement : les imputations d'une saisie manuelle passent à l'opération bancaire. */
+    @Query("UPDATE imputation SET transaction_id = :to WHERE transaction_id = :from")
+    suspend fun moveToTransaction(from: Long, to: Long)
 
     @Query(
         """
@@ -99,10 +127,43 @@ interface TransactionDao {
     @Query("DELETE FROM transaction_record WHERE id = :id AND source = 'MANUAL'")
     suspend fun deleteManual(id: Long)
 
+    @Query("SELECT * FROM transaction_record WHERE id = :id")
+    suspend fun byId(id: Long): TransactionEntity?
+
+    @Query("SELECT * FROM transaction_record WHERE id IN (:ids)")
+    suspend fun byIds(ids: List<Long>): List<TransactionEntity>
+
+    /** Saisies manuelles candidates au rapprochement, sur une plage de dates. */
+    @Query("SELECT * FROM transaction_record WHERE source = 'MANUAL' AND date BETWEEN :from AND :to")
+    suspend fun manualBetween(from: LocalDate, to: LocalDate): List<TransactionEntity>
+
+    @Query("UPDATE transaction_record SET reconciled_with_id = :manualId WHERE id = :id")
+    suspend fun markReconciled(id: Long, manualId: Long)
+
+    @Query("UPDATE transaction_record SET ignored = :ignored WHERE id = :id")
+    suspend fun setIgnored(id: Long, ignored: Boolean)
+
+    /** Opérations à trier : ni rangées dans une enveloppe, ni mises hors budget. */
+    @Query(
+        """
+        SELECT * FROM transaction_record t
+        WHERE t.ignored = 0 AND NOT EXISTS (SELECT 1 FROM imputation i WHERE i.transaction_id = t.id)
+        """,
+    )
+    suspend fun unsorted(): List<TransactionEntity>
+
+    @Query(
+        """
+        SELECT COUNT(*) FROM transaction_record t
+        WHERE t.ignored = 0 AND NOT EXISTS (SELECT 1 FROM imputation i WHERE i.transaction_id = t.id)
+        """,
+    )
+    fun observeUnsortedCount(): Flow<Int>
+
     @Query(
         """
         SELECT t.id AS id, t.date AS date, t.amount_cents AS amount_cents, t.clean_label AS clean_label,
-               t.source AS source, group_concat(e.name, ', ') AS envelope_names,
+               t.source AS source, t.ignored AS ignored, group_concat(e.name, ', ') AS envelope_names,
                COALESCE(MAX(i.whole_period), 0) AS whole_period, MAX(i.period_key) AS period_key
         FROM transaction_record t
         LEFT JOIN imputation i ON i.transaction_id = t.id

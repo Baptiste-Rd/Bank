@@ -15,6 +15,7 @@ import fr.baptiste.bank.data.DemoData
 import fr.baptiste.bank.data.UiStyle
 import fr.baptiste.bank.ui.BudgetViewModel
 import fr.baptiste.bank.ui.ClassicMainScreen
+import fr.baptiste.bank.ui.OpenDialog
 import fr.baptiste.bank.ui.Tab
 import fr.baptiste.bank.ui.glass.GlassMainScreen
 import fr.baptiste.bank.ui.glass.GlassTheme
@@ -25,7 +26,7 @@ import kotlinx.coroutines.launch
 /**
  * Paramètres de lancement facultatifs, utilisés par les captures d'écran automatiques :
  * `demo` (base d'exemple séparée), `style` (GLASS ou CLASSIC, sans enregistrer le choix)
- * et `tab` (HOME, ENVELOPES ou OPERATIONS).
+ * `tab` (HOME, ENVELOPES ou OPERATIONS) et `dialog` (BANK).
  */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -39,6 +40,8 @@ class MainActivity : ComponentActivity() {
         val forcedStyle = intent.getStringExtra(EXTRA_STYLE)?.let { name -> UiStyle.entries.firstOrNull { it.name == name } }
         val initialTab = intent.getStringExtra(EXTRA_TAB)?.let { name -> Tab.entries.firstOrNull { it.name == name } }
             ?: Tab.HOME
+        // Seule fenêtre ouvrable au lancement, pour les captures : la connexion bancaire.
+        val initialDialog = if (intent.getStringExtra(EXTRA_DIALOG) == "BANK") OpenDialog.Bank else null
         val settings = container.settingsRepository
 
         setContent {
@@ -63,10 +66,10 @@ class MainActivity : ComponentActivity() {
                 // Premier instant, avant la lecture du réglage : rien à afficher.
                 null -> Unit
                 UiStyle.GLASS -> GlassTheme {
-                    GlassMainScreen(budgetViewModel, updateViewModel, onStyleChange, initialTab)
+                    GlassMainScreen(budgetViewModel, updateViewModel, onStyleChange, initialTab, initialDialog)
                 }
                 UiStyle.CLASSIC -> BankTheme {
-                    ClassicMainScreen(budgetViewModel, updateViewModel, onStyleChange, initialTab)
+                    ClassicMainScreen(budgetViewModel, updateViewModel, onStyleChange, initialTab, initialDialog)
                 }
             }
         }
@@ -76,5 +79,6 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_DEMO = "demo"
         const val EXTRA_STYLE = "style"
         const val EXTRA_TAB = "tab"
+        const val EXTRA_DIALOG = "dialog"
     }
 }

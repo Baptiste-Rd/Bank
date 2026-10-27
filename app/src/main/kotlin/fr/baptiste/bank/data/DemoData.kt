@@ -1,5 +1,6 @@
 package fr.baptiste.bank.data
 
+import fr.baptiste.bank.domain.bank.BankOperation
 import fr.baptiste.bank.domain.model.Envelope
 import fr.baptiste.bank.domain.model.EnvelopeType
 import fr.baptiste.bank.domain.money.Money
@@ -66,5 +67,22 @@ object DemoData {
         spend("Sorties", 20, 3650L, "Restaurant")
         spend("Projets", 5, 10000L, "Vélo")
         spend("Coiffeur", maxOf(1, today.dayOfMonth - 10), 3000L)
+
+        // Opérations « reçues de la banque », passées par le vrai chemin d'import :
+        // la boulangerie du jour est rapprochée de la saisie manuelle (même montant, même date)
+        // et reprend son enveloppe ; les trois autres attendent d'être triées.
+        val short = today.format(java.time.format.DateTimeFormatter.ofPattern("ddMM"))
+        val yesterday = today.withDayOfMonth(maxOf(1, today.dayOfMonth - 1))
+        repository.importBankOperations(
+            accountUid = "demo",
+            accountName = "Compte courant ••1234",
+            ibanSuffix = "1234",
+            operations = listOf(
+                BankOperation("demo-1", today, -1240, "PAIEMENT CB $short PARIS BOULANGERIE PAUL CARTE 4970XXXXXXXX1234"),
+                BankOperation("demo-2", yesterday, -4520, "PAIEMENT CB $short PARIS CARREFOUR CITY CARTE 4970XXXXXXXX1234"),
+                BankOperation("demo-3", yesterday, -1999, "PRLV SEPA FREE MOBILE"),
+                BankOperation("demo-4", today.withDayOfMonth(1), 240000, "VIR SEPA RECU DE SOCIETE EXEMPLE SALAIRE"),
+            ),
+        )
     }
 }

@@ -17,7 +17,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import fr.baptiste.bank.R
+import fr.baptiste.bank.banking.BankViewModel
+import fr.baptiste.bank.data.local.OperationRow
 import fr.baptiste.bank.data.UiStyle
 import fr.baptiste.bank.domain.budget.TransferLeg
 import fr.baptiste.bank.domain.budget.coveragePlan
@@ -26,7 +29,9 @@ import fr.baptiste.bank.domain.money.Money
 import fr.baptiste.bank.ui.components.EnvelopeDialog
 import fr.baptiste.bank.ui.components.ExpenseSheet
 import fr.baptiste.bank.ui.components.IncomeDialog
+import fr.baptiste.bank.ui.bank.BankDialog
 import fr.baptiste.bank.ui.format.formatted
+import fr.baptiste.bank.ui.operations.SortOperationDialog
 import fr.baptiste.bank.ui.transfers.CoverDialog
 import fr.baptiste.bank.ui.transfers.EnvelopeSheet
 import fr.baptiste.bank.ui.transfers.JournalDialog
@@ -55,6 +60,8 @@ sealed interface OpenDialog {
     data object Updates : OpenDialog
     data object Journal : OpenDialog
     data class EnvelopeEditor(val envelope: Envelope?) : OpenDialog
+    data object Bank : OpenDialog
+    data class SortOperation(val operation: OperationRow) : OpenDialog
 
     /** Les fenêtres liées à une enveloppe gardent son identifiant, pas sa ligne : elles suivent ainsi
      *  les derniers chiffres du tableau de bord pendant qu'elles sont ouvertes. */
@@ -95,11 +102,11 @@ class AppController(
 }
 
 @Composable
-fun rememberAppController(initialTab: Tab = Tab.HOME): AppController {
+fun rememberAppController(initialTab: Tab = Tab.HOME, initialDialog: OpenDialog? = null): AppController {
     var savedTab by rememberSaveable { mutableStateOf(initialTab) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    val controller = remember { AppController(savedTab, snackbar, scope) }
+    val controller = remember { AppController(savedTab, snackbar, scope).also { it.dialog = initialDialog } }
     LaunchedEffect(controller.tab) { savedTab = controller.tab }
     return controller
 }
@@ -120,6 +127,13 @@ fun AppMenuItems(
         onClick = {
             onClose()
             controller.dialog = OpenDialog.Income
+        },
+    )
+    DropdownMenuItem(
+        text = { Text("Banque") },
+        onClick = {
+            onClose()
+            controller.dialog = OpenDialog.Bank
         },
     )
     DropdownMenuItem(
@@ -164,6 +178,17 @@ fun AppDialogs(
     val income by viewModel.monthlyIncome.collectAsStateWithLifecycle()
     val journal by viewModel.transferJournal.collectAsStateWithLifecycle()
 
+    // Connexion bancaire : synchronisation discrète à l'ouverture, et son compte rendu en bas de l'écran.
+    val bankViewModel: BankViewModel = viewModel(factory = BankViewModel.Factory)
+    val bankMessage by bankViewModel.message.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { bankViewModel.syncIfDue() }
+    LaunchedEffect(bankMessage) {
+        bankMessage?.let {
+            controller.notify(it)
+            bankViewModel.messageShown()
+        }
+    }
+
     fun close() {
         controller.dialog = null
     }
@@ -194,6 +219,28 @@ fun AppDialogs(
             },
         )
         OpenDialog.Updates -> UpdateDialog(viewModel = updateViewModel, onDismiss = ::close)
+        OpenDialog.Bank -> BankDialog(viewModel = bankViewModel, onDismiss = ::close)
+        is OpenDialog.SortOperation -> SortOperationDialog(
+            operation = current.operation,
+            envelopes = envelopes,
+            onSort = { envelope, keyword ->
+                viewModel.sortOperation(current.operation.id, envelope, keyword) { others ->
+                    controller.notify(
+                        buildString {
+                            append("Rangée dans ${envelope.name}.")
+                            if (others > 0) append(" La règle a rangé $others autre(s) opération(s).")
+                        },
+                    )
+                }
+                close()
+            },
+            onIgnore = {
+                viewModel.ignoreOperation(current.operation.id)
+                controller.notify("Opération mise hors budget.")
+                close()
+            },
+            onDismiss = ::close,
+        )
         OpenDialog.Journal -> JournalDialog(
             transfers = journal,
             onDismiss = ::close,

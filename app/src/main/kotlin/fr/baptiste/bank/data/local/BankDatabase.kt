@@ -18,7 +18,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TransferEntity::class,
         RuleEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -29,12 +29,13 @@ abstract class BankDatabase : RoomDatabase() {
     abstract fun imputationDao(): ImputationDao
     abstract fun transactionDao(): TransactionDao
     abstract fun transferDao(): TransferDao
+    abstract fun ruleDao(): RuleDao
 
     companion object {
         /** [name] permet au mode démo d'utiliser une base séparée, sans toucher aux vraies données. */
         fun create(context: Context, name: String = "bank.db"): BankDatabase =
             Room.databaseBuilder(context, BankDatabase::class.java, name)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build()
     }
 }
@@ -54,5 +55,13 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE envelope ADD COLUMN every INTEGER NOT NULL DEFAULT 1")
         db.execSQL("ALTER TABLE envelope ADD COLUMN anchor_date INTEGER")
+    }
+}
+
+/** Version 4 : synchronisation bancaire (compte lié à l'agrégateur, opérations hors budget). */
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE account ADD COLUMN external_uid TEXT")
+        db.execSQL("ALTER TABLE transaction_record ADD COLUMN ignored INTEGER NOT NULL DEFAULT 0")
     }
 }

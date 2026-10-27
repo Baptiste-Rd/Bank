@@ -40,8 +40,9 @@ fun ClassicMainScreen(
     updateViewModel: UpdateViewModel,
     onStyleChange: (UiStyle) -> Unit,
     initialTab: Tab = Tab.HOME,
+    initialDialog: OpenDialog? = null,
 ) {
-    val controller = rememberAppController(initialTab)
+    val controller = rememberAppController(initialTab, initialDialog)
     var menuOpen by remember { mutableStateOf(false) }
 
     val dashboard by viewModel.dashboard.collectAsStateWithLifecycle()
@@ -122,6 +123,7 @@ fun ClassicMainScreen(
             Tab.OPERATIONS -> OperationsTab(
                 operations = operations,
                 onDelete = viewModel::deleteExpense,
+                onSort = { controller.dialog = OpenDialog.SortOperation(it) },
                 modifier = modifier,
             )
         }

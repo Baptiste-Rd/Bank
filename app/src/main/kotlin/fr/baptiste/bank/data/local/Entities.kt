@@ -24,6 +24,8 @@ data class AccountEntity(
     val type: AccountType,
     /** Derniers chiffres de l'IBAN, pour reconnaître les virements internes. */
     @ColumnInfo(name = "iban_suffix") val ibanSuffix: String? = null,
+    /** Identifiant du compte chez l'agrégateur bancaire (Enable Banking), s'il est synchronisé. */
+    @ColumnInfo(name = "external_uid") val externalUid: String? = null,
 )
 
 @Entity(
@@ -56,6 +58,8 @@ data class TransactionEntity(
     val source: TransactionSource,
     /** Saisie manuelle remplacée par cette opération bancaire lors d'un rapprochement. */
     @ColumnInfo(name = "reconciled_with_id") val reconciledWithId: Long? = null,
+    /** Hors budget : l'opération est vue mais rangée nulle part (salaire, virement entre comptes...). */
+    @ColumnInfo(defaultValue = "0") val ignored: Boolean = false,
 )
 
 @Entity(tableName = "envelope")

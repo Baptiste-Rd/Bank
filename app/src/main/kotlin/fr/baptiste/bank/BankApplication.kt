@@ -1,6 +1,8 @@
 package fr.baptiste.bank
 
 import android.app.Application
+import fr.baptiste.bank.banking.BankSyncRepository
+import fr.baptiste.bank.banking.KeyVault
 import fr.baptiste.bank.data.BudgetRepository
 import fr.baptiste.bank.data.SettingsRepository
 import fr.baptiste.bank.data.local.BankDatabase
@@ -43,6 +45,18 @@ class AppContainer(application: Application) {
         SettingsRepository(application, if (isDemo) "settings_demo" else "settings")
     }
     val budgetRepository: BudgetRepository by lazy { BudgetRepository(database, settingsRepository) }
+    /**
+     * Connexion bancaire. En mode démo, réglages et clé vont dans des fichiers à part : la démo
+     * ne voit jamais la vraie connexion, et inversement.
+     */
+    val bankSyncRepository: BankSyncRepository? by lazy {
+        BankSyncRepository(
+            context = application,
+            budget = budgetRepository,
+            vault = KeyVault(application, if (isDemo) "enable_banking_key_demo.bin" else "enable_banking_key.bin"),
+            storeName = if (isDemo) "bank_demo" else "bank",
+        )
+    }
     val updateRepository: UpdateRepository by lazy { UpdateRepository(BuildConfig.UPDATE_REPOSITORY) }
     val apkInstaller: ApkInstaller by lazy { ApkInstaller(application) }
 }

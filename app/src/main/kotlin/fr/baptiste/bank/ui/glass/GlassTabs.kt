@@ -389,9 +389,13 @@ fun GlassEnvelopesContent(
 fun GlassOperationsContent(
     operations: List<OperationRow>,
     envelopes: List<Envelope>,
+    unsortedCount: Int,
     onDelete: (Long) -> Unit,
+    onSort: (OperationRow) -> Unit,
+    onOpenBank: () -> Unit,
 ) {
     var pendingDelete by remember { mutableStateOf<OperationRow?>(null) }
+    val toSortColor = BankTheme.status.warning
     val today = LocalDate.now()
     val typeByName = remember(envelopes) { envelopes.associate { it.name to it.type } }
 
@@ -406,8 +410,30 @@ fun GlassOperationsContent(
                 GlassCard(strong = true) {
                     Text("Aucune opération", style = MaterialTheme.typography.titleLarge)
                     Text(
-                        "Les dépenses que tu saisis apparaissent ici, puis celles de ta banque une fois l'import en place.",
+                        "Les dépenses que tu saisis apparaissent ici, ainsi que celles de ta banque une fois connectée.",
                         style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    TextButton(onClick = onOpenBank) { Text("Connecter ma banque") }
+                }
+            }
+        }
+        // Ce qui attend une décision passe avant la liste : tant qu'elle n'est pas rangée, une
+        // opération de la banque ne compte dans aucun budget.
+        if (unsortedCount > 0) {
+            item(key = "to-sort") {
+                GlassCard(contentPadding = 16.dp) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.padding(end = 10.dp).size(10.dp).clip(CircleShape).background(toSortColor))
+                        Text(
+                            if (unsortedCount > 1) "$unsortedCount opérations à trier" else "1 opération à trier",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                    }
+                    Text(
+                        "Touche une opération marquée « À trier » pour la ranger dans une enveloppe ou la mettre " +
+                            "hors budget. Tant qu'elle n'est pas rangée, elle ne compte dans aucun budget.",
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -420,14 +446,17 @@ fun GlassOperationsContent(
                     dayOperations.forEachIndexed { index, operation ->
                         if (index > 0) RowGap()
                         val firstEnvelope = operation.envelopeNames?.split(", ")?.firstOrNull()
+                        val toSort = operation.envelopeNames == null && !operation.ignored
                         GlassOperationRow(
                             operation = operation,
                             color = firstEnvelope?.let { typeByName[it] }?.let(::envelopeTypeColor)
-                                ?: MaterialTheme.colorScheme.onSurfaceVariant,
+                                ?: if (toSort) toSortColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                            // Saisie à la main : la toucher propose de la supprimer.
+                            // Opération de la banque : la toucher permet de la ranger ou de la reclasser.
                             onClick = if (operation.source == TransactionSource.MANUAL) {
                                 { pendingDelete = operation }
                             } else {
-                                null
+                                { onSort(operation) }
                             },
                         )
                     }
@@ -456,14 +485,14 @@ fun GlassOperationsContent(
 }
 
 /**
- * Une opération : pastille de la catégorie, libellé et enveloppe, montant. Une dépense saisie à la
- * main se supprime en la touchant (une confirmation est demandée) ; il n'y a donc plus d'icône
- * de corbeille sur chaque ligne.
+ * Une opération : pastille de la catégorie (ambre « ? » si elle est à trier), libellé et enveloppe,
+ * montant. La toucher supprime une saisie manuelle (après confirmation) ou range une opération de
+ * la banque ; il n'y a donc pas d'icône sur chaque ligne.
  */
 @Composable
 private fun GlassOperationRow(operation: OperationRow, color: Color, onClick: (() -> Unit)?) {
     val details = buildList {
-        add(operation.envelopeNames ?: "À trier")
+        add(operation.envelopeNames ?: if (operation.ignored) "Hors budget" else "À trier")
         if (operation.wholePeriod) {
             val period = operation.periodKey?.let { runCatching { Period.parse(it) }.getOrNull() }
             add(if (period != null) "rattrapage ${period.label}" else "rattrapage")
@@ -476,13 +505,18 @@ private fun GlassOperationRow(operation: OperationRow, color: Color, onClick: ((
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .then(
-                if (onClick != null) Modifier.clickable(onClickLabel = "Supprimer", onClick = onClick) else Modifier,
+                if (onClick != null) {
+                    val action = if (operation.source == TransactionSource.MANUAL) "Supprimer" else "Ranger"
+                    Modifier.clickable(onClickLabel = action, onClick = onClick)
+                } else {
+                    Modifier
+                },
             )
             .padding(horizontal = 4.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        CategoryAvatar(operation.envelopeNames ?: "?", color)
+        CategoryAvatar(operation.envelopeNames ?: if (operation.ignored) "–" else "?", color)
         Column(modifier = Modifier.weight(1f)) {
             Text(operation.label, style = MaterialTheme.typography.bodyLarge)
             Text(

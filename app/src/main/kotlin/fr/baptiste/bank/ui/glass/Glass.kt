@@ -35,11 +35,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
@@ -118,10 +121,10 @@ object Glass {
     val Floating = Color.White.copy(alpha = 0.10f)
 
     /**
-     * Barre d'onglets : avec un flou léger, le contenu reste net dessous ; un voile bleu nuit
-     * garde les libellés blancs lisibles (contraste supérieur à 7:1 sur une carte qui passe dessous).
+     * Ombre portée des icônes et libellés posés sur du verre clair : elle les garde lisibles quand
+     * un contenu clair passe dessous, sans assombrir le verre (c'est ce que fait iOS).
      */
-    val Bar = Color(0xFF1A2A55).copy(alpha = 0.50f)
+    val LabelShadow = Shadow(color = Color.Black.copy(alpha = 0.55f), offset = Offset(0f, 1f), blurRadius = 6f)
     val Indicator = Color.White.copy(alpha = 0.12f)
 
     /** Bouton principal : verre teinté de bleu, texte blanc (contraste 5,2:1 sur le bleu pur). */
@@ -197,7 +200,9 @@ private class GlassOptics(
  * léger y garde des contours nets, et l'irisation suit alors le contenu en mouvement.
  */
 private val CardOptics = GlassOptics(blur = 12.dp, refractionHeight = 14.dp, refractionAmount = 28.dp)
-private val BarOptics = GlassOptics(blur = 3.dp, refractionHeight = 22.dp, refractionAmount = 32.dp)
+// La barre reprend exactement le verre du bouton ⋮ : même flou, même déviation, et une bande
+// de réfraction au même tiers de la hauteur (16 dp pour 48 dp, 21 dp pour 64 dp).
+private val BarOptics = GlassOptics(blur = 2.dp, refractionHeight = 21.dp, refractionAmount = 28.dp)
 private val ButtonOptics = GlassOptics(blur = 2.dp, refractionHeight = 16.dp, refractionAmount = 28.dp)
 
 /**
@@ -356,7 +361,7 @@ fun GlassTabBar(
             Modifier
                 .matchParentSize()
                 .layerBackdrop(barBackdrop)
-                .glass(backdrop, Glass.Bar, BarOptics),
+                .glass(backdrop, Glass.Floating, BarOptics),
         )
         // 2. Indicateur.
         BoxWithConstraints(Modifier.matchParentSize().padding(4.dp)) {
@@ -407,8 +412,17 @@ private fun RowScope.GlassTab(item: GlassTabItem, selected: Boolean, onClick: ()
         verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(item.icon, contentDescription = null, tint = color, modifier = Modifier.size(24.dp))
-        Text(item.title, color = color, style = MaterialTheme.typography.labelSmall)
+        Box {
+            // L'ombre de l'icône : la même icône, floutée et noire, juste dessous.
+            Icon(
+                item.icon,
+                contentDescription = null,
+                tint = Glass.LabelShadow.color,
+                modifier = Modifier.size(24.dp).offset(y = 1.dp).blur(3.dp, BlurredEdgeTreatment.Unbounded),
+            )
+            Icon(item.icon, contentDescription = null, tint = color, modifier = Modifier.size(24.dp))
+        }
+        Text(item.title, color = color, style = MaterialTheme.typography.labelSmall.copy(shadow = Glass.LabelShadow))
     }
 }
 

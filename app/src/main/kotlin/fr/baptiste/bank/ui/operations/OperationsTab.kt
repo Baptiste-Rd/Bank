@@ -1,6 +1,7 @@
 package fr.baptiste.bank.ui.operations
 
 import fr.baptiste.bank.ui.components.BlurBehindWindow
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -51,6 +52,7 @@ internal fun dayTitle(date: LocalDate, today: LocalDate): String = when (date) {
 fun OperationsTab(
     operations: List<OperationRow>,
     onDelete: (Long) -> Unit,
+    onSort: (OperationRow) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var pendingDelete by remember { mutableStateOf<OperationRow?>(null) }
@@ -93,7 +95,7 @@ fun OperationsTab(
                 }
             }
             items(dayOperations, key = { it.id }) { operation ->
-                OperationItem(operation, onDelete = { pendingDelete = operation })
+                OperationItem(operation, onDelete = { pendingDelete = operation }, onSort = { onSort(operation) })
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
         }
@@ -119,10 +121,10 @@ fun OperationsTab(
 }
 
 @Composable
-internal fun OperationItem(operation: OperationRow, onDelete: () -> Unit) {
+internal fun OperationItem(operation: OperationRow, onDelete: () -> Unit, onSort: () -> Unit = {}) {
     val manual = operation.source == TransactionSource.MANUAL
     val details = buildList {
-        add(operation.envelopeNames ?: "À trier")
+        add(operation.envelopeNames ?: if (operation.ignored) "Hors budget" else "À trier")
         if (operation.wholePeriod) {
             val period = operation.periodKey?.let { runCatching { Period.parse(it) }.getOrNull() }
             add(if (period != null) "rattrapage ${period.label}" else "rattrapage")
@@ -131,7 +133,11 @@ internal fun OperationItem(operation: OperationRow, onDelete: () -> Unit) {
         }
     }
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+        // Une opération de la banque se range (ou se reclasse) en la touchant.
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (manual) Modifier else Modifier.clickable(onClickLabel = "Ranger", onClick = onSort))
+            .padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
