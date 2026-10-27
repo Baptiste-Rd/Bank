@@ -4,6 +4,7 @@ import fr.baptiste.bank.domain.model.Envelope
 import fr.baptiste.bank.domain.model.EnvelopeStatus
 import fr.baptiste.bank.domain.model.EnvelopeType
 import fr.baptiste.bank.domain.money.Money
+import fr.baptiste.bank.domain.period.Frequency
 import fr.baptiste.bank.domain.period.Scale
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -20,7 +21,7 @@ class DailyBudgetTest {
         id = 0,
         name = type.name,
         type = type,
-        scale = scale,
+        frequency = Frequency(1, scale),
         amount = Money.euros(euros),
         status = EnvelopeStatus.FLEXIBLE,
         archived = archived,

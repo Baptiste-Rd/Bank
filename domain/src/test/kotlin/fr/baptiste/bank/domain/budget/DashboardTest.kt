@@ -3,6 +3,7 @@ package fr.baptiste.bank.domain.budget
 import fr.baptiste.bank.domain.model.Envelope
 import fr.baptiste.bank.domain.model.EnvelopeType
 import fr.baptiste.bank.domain.money.Money
+import fr.baptiste.bank.domain.period.Frequency
 import fr.baptiste.bank.domain.period.Scale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -13,12 +14,12 @@ class DashboardTest {
 
     private val today = LocalDate.of(2026, 10, 18)
 
-    private fun envelope(id: Long, type: EnvelopeType, euros: Long, scale: Scale = type.defaultScale) =
+    private fun envelope(id: Long, type: EnvelopeType, euros: Long, frequency: Frequency = type.defaultFrequency) =
         Envelope(
             id = id,
             name = "E$id",
             type = type,
-            scale = scale,
+            frequency = frequency,
             amount = Money.euros(euros),
             status = type.defaultStatus,
         )

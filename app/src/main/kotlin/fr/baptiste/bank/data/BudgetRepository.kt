@@ -16,8 +16,11 @@ import fr.baptiste.bank.domain.model.Envelope
 import fr.baptiste.bank.domain.model.ImputationMode
 import fr.baptiste.bank.domain.model.TransactionSource
 import fr.baptiste.bank.domain.money.Money
+import fr.baptiste.bank.domain.period.Frequency
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 
@@ -39,14 +42,19 @@ class BudgetRepository(
     val monthlyIncome: Flow<Money?> = settings.monthlyIncome
 
     /** Tableau de bord recalculé à chaque changement d'enveloppe, de dépense, d'allocation ou de salaire. */
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun dashboard(today: LocalDate = LocalDate.now()): Flow<Dashboard> {
-        val range = dashboardDateRange(today)
-        val spendings = imputationDao.observeSpendings(range.start, range.endInclusive)
-            .map { rows -> rows.map { Spending(it.envelopeId, it.date, Money(it.amountCents), it.wholePeriod) } }
         val allocations = database.allocationDao().observeAll()
             .map { rows -> rows.associate { (it.envelopeId to it.periodKey) to Money(it.amountCents) } }
-        return combine(envelopes, allocations, spendings, settings.monthlyIncome) { envelopes, allocs, spent, income ->
-            computeDashboard(envelopes, allocs, spent, income, today)
+        // La plage de dépenses à charger dépend des périodes des enveloppes (une période de
+        // 3 mois peut commencer avant l'année en cours) : elle est recalculée quand elles changent.
+        return envelopes.flatMapLatest { envelopes ->
+            val range = dashboardDateRange(today, envelopes)
+            val spendings = imputationDao.observeSpendings(range.start, range.endInclusive)
+                .map { rows -> rows.map { Spending(it.envelopeId, it.date, Money(it.amountCents), it.wholePeriod) } }
+            combine(allocations, spendings, settings.monthlyIncome) { allocs, spent, income ->
+                computeDashboard(envelopes, allocs, spent, income, today)
+            }
         }
     }
 
@@ -95,7 +103,7 @@ class BudgetRepository(
                 ImputationEntity(
                     transactionId = transactionId,
                     envelopeId = envelope.id,
-                    periodKey = envelope.scale.periodContaining(date).key,
+                    periodKey = envelope.periodContaining(date).key,
                     amountCents = amount.cents,
                     mode = ImputationMode.MANUAL,
                     wholePeriod = wholePeriod,
@@ -124,22 +132,25 @@ private fun EnvelopeEntity.toDomain() = Envelope(
     id = id,
     name = name,
     type = type,
-    scale = scale,
+    frequency = Frequency(every, scale),
     amount = Money(amountCents),
     status = status,
     priority = priority,
     carryOver = carryOver,
     archived = archived,
+    anchor = anchorDate,
 )
 
 private fun Envelope.toEntity() = EnvelopeEntity(
     id = id,
     name = name,
     type = type,
-    scale = scale,
+    scale = frequency.scale,
     amountCents = amount.cents,
     status = status,
     priority = priority,
     carryOver = carryOver,
     archived = archived,
+    every = frequency.every,
+    anchorDate = anchor,
 )

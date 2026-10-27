@@ -18,7 +18,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TransferEntity::class,
         RuleEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -32,7 +32,7 @@ abstract class BankDatabase : RoomDatabase() {
     companion object {
         fun create(context: Context): BankDatabase =
             Room.databaseBuilder(context, BankDatabase::class.java, "bank.db")
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
     }
 }
@@ -44,5 +44,13 @@ abstract class BankDatabase : RoomDatabase() {
 val MIGRATION_1_2 = object : Migration(1, 2) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE imputation ADD COLUMN whole_period INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+/** Version 3 : fréquence personnalisée des enveloppes (tous les N jours, semaines, mois, ans). */
+val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE envelope ADD COLUMN every INTEGER NOT NULL DEFAULT 1")
+        db.execSQL("ALTER TABLE envelope ADD COLUMN anchor_date INTEGER")
     }
 }

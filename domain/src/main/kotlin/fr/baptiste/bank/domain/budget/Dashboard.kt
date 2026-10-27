@@ -5,6 +5,7 @@ import fr.baptiste.bank.domain.model.EnvelopeType
 import fr.baptiste.bank.domain.money.Money
 import fr.baptiste.bank.domain.money.sumOfMoney
 import fr.baptiste.bank.domain.period.Period
+import fr.baptiste.bank.domain.period.Frequency
 import fr.baptiste.bank.domain.period.Scale
 import java.time.LocalDate
 
@@ -86,7 +87,7 @@ fun computeDashboard(
     val spendingsByEnvelope = spendings.groupBy { it.envelopeId }
 
     val lines = active.map { envelope ->
-        val period = envelope.scale.periodContaining(today)
+        val period = envelope.periodContaining(today)
         val available = allocations[envelope.id to period.key] ?: envelope.amount
         val inPeriod = spendingsByEnvelope[envelope.id].orEmpty().filter { it.date in period }
         val spent = inPeriod.sumOfMoney { it.amount }
@@ -102,7 +103,7 @@ fun computeDashboard(
     }
 
     val dailyLines = lines.filter { it.envelope.type == EnvelopeType.DAILY }
-    val dailyBudget = dailyLines.sumOfMoney { it.available.convert(it.envelope.scale, Scale.MONTH) }
+    val dailyBudget = dailyLines.sumOfMoney { it.available.convert(it.envelope.frequency, Frequency.MONTHLY) }
     val month = Scale.MONTH.periodContaining(today)
     val dailyIds = dailyLines.map { it.envelope.id }.toSet()
     val dailyThisMonth = spendings.filter { it.envelopeId in dailyIds && it.date in month }
@@ -144,9 +145,12 @@ fun computeDashboard(
     )
 }
 
-/** Plage de dates à charger pour que [computeDashboard] dispose de toutes les dépenses utiles. */
-fun dashboardDateRange(today: LocalDate): ClosedRange<LocalDate> {
-    val year = Scale.YEAR.periodContaining(today)
-    val week = Scale.WEEK.periodContaining(today)
-    return minOf(year.start, week.start)..maxOf(year.endInclusive, week.endInclusive)
+/**
+ * Plage de dates à charger pour que [computeDashboard] dispose de toutes les dépenses utiles :
+ * la période en cours de chaque enveloppe, et au minimum l'année et la semaine en cours.
+ */
+fun dashboardDateRange(today: LocalDate, envelopes: List<Envelope> = emptyList()): ClosedRange<LocalDate> {
+    val periods = envelopes.map { it.periodContaining(today) } +
+        Scale.YEAR.periodContaining(today) + Scale.WEEK.periodContaining(today)
+    return periods.minOf { it.start }..periods.maxOf { it.endInclusive }
 }

@@ -1,7 +1,10 @@
 package fr.baptiste.bank.domain.model
 
 import fr.baptiste.bank.domain.money.Money
+import fr.baptiste.bank.domain.period.Frequency
+import fr.baptiste.bank.domain.period.Period
 import fr.baptiste.bank.domain.period.Scale
+import java.time.LocalDate
 
 /** Nature d'une enveloppe : détermine comment elle entre dans le calcul du budget quotidien. */
 enum class EnvelopeType {
@@ -28,11 +31,11 @@ enum class EnvelopeType {
             DAILY, RECURRING, ANNUAL -> EnvelopeStatus.FLEXIBLE
         }
 
-    /** Échelle proposée à la création. */
-    val defaultScale: Scale
+    /** Fréquence proposée à la création. */
+    val defaultFrequency: Frequency
         get() = when (this) {
-            DAILY, FIXED, SAVINGS -> Scale.MONTH
-            RECURRING, ANNUAL -> Scale.YEAR
+            DAILY, FIXED, SAVINGS -> Frequency.MONTHLY
+            RECURRING, ANNUAL -> Frequency.YEARLY
         }
 }
 
@@ -42,16 +45,16 @@ enum class EnvelopeStatus { FLEXIBLE, PROTECTED }
 /**
  * Enveloppe budgétaire.
  *
- * [amount] est exprimé à l'échelle naturelle [scale] : 180 € par an pour le coiffeur,
- * 300 € par mois pour la nourriture. Le montant réellement alloué pour une période
- * donnée est stocké à part (allocation), ce qui permet de modifier le mois en cours
- * sans réécrire le passé.
+ * [amount] est exprimé pour une période de [frequency] : 300 € par mois pour les courses,
+ * 30 € toutes les 6 semaines pour le coiffeur. Le montant réellement alloué pour une
+ * période donnée est stocké à part (allocation), ce qui permet de modifier la période en
+ * cours sans réécrire le passé.
  */
 data class Envelope(
     val id: Long,
     val name: String,
     val type: EnvelopeType,
-    val scale: Scale,
+    val frequency: Frequency,
     val amount: Money,
     val status: EnvelopeStatus,
     /** Ordre de prélèvement parmi les enveloppes flexibles : la plus petite valeur est sollicitée en premier. */
@@ -59,4 +62,20 @@ data class Envelope(
     /** Reliquat de fin de période reporté sur la période suivante (sinon renvoyé au portefeuille). */
     val carryOver: Boolean = false,
     val archived: Boolean = false,
-)
+    /**
+     * Début d'une des périodes, pour une fréquence glissante (tous les 6 semaines...).
+     * Ignoré pour une fréquence calendaire (mois civil, année civile, semaine ISO).
+     */
+    val anchor: LocalDate? = null,
+) {
+    val scale: Scale get() = frequency.scale
+
+    /** Période de cette enveloppe qui contient [date]. */
+    fun periodContaining(date: LocalDate): Period =
+        frequency.periodContaining(date, anchor ?: DEFAULT_ANCHOR)
+
+    private companion object {
+        /** Ancre de secours, stable, pour une enveloppe glissante créée sans date de départ. */
+        val DEFAULT_ANCHOR: LocalDate = LocalDate.of(2026, 1, 5)
+    }
+}

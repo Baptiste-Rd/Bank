@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.dp
 import fr.baptiste.bank.domain.model.Envelope
 import fr.baptiste.bank.domain.money.Money
 import fr.baptiste.bank.domain.money.parseMoney
-import fr.baptiste.bank.domain.period.Scale
+import fr.baptiste.bank.domain.period.Period
 import fr.baptiste.bank.ui.format.formatted
 import fr.baptiste.bank.ui.format.label
 import java.time.LocalDate
@@ -146,12 +146,12 @@ fun ExpenseSheet(
                 FilterChip(
                     selected = whenChoice == When.WholePeriod,
                     onClick = { whenChoice = When.WholePeriod },
-                    label = { Text(wholePeriodLabel(envelope?.scale ?: Scale.MONTH)) },
+                    label = { Text(wholePeriodLabel(envelope?.periodContaining(today))) },
                 )
             }
             if (whenChoice == When.WholePeriod && envelope != null) {
                 Text(
-                    "Rattrapage : compté comme déjà dépensé sur ${envelope.scale.periodContaining(today).label}, " +
+                    "Rattrapage : compté comme déjà dépensé sur ${envelope.periodContaining(today).label}, " +
                         "sans réduire ce que tu peux dépenser aujourd'hui.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -196,10 +196,11 @@ fun ExpenseSheet(
     }
 }
 
-private fun wholePeriodLabel(scale: Scale): String = when (scale) {
-    Scale.WEEK -> "Toute la semaine"
-    Scale.MONTH -> "Tout le mois"
-    Scale.YEAR -> "Toute l'année"
+private fun wholePeriodLabel(period: Period?): String = when (period) {
+    is Period.Month, null -> "Tout le mois"
+    is Period.Week -> "Toute la semaine"
+    is Period.Year -> "Toute l'année"
+    is Period.Span -> "Toute la période"
 }
 
 @OptIn(ExperimentalLayoutApi::class)

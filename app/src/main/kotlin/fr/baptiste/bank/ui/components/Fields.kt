@@ -69,7 +69,7 @@ fun <T> ChoiceField(
 ) {
     var expanded by remember { mutableStateOf(false) }
     Column(modifier = modifier.fillMaxWidth()) {
-        Text(label, style = MaterialTheme.typography.labelMedium)
+        if (label.isNotBlank()) Text(label, style = MaterialTheme.typography.labelMedium)
         Box {
             OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
                 Text(selected?.let(optionLabel) ?: "Choisir…")

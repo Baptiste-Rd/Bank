@@ -11,21 +11,74 @@ import java.time.temporal.TemporalAdjusters
  * Échelle de temps d'une enveloppe ou d'une vue.
  * [periodsPerYear] sert aux conversions d'un montant d'une échelle à l'autre.
  */
-enum class Scale(val periodsPerYear: Long) {
-    WEEK(52),
-    MONTH(12),
-    YEAR(1);
+enum class Scale(val periodsPerYear: Long, internal val letter: Char) {
+    DAY(365, 'D'),
+    WEEK(52, 'W'),
+    MONTH(12, 'M'),
+    YEAR(1, 'Y');
 
     fun periodContaining(date: LocalDate): Period = when (this) {
+        DAY -> Period.Span(date, date, Frequency(1, DAY))
         WEEK -> Period.Week.of(date)
         MONTH -> Period.Month(YearMonth.from(date))
         YEAR -> Period.Year(date.year)
     }
+
+    /** Ajoute [count] unités de cette échelle à une date. */
+    fun add(date: LocalDate, count: Long): LocalDate = when (this) {
+        DAY -> date.plusDays(count)
+        WEEK -> date.plusWeeks(count)
+        MONTH -> date.plusMonths(count)
+        YEAR -> date.plusYears(count)
+    }
 }
 
 /**
- * Période calendaire concrète, identifiée par une clé textuelle stable :
- * "2026-10" (mois), "2026" (année), "2026-W43" (semaine ISO).
+ * Fréquence d'une enveloppe : « tous les [every] [scale] », par exemple tous les 6 semaines.
+ *
+ * Avec every = 1 et une échelle semaine, mois ou an, les périodes suivent le calendrier
+ * (semaine ISO, mois civil, année civile). Sinon, elles sont glissantes : elles s'enchaînent
+ * à partir d'une date de départ (l'ancre), sans lien avec le calendrier.
+ */
+data class Frequency(val every: Int, val scale: Scale) {
+    init {
+        require(every >= 1) { "Une fréquence porte sur au moins une unité : $every" }
+    }
+
+    val isCalendar: Boolean get() = every == 1 && scale != Scale.DAY
+
+    /**
+     * Période qui contient [date]. [anchor] fixe le début d'une période glissante ;
+     * il est ignoré pour une période calendaire.
+     */
+    fun periodContaining(date: LocalDate, anchor: LocalDate): Period {
+        if (isCalendar || (every == 1 && scale == Scale.DAY)) return scale.periodContaining(date)
+        // Chaque début est recalculé depuis l'ancre (et non depuis le début précédent) :
+        // une ancre au 31 donne bien 31 janvier, 28 février, 31 mars...
+        var index = when (scale) {
+            Scale.DAY -> Math.floorDiv(ChronoUnit.DAYS.between(anchor, date), every.toLong())
+            Scale.WEEK -> Math.floorDiv(ChronoUnit.DAYS.between(anchor, date), 7L * every)
+            Scale.MONTH -> Math.floorDiv(ChronoUnit.MONTHS.between(anchor, date), every.toLong())
+            Scale.YEAR -> Math.floorDiv(ChronoUnit.YEARS.between(anchor, date), every.toLong())
+        }
+        while (startOf(anchor, index) > date) index--
+        while (startOf(anchor, index + 1) <= date) index++
+        return Period.Span(startOf(anchor, index), startOf(anchor, index + 1).minusDays(1), this)
+    }
+
+    private fun startOf(anchor: LocalDate, index: Long): LocalDate = scale.add(anchor, index * every)
+
+    companion object {
+        val MONTHLY = Frequency(1, Scale.MONTH)
+        val YEARLY = Frequency(1, Scale.YEAR)
+        val WEEKLY = Frequency(1, Scale.WEEK)
+    }
+}
+
+/**
+ * Période concrète, identifiée par une clé textuelle stable :
+ * "2026-10" (mois), "2026" (année), "2026-W43" (semaine ISO),
+ * "2026-10-12+6W" (période glissante de 6 semaines commençant le 12 octobre).
  * C'est cette clé qui est stockée en base.
  */
 sealed interface Period {
@@ -93,7 +146,18 @@ sealed interface Period {
         }
     }
 
+    /** Période glissante (ou journée seule), de [start] à [endInclusive]. */
+    data class Span(
+        override val start: LocalDate,
+        override val endInclusive: LocalDate,
+        val frequency: Frequency,
+    ) : Period {
+        override val key: String get() = "$start+${frequency.every}${frequency.scale.letter}"
+        override val scale: Scale get() = frequency.scale
+    }
+
     companion object {
+        private val spanKey = Regex("""^(\d{4}-\d{2}-\d{2})\+(\d+)([DWMY])$""")
         private val monthKey = Regex("""^(\d{4})-(\d{2})$""")
         private val yearKey = Regex("""^(\d{4})$""")
         private val weekKey = Regex("""^(\d{4})-W(\d{2})$""")
@@ -109,6 +173,13 @@ sealed interface Period {
             weekKey.matchEntire(key)?.let { match ->
                 val (year, week) = match.destructured
                 return Week(year.toInt(), week.toInt())
+            }
+            spanKey.matchEntire(key)?.let { match ->
+                val (start, every, letter) = match.destructured
+                val scale = Scale.entries.first { it.letter == letter.single() }
+                val startDate = LocalDate.parse(start)
+                val frequency = Frequency(every.toInt(), scale)
+                return Span(startDate, scale.add(startDate, every.toLong()).minusDays(1), frequency)
             }
             throw IllegalArgumentException("Clé de période invalide : $key")
         }

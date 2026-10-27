@@ -69,6 +69,10 @@ data class EnvelopeEntity(
     val priority: Int = 0,
     @ColumnInfo(name = "carry_over") val carryOver: Boolean = false,
     val archived: Boolean = false,
+    /** Nombre d'unités de [scale] par période : 6 avec WEEK pour « toutes les 6 semaines ». */
+    @ColumnInfo(defaultValue = "1") val every: Int = 1,
+    /** Début d'une des périodes pour une fréquence glissante ; NULL pour une période calendaire. */
+    @ColumnInfo(name = "anchor_date") val anchorDate: LocalDate? = null,
 )
 
 @Entity(

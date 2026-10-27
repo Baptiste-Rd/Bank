@@ -43,7 +43,7 @@ private fun template(name: String, type: EnvelopeType) = Envelope(
     id = 0,
     name = name,
     type = type,
-    scale = type.defaultScale,
+    frequency = type.defaultFrequency,
     amount = Money.ZERO,
     status = type.defaultStatus,
 )

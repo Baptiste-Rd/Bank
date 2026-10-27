@@ -18,9 +18,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.unit.dp
 import fr.baptiste.bank.domain.budget.EnvelopeLine
-import fr.baptiste.bank.domain.period.Scale
 import fr.baptiste.bank.ui.format.formatted
 import fr.baptiste.bank.ui.format.label
+import fr.baptiste.bank.ui.format.noun
 import fr.baptiste.bank.ui.theme.BankTheme
 
 /**
@@ -83,16 +83,10 @@ fun EnvelopeRow(line: EnvelopeLine, modifier: Modifier = Modifier, onClick: (() 
         )
         if (line.projection.isAlert && !overspent) {
             Text(
-                "À ce rythme, ${line.projection.overrun.formatted()} de trop en fin de ${periodNoun(line)}.",
+                "À ce rythme, ${line.projection.overrun.formatted()} de trop à la fin de ${line.period.noun}.",
                 style = MaterialTheme.typography.bodySmall,
                 color = status.warning,
             )
         }
     }
-}
-
-private fun periodNoun(line: EnvelopeLine): String = when (line.envelope.scale) {
-    Scale.WEEK -> "semaine"
-    Scale.MONTH -> "mois"
-    Scale.YEAR -> "année"
 }
