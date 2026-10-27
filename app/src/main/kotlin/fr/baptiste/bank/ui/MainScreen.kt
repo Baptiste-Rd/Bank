@@ -15,6 +15,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -23,6 +27,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -33,6 +38,8 @@ import fr.baptiste.bank.R
 import fr.baptiste.bank.domain.budget.TransferLeg
 import fr.baptiste.bank.domain.budget.coveragePlan
 import fr.baptiste.bank.domain.model.Envelope
+import fr.baptiste.bank.domain.money.Money
+import kotlinx.coroutines.launch
 import fr.baptiste.bank.ui.components.EnvelopeDialog
 import fr.baptiste.bank.ui.components.ExpenseSheet
 import fr.baptiste.bank.ui.components.IncomeDialog
@@ -85,8 +92,28 @@ fun MainScreen(
     val journal by viewModel.transferJournal.collectAsStateWithLifecycle()
     val updateState by updateViewModel.state.collectAsStateWithLifecycle()
     val updateAvailable = updateState is UpdateUiState.Available
+    val archived by viewModel.archivedEnvelopes.collectAsStateWithLifecycle()
+
+    // Chaque action confirme ce qu'elle a fait par un message en bas de l'écran.
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    fun notify(message: String, action: String? = null, onAction: () -> Unit = {}) {
+        scope.launch {
+            snackbar.currentSnackbarData?.dismiss()
+            val result = snackbar.showSnackbar(
+                message = message,
+                actionLabel = action,
+                withDismissAction = action == null,
+                duration = SnackbarDuration.Short,
+            )
+            if (result == SnackbarResult.ActionPerformed) onAction()
+        }
+    }
+    fun nameOf(envelopeId: Long?): String =
+        envelopeId?.let { id -> envelopes.firstOrNull { it.id == id }?.name } ?: "Portefeuille"
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
                 title = { Text(tab.title) },
@@ -173,6 +200,11 @@ fun MainScreen(
                 onEdit = { dialog = OpenDialog.EnvelopeEditor(it) },
                 onOpen = { dialog = OpenDialog.EnvelopeDetail(it.envelope.id) },
                 onCover = { dialog = OpenDialog.Cover(it.envelope.id) },
+                archived = archived,
+                onRestore = {
+                    viewModel.restoreEnvelope(it.id)
+                    notify("${it.name} est de nouveau active.")
+                },
                 modifier = modifier,
             )
             Tab.OPERATIONS -> OperationsTab(
@@ -194,6 +226,7 @@ fun MainScreen(
             },
             onSave = { amount, date, label, envelope, wholePeriod ->
                 viewModel.addExpense(amount, date, label, envelope, wholePeriod)
+                notify("Dépense de ${amount.formatted()} enregistrée dans ${envelope.name}.")
                 dialog = null
             },
         )
@@ -219,6 +252,7 @@ fun MainScreen(
             } else {
                 EnvelopeSheet(
                     line = line,
+                    transfers = journal,
                     onDismiss = { dialog = null },
                     onAdd = { dialog = OpenDialog.Move(line.envelope.id, incoming = true) },
                     onWithdraw = { dialog = OpenDialog.Move(line.envelope.id, incoming = false) },
@@ -245,6 +279,8 @@ fun MainScreen(
                     onDismiss = { dialog = null },
                     onConfirm = { legs ->
                         viewModel.addTransfers(legs, plan.target.envelope.id, incoming = true, reason = "Couverture")
+                        val total = legs.fold(Money.ZERO) { sum, leg -> sum + leg.amount }
+                        notify("${total.formatted()} ajoutés à ${plan.target.envelope.name}. Disponible du jour recalculé.")
                         dialog = null
                     },
                 )
@@ -269,6 +305,9 @@ fun MainScreen(
                             incoming = current.incoming,
                             reason = reason,
                         )
+                        val from = if (current.incoming) nameOf(counterpart) else line.envelope.name
+                        val to = if (current.incoming) line.envelope.name else nameOf(counterpart)
+                        notify("${amount.formatted()} déplacés de $from vers $to.")
                         dialog = null
                     },
                 )
@@ -283,6 +322,8 @@ fun MainScreen(
             },
             onArchive = {
                 viewModel.archiveEnvelope(it.id)
+                val archivedEnvelope = it
+                notify("${it.name} archivée.", action = "Annuler") { viewModel.restoreEnvelope(archivedEnvelope.id) }
                 dialog = null
             },
         )

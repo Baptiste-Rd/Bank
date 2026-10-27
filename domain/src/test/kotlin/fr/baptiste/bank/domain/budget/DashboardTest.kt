@@ -84,6 +84,34 @@ class DashboardTest {
         assertEquals(Money.euros(1500), dashboard.suggestedDailyBudget)
         // 1500 - 750 alloués au quotidien.
         assertEquals(Money.euros(750), dashboard.unallocated)
+        // Le portefeuille et les enveloppes quotidiennes forment ensemble le budget du quotidien.
+        assertEquals(Money.euros(1500), dashboard.dailyBudget)
+    }
+
+    @Test
+    fun `with only a salary everything is spendable day to day`() {
+        val dashboard = computeDashboard(
+            envelopes = emptyList(),
+            allocations = emptyMap(),
+            spendings = emptyList(),
+            monthlyIncome = Money.euros(2000),
+            today = LocalDate.of(2026, 10, 27),
+        )
+        // 2000 € sur 5 jours, du 27 au 31 inclus.
+        assertEquals(Money.euros(400), dashboard.dailyAllowance.allowance)
+    }
+
+    @Test
+    fun `reserved envelopes leave the rest of the salary for the day`() {
+        val dashboard = computeDashboard(
+            envelopes = listOf(loan, projects),
+            allocations = emptyMap(),
+            spendings = emptyList(),
+            monthlyIncome = Money.euros(2000),
+            today = LocalDate.of(2026, 10, 27),
+        )
+        // (2000 - 400 de prêt - 100 de projets) / 5 jours.
+        assertEquals(Money.euros(300), dashboard.dailyAllowance.allowance)
     }
 
     @Test

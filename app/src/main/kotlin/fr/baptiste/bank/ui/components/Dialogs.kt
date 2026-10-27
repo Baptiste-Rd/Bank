@@ -67,6 +67,23 @@ fun EnvelopeDialog(
     val canSave = name.isNotBlank() && amount != null && !amount.isNegative && frequency != null
     // Un modèle (id 0) pré-remplit le formulaire mais reste une création.
     val isExisting = initial != null && initial.id != 0L
+    var confirmArchive by remember { mutableStateOf(false) }
+
+    if (confirmArchive && initial != null) {
+        AlertDialog(
+            onDismissRequest = { confirmArchive = false },
+            title = { Text("Archiver ${initial.name} ?") },
+            text = {
+                Text(
+                    "Elle disparaît de tes budgets mais garde ses dépenses. " +
+                        "Tu la retrouveras en bas de l'onglet Enveloppes, avec un bouton Restaurer.",
+                )
+            },
+            confirmButton = { TextButton(onClick = { onArchive(initial) }) { Text("Archiver") } },
+            dismissButton = { TextButton(onClick = { confirmArchive = false }) { Text("Annuler") } },
+        )
+        return
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -152,7 +169,7 @@ fun EnvelopeDialog(
                 }
 
                 if (isExisting && initial != null) {
-                    TextButton(onClick = { onArchive(initial) }) { Text("Archiver cette enveloppe") }
+                    TextButton(onClick = { confirmArchive = true }) { Text("Archiver cette enveloppe") }
                 }
             }
         },

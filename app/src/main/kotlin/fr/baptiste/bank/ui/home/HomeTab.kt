@@ -51,7 +51,7 @@ fun HomeTab(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 112.dp),
     ) {
-        item { TodaySection(dashboard, onCreateEnvelope) }
+        item { TodaySection(dashboard, onEditIncome) }
         item { WalletLine(dashboard.unallocated, onEditIncome) }
         if (watched.isNotEmpty()) {
             item { SectionTitle("À surveiller") }
@@ -75,7 +75,7 @@ fun HomeTab(
  * aujourd'hui, en très grand, puis de quoi il est fait et la bande du mois.
  */
 @Composable
-private fun TodaySection(dashboard: Dashboard, onCreateEnvelope: () -> Unit) {
+private fun TodaySection(dashboard: Dashboard, onEditIncome: () -> Unit) {
     val allowance = dashboard.dailyAllowance
     Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 24.dp)) {
         Text(
@@ -90,14 +90,14 @@ private fun TodaySection(dashboard: Dashboard, onCreateEnvelope: () -> Unit) {
                 modifier = Modifier.padding(top = 8.dp),
             )
             Text(
-                "Crée une enveloppe Quotidien (courses, essence, sorties) : son montant du mois " +
-                    "est réparti sur les jours restants.",
+                "Indique ton salaire dans le menu ⋮ : ce qui n'est réservé à aucune charge ni épargne " +
+                    "est réparti sur les jours restants du mois.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp),
             )
-            TextButton(onClick = onCreateEnvelope, modifier = Modifier.padding(top = 4.dp)) {
-                Text("Créer une enveloppe")
+            TextButton(onClick = onEditIncome, modifier = Modifier.padding(top = 4.dp)) {
+                Text("Indiquer mon salaire")
             }
             return@Column
         }
@@ -116,7 +116,7 @@ private fun TodaySection(dashboard: Dashboard, onCreateEnvelope: () -> Unit) {
         MonthStrip(days = dashboard.monthDays, averageShare = dashboard.averageDailyShare)
         Text(
             buildString {
-                append("${dashboard.dailySpent.formatted()} dépensés sur ${dashboard.dailyBudget.formatted()} ce mois")
+                append("${dashboard.dailySpent.formatted()} dépensés sur ${dashboard.dailyBudget.formatted()} pour le quotidien ce mois")
                 if (dashboard.catchUpSpent.isPositive) {
                     append(", dont ${dashboard.catchUpSpent.formatted()} en rattrapage")
                 }
@@ -156,7 +156,7 @@ private fun WalletLine(unallocated: Money?, onEditIncome: () -> Unit) {
                     when {
                         unallocated == null -> "Indique ton salaire pour savoir ce qui reste à répartir."
                         unallocated.isNegative -> "Tes enveloppes dépassent ton salaire de ${(-unallocated).formatted()}."
-                        else -> "Non réparti ce mois-ci."
+                        else -> "Compris dans ton budget du jour, rangé dans aucune enveloppe."
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

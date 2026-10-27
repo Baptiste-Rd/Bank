@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -14,7 +15,9 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import fr.baptiste.bank.domain.budget.Dashboard
@@ -22,6 +25,7 @@ import fr.baptiste.bank.domain.budget.EnvelopeLine
 import fr.baptiste.bank.domain.model.Envelope
 import fr.baptiste.bank.domain.model.EnvelopeType
 import fr.baptiste.bank.domain.money.Money
+import fr.baptiste.bank.ui.format.formatted
 import fr.baptiste.bank.ui.format.label
 
 /**
@@ -55,6 +59,8 @@ fun EnvelopesTab(
     onEdit: (Envelope) -> Unit,
     onOpen: (EnvelopeLine) -> Unit,
     onCover: (EnvelopeLine) -> Unit,
+    archived: List<Envelope>,
+    onRestore: (Envelope) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val lines = dashboard?.envelopes.orEmpty()
@@ -96,6 +102,32 @@ fun EnvelopesTab(
         if (suggestions.isNotEmpty()) {
             item(key = "templates") {
                 TemplateChips(suggestions, onPick = { (name, type) -> onEdit(template(name, type)) })
+            }
+        }
+        if (archived.isNotEmpty()) {
+            item(key = "archived-header") {
+                Text(
+                    "Archivées",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 28.dp, bottom = 4.dp),
+                )
+            }
+            items(archived, key = { "archived-${it.id}" }) { envelope ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(envelope.name, style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "${envelope.type.label}, ${envelope.amount.formatted()} ${envelope.frequency.label}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    TextButton(onClick = { onRestore(envelope) }) { Text("Restaurer") }
+                }
             }
         }
     }

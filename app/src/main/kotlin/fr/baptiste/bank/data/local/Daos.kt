@@ -29,6 +29,12 @@ interface EnvelopeDao {
 
     @Query("UPDATE envelope SET archived = 1 WHERE id = :id")
     suspend fun archive(id: Long)
+
+    @Query("SELECT * FROM envelope WHERE archived = 1 ORDER BY name")
+    fun observeArchived(): Flow<List<EnvelopeEntity>>
+
+    @Query("UPDATE envelope SET archived = 0 WHERE id = :id")
+    suspend fun restore(id: Long)
 }
 
 @Dao
@@ -118,6 +124,8 @@ data class TransferRow(
     val cancelled: Boolean,
     @ColumnInfo(name = "source_name") val sourceName: String?,
     @ColumnInfo(name = "target_name") val targetName: String?,
+    @ColumnInfo(name = "source_envelope_id") val sourceEnvelopeId: Long?,
+    @ColumnInfo(name = "target_envelope_id") val targetEnvelopeId: Long?,
 )
 
 @Dao
@@ -132,7 +140,8 @@ interface TransferDao {
         """
         SELECT t.id AS id, t.effective_date AS effective_date, t.amount_cents AS amount_cents,
                t.reason AS reason, t.cancelled AS cancelled,
-               s.name AS source_name, d.name AS target_name
+               s.name AS source_name, d.name AS target_name,
+               t.source_envelope_id AS source_envelope_id, t.target_envelope_id AS target_envelope_id
         FROM transfer t
         LEFT JOIN envelope s ON s.id = t.source_envelope_id
         LEFT JOIN envelope d ON d.id = t.target_envelope_id

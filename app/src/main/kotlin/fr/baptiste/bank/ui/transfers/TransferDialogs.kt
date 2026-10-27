@@ -189,6 +189,7 @@ fun TransferDialog(
 @Composable
 fun EnvelopeSheet(
     line: EnvelopeLine,
+    transfers: List<TransferRow>,
     onDismiss: () -> Unit,
     onAdd: () -> Unit,
     onWithdraw: () -> Unit,
@@ -222,9 +223,37 @@ fun EnvelopeSheet(
             if (onCover != null) {
                 Button(onClick = onCover, modifier = Modifier.fillMaxWidth()) { Text("Couvrir le dépassement") }
             }
+            Text(
+                "Déplacer de l'argent : Ajouter le prend sur le portefeuille ou une autre enveloppe, " +
+                    "Retirer le rend au portefeuille ou le passe à une autre enveloppe. " +
+                    "Ça compte pour ${line.period.label}, à partir d'aujourd'hui.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 OutlinedButton(onClick = onAdd, modifier = Modifier.weight(1f)) { Text("Ajouter") }
                 OutlinedButton(onClick = onWithdraw, modifier = Modifier.weight(1f)) { Text("Retirer") }
+            }
+            val mine = transfers.filter {
+                !it.cancelled && it.date in line.period &&
+                    (it.sourceEnvelopeId == line.envelope.id || it.targetEnvelopeId == line.envelope.id)
+            }
+            if (mine.isNotEmpty()) {
+                Text("Transferts de la période", style = MaterialTheme.typography.labelLarge)
+                mine.take(6).forEach { row ->
+                    val incoming = row.targetEnvelopeId == line.envelope.id
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            if (incoming) "Depuis ${row.sourceName ?: WALLET}" else "Vers ${row.targetName ?: WALLET}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            (if (incoming) "+" else "-") + Money(row.amountCents).formatted(),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                }
             }
             TextButton(onClick = onEdit, modifier = Modifier.fillMaxWidth()) { Text("Modifier l'enveloppe") }
         }

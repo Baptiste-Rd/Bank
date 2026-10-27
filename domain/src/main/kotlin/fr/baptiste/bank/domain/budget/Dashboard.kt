@@ -71,16 +71,20 @@ data class DayCell(
 /**
  * Tout ce que l'écran d'accueil affiche, calculé à partir des données brutes.
  *
- * @property dailyBudget total du mois alloué aux enveloppes quotidiennes.
+ * @property dailyBudget ce qui se dépense au quotidien ce mois-ci : avec un salaire, tout ce qui n'est
+ *   pas réservé par une autre enveloppe ; sans salaire, la somme des enveloppes quotidiennes.
+ * @property dailyAssigned part de [dailyBudget] rangée dans des enveloppes quotidiennes.
  * @property averageDailyShare dailyBudget réparti également sur les jours du mois : la référence de la bande.
  * @property catchUpSpent rattrapages du mois sur les enveloppes quotidiennes.
  * @property suggestedDailyBudget ce que le salaire permet d'allouer au quotidien (null sans salaire).
- * @property unallocated portefeuille : salaire non attribué à une enveloppe (null sans salaire).
+ * @property unallocated portefeuille : salaire du mois rangé dans aucune enveloppe (null sans salaire).
+ *   Il fait partie du budget du quotidien.
  */
 data class Dashboard(
     val today: LocalDate,
     val dailyAllowance: DailyAllowance,
     val dailyBudget: Money,
+    val dailyAssigned: Money,
     val dailySpent: Money,
     val daysRemaining: Int,
     val averageDailyShare: Money,
@@ -140,11 +144,23 @@ fun computeDashboard(
     }
 
     val dailyLines = lines.filter { it.envelope.type == EnvelopeType.DAILY }
-    // Le budget quotidien du mois : la part mensuelle prévue de chaque enveloppe quotidienne,
-    // plus les transferts du mois. Un transfert n'est pas converti : c'est un montant ponctuel.
-    val dailyBudget = dailyLines.sumOfMoney {
+    // Part du mois rangée dans les enveloppes quotidiennes, transferts du mois compris.
+    // Un transfert n'est pas converti : c'est un montant ponctuel.
+    val dailyAssigned = dailyLines.sumOfMoney {
         it.allocated.convert(it.envelope.frequency, Frequency.MONTHLY) + netTransfers(it.envelope.id, month)
     }
+    // Portefeuille : le salaire moins la part mensuelle de chaque enveloppe, plus ce qui lui a
+    // été rendu ce mois-ci, moins ce qui en est sorti.
+    val wallet = monthlyIncome?.let { income ->
+        val reserved = lines.sumOfMoney { it.allocated.convert(it.envelope.frequency, Frequency.MONTHLY) }
+        val walletIn = transfers.filter { it.date in month && it.targetEnvelopeId == null }.sumOfMoney { it.amount }
+        val walletOut = transfers.filter { it.date in month && it.sourceEnvelopeId == null }.sumOfMoney { it.amount }
+        income - reserved + walletIn - walletOut
+    }
+    // Budget du quotidien : avec un salaire, tout ce qui n'est pas réservé ailleurs se dépense au
+    // jour le jour, que ce soit rangé dans une enveloppe quotidienne ou resté dans le portefeuille.
+    // Sans salaire, seules les enveloppes quotidiennes sont connues.
+    val dailyBudget = if (wallet != null) wallet + dailyAssigned else dailyAssigned
     val dailyIds = dailyLines.map { it.envelope.id }.toSet()
     val dailyThisMonth = spendings.filter { it.envelopeId in dailyIds && it.date in month }
     val (catchUps, dated) = dailyThisMonth.partition { it.wholePeriod }
@@ -169,19 +185,12 @@ fun computeDashboard(
     }
 
     val suggested = monthlyIncome?.let { suggestedDailyBudget(it, active) }
-    // Portefeuille : le salaire moins la part mensuelle de chaque enveloppe, plus ce qui lui a
-    // été rendu ce mois-ci, moins ce qui en est sorti.
-    val wallet = monthlyIncome?.let { income ->
-        val reserved = lines.sumOfMoney { it.allocated.convert(it.envelope.frequency, Frequency.MONTHLY) }
-        val walletIn = transfers.filter { it.date in month && it.targetEnvelopeId == null }.sumOfMoney { it.amount }
-        val walletOut = transfers.filter { it.date in month && it.sourceEnvelopeId == null }.sumOfMoney { it.amount }
-        income - reserved + walletIn - walletOut
-    }
 
     return Dashboard(
         today = today,
         dailyAllowance = allowance,
         dailyBudget = dailyBudget,
+        dailyAssigned = dailyAssigned,
         dailySpent = dailyThisMonth.sumOfMoney { it.amount },
         daysRemaining = month.daysRemainingFrom(today),
         averageDailyShare = dailyBudget.divideFloor(month.lengthInDays.toLong()),

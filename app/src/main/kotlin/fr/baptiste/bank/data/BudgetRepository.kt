@@ -105,6 +105,14 @@ class BudgetRepository(
         envelopeDao.archive(id)
     }
 
+    /** Enveloppes archivées : elles gardent leurs dépenses et peuvent être restaurées. */
+    val archivedEnvelopes: Flow<List<Envelope>> = envelopeDao.observeArchived()
+        .map { entities -> entities.map { it.toDomain() } }
+
+    suspend fun restoreEnvelope(id: Long) {
+        envelopeDao.restore(id)
+    }
+
     suspend fun setMonthlyIncome(income: Money) {
         settings.setMonthlyIncome(income)
     }

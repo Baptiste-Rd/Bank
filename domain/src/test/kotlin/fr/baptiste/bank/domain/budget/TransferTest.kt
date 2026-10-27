@@ -46,15 +46,17 @@ class TransferTest {
     ) = computeDashboard(envelopes, emptyMap(), spendings, income, today, transfers = transfers)
 
     @Test
-    fun `money from the wallet raises the envelope and the daily budget`() {
+    fun `money from the wallet moves inside the daily budget`() {
         val before = dashboard(listOf(food, fuel))
         val after = dashboard(listOf(food, fuel), listOf(transfer(null, fuel, 40)))
 
         val fuelLine = after.envelopes.single { it.envelope.id == fuel.id }
         assertEquals(Money.euros(140), fuelLine.available)
         assertEquals(Money.euros(40), fuelLine.transferred)
-        assertEquals(before.dailyBudget + Money.euros(40), after.dailyBudget)
         assertEquals(before.unallocated!! - Money.euros(40), after.unallocated)
+        // Le portefeuille fait déjà partie du quotidien : le budget du jour ne change pas.
+        assertEquals(before.dailyBudget, after.dailyBudget)
+        assertEquals(before.dailyAssigned + Money.euros(40), after.dailyAssigned)
     }
 
     @Test
@@ -62,7 +64,8 @@ class TransferTest {
         val after = dashboard(listOf(food), listOf(transfer(food, null, 50)))
         // 2000 - 450 + 50
         assertEquals(Money.euros(1600), after.unallocated)
-        assertEquals(Money.euros(400), after.dailyBudget)
+        assertEquals(Money.euros(400), after.dailyAssigned)
+        assertEquals(Money.euros(2000), after.dailyBudget)
     }
 
     @Test
@@ -83,8 +86,20 @@ class TransferTest {
     @Test
     fun `the daily allowance is recalculated from the transfer`() {
         val spent = listOf(Spending(fuel.id, LocalDate.of(2026, 10, 10), Money.euros(90)))
-        val before = dashboard(listOf(fuel), spendings = spent)
-        val after = dashboard(listOf(fuel), listOf(transfer(null, fuel, 34)), spent)
+        val envelopes = listOf(fuel, projects)
+        val before = dashboard(envelopes, spendings = spent)
+        // 34 € repris aux projets reviennent au quotidien.
+        val after = dashboard(envelopes, listOf(transfer(projects, null, 34)), spent)
+        // (2000 - 100 de projets - 90) / 17 jours, puis (2000 - 100 + 34 - 90) / 17 jours.
+        assertEquals(Money(10647), before.dailyAllowance.allowance)
+        assertEquals(Money(10847), after.dailyAllowance.allowance)
+    }
+
+    @Test
+    fun `without income the daily budget is the daily envelopes`() {
+        val spent = listOf(Spending(fuel.id, LocalDate.of(2026, 10, 10), Money.euros(90)))
+        val before = dashboard(listOf(fuel), spendings = spent, income = null)
+        val after = dashboard(listOf(fuel), listOf(transfer(null, fuel, 34)), spent, income = null)
         // (100 - 90) / 17 jours, puis (134 - 90) / 17 jours.
         assertEquals(Money(58), before.dailyAllowance.allowance)
         assertEquals(Money(258), after.dailyAllowance.allowance)

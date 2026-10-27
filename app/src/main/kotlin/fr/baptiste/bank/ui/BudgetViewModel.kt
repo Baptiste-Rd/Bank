@@ -49,6 +49,10 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
 
     fun archiveEnvelope(id: Long) = perform { repository.archiveEnvelope(id) }
 
+    val archivedEnvelopes: StateFlow<List<Envelope>> = repository.archivedEnvelopes.asState(emptyList())
+
+    fun restoreEnvelope(id: Long) = perform { repository.restoreEnvelope(id) }
+
     fun setMonthlyIncome(income: Money) = perform { repository.setMonthlyIncome(income) }
 
     fun addExpense(amount: Money, date: LocalDate, label: String, envelope: Envelope, wholePeriod: Boolean) =
