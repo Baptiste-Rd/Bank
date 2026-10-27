@@ -27,7 +27,7 @@ import fr.baptiste.bank.ui.theme.BankTheme
 /**
  * Une enveloppe : ce qu'il reste à droite, en gros ; à gauche le nom et la période.
  * La barre montre la part consommée, dans la couleur de son statut :
- * vert dans le budget, ambre si le rythme actuel mène au dépassement, brique si c'est dépassé.
+ * bleu dans le budget, rouge clair si le rythme actuel mène au dépassement, rouge si c'est dépassé.
  */
 @Composable
 fun EnvelopeRow(

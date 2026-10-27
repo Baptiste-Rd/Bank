@@ -15,69 +15,69 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 /*
- * Palette fixe, plutôt que les couleurs dynamiques du fond d'écran : une couleur porte
- * ici un sens (vert = dans le budget, ambre = à surveiller, brique = dépassé) qui doit
- * rester le même quel que soit le téléphone.
+ * Palette fixe bleu et blanc, plutôt que les couleurs dynamiques du fond d'écran : une couleur
+ * porte ici un sens (bleu = dans le budget, rouge clair = à surveiller, rouge = dépassé) qui
+ * doit rester le même quel que soit le téléphone.
  */
-private val Sapin = Color(0xFF1F5C4A)
-private val SapinClair = Color(0xFF7CC4A6)
-private val Ambre = Color(0xFFB7791F)
-private val AmbreClair = Color(0xFFE3B55B)
-private val Brique = Color(0xFFB3412E)
-private val BriqueClair = Color(0xFFEF8A73)
+private val Bleu = Color(0xFF1D4ED8)
+private val BleuClair = Color(0xFF8FB0FF)
+private val RougeClair = Color(0xFFE5677A)
+private val RougeClairNuit = Color(0xFFFF8F9C)
+private val Rouge = Color(0xFFC81E3A)
+private val RougeNuit = Color(0xFFFF5C6E)
 
 private val LightColors = lightColorScheme(
-    primary = Sapin,
+    primary = Bleu,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFD5EADF),
-    onPrimaryContainer = Color(0xFF0E3328),
-    secondary = Color(0xFF4F6359),
-    secondaryContainer = Color(0xFFDDE6E0),
-    onSecondaryContainer = Color(0xFF1B2721),
-    background = Color(0xFFF3F5F2),
-    onBackground = Color(0xFF17201C),
-    surface = Color(0xFFF3F5F2),
-    onSurface = Color(0xFF17201C),
-    surfaceVariant = Color(0xFFE2E8E3),
-    onSurfaceVariant = Color(0xFF55635C),
+    primaryContainer = Color(0xFFDCE6FF),
+    onPrimaryContainer = Color(0xFF0B1F5C),
+    secondary = Color(0xFF4A5A80),
+    secondaryContainer = Color(0xFFE1E8F8),
+    onSecondaryContainer = Color(0xFF16223F),
+    background = Color(0xFFF6F8FD),
+    onBackground = Color(0xFF0F1B3D),
+    surface = Color(0xFFF6F8FD),
+    onSurface = Color(0xFF0F1B3D),
+    surfaceVariant = Color(0xFFE3E9F6),
+    onSurfaceVariant = Color(0xFF55617E),
     surfaceContainerLowest = Color.White,
-    surfaceContainerLow = Color(0xFFFAFBF9),
-    surfaceContainer = Color(0xFFEDF1EE),
-    surfaceContainerHigh = Color(0xFFE7ECE8),
-    surfaceContainerHighest = Color(0xFFE1E7E2),
-    outline = Color(0xFF8A9891),
-    outlineVariant = Color(0xFFC9D3CD),
-    error = Brique,
+    surfaceContainerLow = Color(0xFFFBFCFF),
+    surfaceContainer = Color(0xFFEEF2FB),
+    surfaceContainerHigh = Color(0xFFE7ECF8),
+    surfaceContainerHighest = Color(0xFFE0E7F5),
+    outline = Color(0xFF8E9BBA),
+    outlineVariant = Color(0xFFD3DBEC),
+    error = Rouge,
     onError = Color.White,
-    errorContainer = Color(0xFFF7DAD3),
-    onErrorContainer = Color(0xFF4A120A),
+    errorContainer = Color(0xFFFCDDE2),
+    onErrorContainer = Color(0xFF4A0614),
 )
 
 private val DarkColors = darkColorScheme(
-    primary = SapinClair,
-    onPrimary = Color(0xFF003828),
-    primaryContainer = Color(0xFF1F4A3C),
-    onPrimaryContainer = Color(0xFFD5EADF),
-    secondary = Color(0xFFB5C9BE),
-    secondaryContainer = Color(0xFF34443C),
-    onSecondaryContainer = Color(0xFFD9E5DE),
-    background = Color(0xFF121815),
-    onBackground = Color(0xFFDDE4DF),
-    surface = Color(0xFF121815),
-    onSurface = Color(0xFFDDE4DF),
-    surfaceVariant = Color(0xFF3A4540),
-    onSurfaceVariant = Color(0xFFB4C1BA),
-    surfaceContainerLowest = Color(0xFF0D120F),
-    surfaceContainerLow = Color(0xFF19201C),
-    surfaceContainer = Color(0xFF1D2521),
-    surfaceContainerHigh = Color(0xFF242D28),
-    surfaceContainerHighest = Color(0xFF2E3832),
-    outline = Color(0xFF7F8C86),
-    outlineVariant = Color(0xFF3F4A45),
-    error = BriqueClair,
-    onError = Color(0xFF5C1407),
-    errorContainer = Color(0xFF7A2A1C),
-    onErrorContainer = Color(0xFFFFDAD2),
+    primary = BleuClair,
+    onPrimary = Color(0xFF0B1F5C),
+    primaryContainer = Color(0xFF1E3A8A),
+    onPrimaryContainer = Color(0xFFDCE6FF),
+    secondary = Color(0xFFB4C2E3),
+    secondaryContainer = Color(0xFF2A3656),
+    onSecondaryContainer = Color(0xFFDCE4F7),
+    background = Color(0xFF0A1228),
+    onBackground = Color(0xFFE2E8F8),
+    surface = Color(0xFF0A1228),
+    onSurface = Color(0xFFE2E8F8),
+    surfaceVariant = Color(0xFF2B3655),
+    onSurfaceVariant = Color(0xFFAEBAD6),
+    surfaceContainerLowest = Color(0xFF060C1C),
+    surfaceContainerLow = Color(0xFF0F1830),
+    surfaceContainer = Color(0xFF131D38),
+    surfaceContainerHigh = Color(0xFF1A2542),
+    surfaceContainerHighest = Color(0xFF222E4E),
+    outline = Color(0xFF7887A8),
+    outlineVariant = Color(0xFF2E3A5A),
+    error = RougeNuit,
+    onError = Color(0xFF4A0614),
+    errorContainer = Color(0xFF7A1426),
+    onErrorContainer = Color(0xFFFFD9DE),
 )
 
 /** Couleurs de statut qui n'existent pas dans le schéma Material. */
@@ -85,7 +85,7 @@ private val DarkColors = darkColorScheme(
 data class StatusColors(val good: Color, val warning: Color, val over: Color)
 
 private val LocalStatusColors = staticCompositionLocalOf {
-    StatusColors(good = Sapin, warning = Ambre, over = Brique)
+    StatusColors(good = Bleu, warning = RougeClair, over = Rouge)
 }
 
 object BankTheme {
@@ -129,9 +129,9 @@ fun BankTheme(
     content: @Composable () -> Unit,
 ) {
     val status = if (darkTheme) {
-        StatusColors(good = SapinClair, warning = AmbreClair, over = BriqueClair)
+        StatusColors(good = BleuClair, warning = RougeClairNuit, over = RougeNuit)
     } else {
-        StatusColors(good = Sapin, warning = Ambre, over = Brique)
+        StatusColors(good = Bleu, warning = RougeClair, over = Rouge)
     }
     androidx.compose.runtime.CompositionLocalProvider(LocalStatusColors provides status) {
         MaterialTheme(
