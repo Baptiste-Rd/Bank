@@ -63,6 +63,8 @@ fun GlassHomeContent(
     onOpenEnvelope: (EnvelopeLine) -> Unit,
     onOpenTab: (Tab) -> Unit,
 ) {
+    // Lu ici : le contenu d'une LazyColumn se construit hors composition.
+    val warning = BankTheme.status.warning
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = glassContentPadding(),
@@ -137,7 +139,7 @@ fun GlassHomeContent(
         val watched = dashboard.alerts
         val todoCount = watched.size + if (unsortedCount > 0) 1 else 0
         if (todoCount > 0) {
-            sectionHeader("todo-label", "À faire", trailing = "$todoCount", dot = BankTheme.status.warning)
+            sectionHeader("todo-label", "À faire", trailing = "$todoCount", dot = warning)
             item(key = "todo") {
                 GlassCard(contentPadding = 16.dp, verticalPadding = 4.dp) {
                     watched.forEachIndexed { index, line ->
