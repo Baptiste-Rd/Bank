@@ -106,25 +106,45 @@ fun DateField(
         }
     }
     if (open) {
-        // Le DatePicker travaille en millisecondes UTC à minuit : on convertit dans les deux sens en UTC.
-        val state = rememberDatePickerState(
-            initialSelectedDateMillis = date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
-        )
-        DatePickerDialog(
-            onDismissRequest = { open = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        state.selectedDateMillis?.let { millis ->
-                            onDateChange(Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate())
-                        }
-                        open = false
-                    },
-                ) { Text("OK") }
+        DatePickerPopup(
+            initial = date,
+            onDismiss = { open = false },
+            onPick = {
+                onDateChange(it)
+                open = false
             },
-            dismissButton = { TextButton(onClick = { open = false }) { Text("Annuler") } },
-        ) {
-            DatePicker(state = state)
-        }
+        )
+    }
+}
+
+/** Sélecteur de date Material 3 dans une fenêtre. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DatePickerPopup(
+    initial: LocalDate,
+    onDismiss: () -> Unit,
+    onPick: (LocalDate) -> Unit,
+) {
+    // Le DatePicker travaille en millisecondes UTC à minuit : on convertit dans les deux sens en UTC.
+    val state = rememberDatePickerState(
+        initialSelectedDateMillis = initial.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+    )
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val millis = state.selectedDateMillis
+                    if (millis != null) {
+                        onPick(Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate())
+                    } else {
+                        onDismiss()
+                    }
+                },
+            ) { Text("Choisir") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } },
+    ) {
+        DatePicker(state = state)
     }
 }

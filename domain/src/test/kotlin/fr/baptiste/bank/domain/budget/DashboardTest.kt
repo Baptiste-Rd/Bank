@@ -124,6 +124,60 @@ class DashboardTest {
     }
 
     @Test
+    fun `a catch-up expense counts as already spent, not as spent today`() {
+        // 350 € de courses rattrapées pour octobre, saisies le 18.
+        val catchUp = Spending(food.id, today, Money.euros(350), wholePeriod = true)
+        val dashboard = computeDashboard(
+            envelopes = listOf(food),
+            allocations = emptyMap(),
+            spendings = listOf(catchUp),
+            monthlyIncome = null,
+            today = today,
+        )
+        // (450 - 350) / 14 jours = 7,14 € ; rien n'est décompté d'aujourd'hui.
+        assertEquals(Money(714), dashboard.dailyAllowance.allowance)
+        assertEquals(Money(714), dashboard.dailyAllowance.remainingToday)
+        assertEquals(Money.euros(350), dashboard.catchUpSpent)
+        assertEquals(Money.ZERO, dashboard.monthDays.single { it.isToday }.spent)
+    }
+
+    @Test
+    fun `a catch-up expense is not extrapolated in the projection`() {
+        val catchUp = Spending(food.id, today, Money.euros(350), wholePeriod = true)
+        val dashboard = computeDashboard(
+            envelopes = listOf(food),
+            allocations = emptyMap(),
+            spendings = listOf(catchUp),
+            monthlyIncome = null,
+            today = today,
+        )
+        val line = dashboard.envelopes.single()
+        assertEquals(Money.euros(350), line.projection.projected)
+        assertTrue(dashboard.alerts.isEmpty())
+    }
+
+    @Test
+    fun `month strip lists every day with dated daily spending`() {
+        val dashboard = computeDashboard(
+            envelopes = listOf(food, projects),
+            allocations = emptyMap(),
+            spendings = listOf(
+                spending(food, LocalDate.of(2026, 10, 3), 20),
+                spending(food, LocalDate.of(2026, 10, 3), 5),
+                spending(projects, LocalDate.of(2026, 10, 3), 100),
+            ),
+            monthlyIncome = null,
+            today = today,
+        )
+        assertEquals(31, dashboard.monthDays.size)
+        assertEquals(Money.euros(25), dashboard.monthDays[2].spent)
+        assertTrue(dashboard.monthDays[18].isFuture)
+        assertEquals(14, dashboard.daysRemaining)
+        // 450 / 31 = 14,51 €
+        assertEquals(Money(1451), dashboard.averageDailyShare)
+    }
+
+    @Test
     fun `date range covers the year and a week overlapping it`() {
         val range = dashboardDateRange(LocalDate.of(2027, 1, 1))
         assertEquals(LocalDate.of(2026, 12, 28), range.start)

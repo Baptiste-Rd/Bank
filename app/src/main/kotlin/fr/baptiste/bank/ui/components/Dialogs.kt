@@ -31,64 +31,6 @@ import java.time.LocalDate
 private fun Money.toFieldText(): String =
     if (cents == 0L) "" else "${cents / 100},${(cents % 100).toString().padStart(2, '0')}"
 
-@Composable
-fun ExpenseDialog(
-    envelopes: List<Envelope>,
-    onDismiss: () -> Unit,
-    onSave: (amount: Money, date: LocalDate, label: String, envelope: Envelope) -> Unit,
-) {
-    var amountText by rememberSaveable { mutableStateOf("") }
-    var label by rememberSaveable { mutableStateOf("") }
-    var date by remember { mutableStateOf(LocalDate.now()) }
-    var envelope by remember { mutableStateOf(envelopes.firstOrNull()) }
-    val amount = parseMoney(amountText)
-    val canSave = amount != null && amount.isPositive && envelope != null
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Nouvelle dépense") },
-        text = {
-            if (envelopes.isEmpty()) {
-                Text("Crée d'abord une enveloppe dans l'onglet Enveloppes.")
-            } else {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.verticalScroll(rememberScrollState()),
-                ) {
-                    MoneyField(value = amountText, onValueChange = { amountText = it }, label = "Montant")
-                    ChoiceField(
-                        label = "Enveloppe",
-                        selected = envelope,
-                        options = envelopes,
-                        optionLabel = { it.name },
-                        onSelect = { envelope = it },
-                    )
-                    DateField(label = "Date", date = date, onDateChange = { date = it })
-                    OutlinedTextField(
-                        value = label,
-                        onValueChange = { label = it },
-                        label = { Text("Libellé (facultatif)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = canSave,
-                onClick = {
-                    val chosen = envelope
-                    if (amount != null && chosen != null) {
-                        onSave(amount, date, label.ifBlank { chosen.name }, chosen)
-                    }
-                },
-            ) { Text("Enregistrer") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } },
-    )
-}
-
 /**
  * Création ou modification d'une enveloppe. Changer le type propose l'échelle et le statut
  * habituels de ce type (une charge fixe est mensuelle et protégée, un projet est annuel...).
@@ -106,10 +48,12 @@ fun EnvelopeDialog(
     var amountText by rememberSaveable { mutableStateOf(initial?.amount?.toFieldText().orEmpty()) }
     val amount = if (amountText.isBlank()) Money.ZERO else parseMoney(amountText)
     val canSave = name.isNotBlank() && amount != null && !amount.isNegative
+    // Un modèle (id 0) pré-remplit le formulaire mais reste une création.
+    val isExisting = initial != null && initial.id != 0L
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (initial == null) "Nouvelle enveloppe" else "Modifier l'enveloppe") },
+        title = { Text(if (isExisting) "Modifier l'enveloppe" else "Nouvelle enveloppe") },
         text = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -141,7 +85,7 @@ fun EnvelopeDialog(
                     optionLabel = { it.label },
                     onSelect = { scale = it },
                 )
-                if (initial != null) {
+                if (isExisting && initial != null) {
                     TextButton(onClick = { onArchive(initial) }) { Text("Archiver cette enveloppe") }
                 }
             }

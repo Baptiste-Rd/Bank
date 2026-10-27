@@ -23,7 +23,16 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Tests et APK de debug
-        run: ./gradlew :domain:test :app:testDebugUnitTest :app:assembleDebug --stacktrace
+        run: |
+          set -o pipefail
+          ./gradlew :domain:test :app:testDebugUnitTest :app:assembleDebug 2>&1 | tee build.log
+
+      # Remonte les erreurs de compilation en annotation, lisible sans ouvrir les journaux.
+      - name: Résumé des erreurs
+        if: failure()
+        run: |
+          summary=$(grep -E "^e: |error:|What went wrong|FAILED|> " build.log | head -60 | sed -e 's/%/%25/g' | sed -e ':a;N;$!ba;s/\n/%0A/g')
+          echo "::error title=Build::${summary}"
 
       - name: Rapports de tests
         if: failure()

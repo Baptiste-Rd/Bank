@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -21,16 +21,16 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import fr.baptiste.bank.BuildConfig
 import fr.baptiste.bank.R
 import fr.baptiste.bank.ui.theme.BankTheme
 
+/**
+ * Fenêtre des mises à jour, ouverte depuis le menu ⋮. La vérification elle-même a lieu
+ * au démarrage de l'app : le menu signale déjà une nouvelle version avant l'ouverture.
+ */
 @Composable
-fun UpdateSection(
-    modifier: Modifier = Modifier,
-    viewModel: UpdateViewModel = viewModel(factory = UpdateViewModel.Factory),
-) {
+fun UpdateDialog(viewModel: UpdateViewModel, onDismiss: () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
@@ -40,12 +40,18 @@ fun UpdateSection(
         onPauseOrDispose { }
     }
 
-    UpdateCard(
-        state = state,
-        onCheck = viewModel::check,
-        onInstall = viewModel::install,
-        onOpenSettings = { context.startActivity(viewModel.permissionSettings()) },
-        modifier = modifier,
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Mises à jour") },
+        text = {
+            UpdateCard(
+                state = state,
+                onCheck = viewModel::check,
+                onInstall = viewModel::install,
+                onOpenSettings = { context.startActivity(viewModel.permissionSettings()) },
+            )
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Fermer") } },
     )
 }
 
@@ -57,9 +63,9 @@ fun UpdateCard(
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Card(modifier = modifier.fillMaxWidth()) {
+    run {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(

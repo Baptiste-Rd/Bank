@@ -42,6 +42,7 @@ data class SpendingRow(
     @ColumnInfo(name = "envelope_id") val envelopeId: Long,
     val date: LocalDate,
     @ColumnInfo(name = "amount_cents") val amountCents: Long,
+    @ColumnInfo(name = "whole_period") val wholePeriod: Boolean,
 )
 
 /** Une ligne de la liste des opérations, avec le nom des enveloppes où elle est imputée. */
@@ -52,6 +53,9 @@ data class OperationRow(
     @ColumnInfo(name = "clean_label") val label: String,
     val source: TransactionSource,
     @ColumnInfo(name = "envelope_names") val envelopeNames: String?,
+    /** Vrai pour un rattrapage : [periodKey] indique alors la période concernée. */
+    @ColumnInfo(name = "whole_period") val wholePeriod: Boolean,
+    @ColumnInfo(name = "period_key") val periodKey: String?,
 )
 
 @Dao
@@ -64,7 +68,8 @@ interface ImputationDao {
 
     @Query(
         """
-        SELECT i.envelope_id AS envelope_id, t.date AS date, i.amount_cents AS amount_cents
+        SELECT i.envelope_id AS envelope_id, t.date AS date, i.amount_cents AS amount_cents,
+               i.whole_period AS whole_period
         FROM imputation i
         INNER JOIN transaction_record t ON t.id = i.transaction_id
         WHERE t.date BETWEEN :from AND :to
@@ -91,7 +96,8 @@ interface TransactionDao {
     @Query(
         """
         SELECT t.id AS id, t.date AS date, t.amount_cents AS amount_cents, t.clean_label AS clean_label,
-               t.source AS source, group_concat(e.name, ', ') AS envelope_names
+               t.source AS source, group_concat(e.name, ', ') AS envelope_names,
+               COALESCE(MAX(i.whole_period), 0) AS whole_period, MAX(i.period_key) AS period_key
         FROM transaction_record t
         LEFT JOIN imputation i ON i.transaction_id = t.id
         LEFT JOIN envelope e ON e.id = i.envelope_id

@@ -10,26 +10,29 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Card
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import fr.baptiste.bank.domain.budget.Dashboard
 import fr.baptiste.bank.domain.model.EnvelopeType
+import fr.baptiste.bank.domain.money.Money
 import fr.baptiste.bank.ui.envelopes.EnvelopeRow
 import fr.baptiste.bank.ui.format.formatted
-import fr.baptiste.bank.update.UpdateSection
+import fr.baptiste.bank.ui.theme.BankTheme
 
 @Composable
 fun HomeTab(
     dashboard: Dashboard?,
     onEditIncome: () -> Unit,
+    onCreateEnvelope: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (dashboard == null) {
@@ -38,108 +41,143 @@ fun HomeTab(
         }
         return
     }
-    // Les enveloppes en alerte d'abord, puis les enveloppes quotidiennes : ce sont celles du jour.
-    val highlighted = (dashboard.alerts + dashboard.envelopes.filter { it.envelope.type == EnvelopeType.DAILY })
-        .distinctBy { it.envelope.id }
+    val watched = dashboard.alerts
+    val daily = dashboard.envelopes.filter { it.envelope.type == EnvelopeType.DAILY && it !in watched }
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 96.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 112.dp),
     ) {
-        item { AvailableTodayCard(dashboard) }
-        item { WalletCard(dashboard, onEditIncome) }
-        if (highlighted.isNotEmpty()) {
-            item {
-                Text(
-                    "À surveiller",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                )
+        item { TodaySection(dashboard, onCreateEnvelope) }
+        item { WalletLine(dashboard.unallocated, onEditIncome) }
+        if (watched.isNotEmpty()) {
+            item { SectionTitle("À surveiller") }
+            items(watched, key = { "watch-${it.envelope.id}" }) { line ->
+                EnvelopeRow(line)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
-            items(highlighted, key = { it.envelope.id }) { line -> EnvelopeRow(line) }
         }
-        item { UpdateSection() }
+        if (daily.isNotEmpty()) {
+            item { SectionTitle("Quotidien") }
+            items(daily, key = { "daily-${it.envelope.id}" }) { line ->
+                EnvelopeRow(line)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
+        }
     }
 }
 
+/**
+ * Le chiffre du jour. C'est la seule information mise en avant : ce qui reste à dépenser
+ * aujourd'hui, en très grand, puis de quoi il est fait et la bande du mois.
+ */
 @Composable
-private fun AvailableTodayCard(dashboard: Dashboard) {
+private fun TodaySection(dashboard: Dashboard, onCreateEnvelope: () -> Unit) {
     val allowance = dashboard.dailyAllowance
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text("Disponible aujourd'hui", style = MaterialTheme.typography.titleMedium)
-            if (!dashboard.dailyBudget.isPositive) {
-                Text(
-                    "Crée une enveloppe de type Quotidien (nourriture, essence...) pour voir ce que tu peux dépenser chaque jour.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center,
-                )
-                return@Column
+    Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 24.dp)) {
+        Text(
+            "Tu peux dépenser aujourd'hui",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (!dashboard.dailyBudget.isPositive) {
+            Text(
+                "Pas encore de budget quotidien.",
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+            Text(
+                "Crée une enveloppe Quotidien (courses, essence, sorties) : son montant du mois " +
+                    "est réparti sur les jours restants.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+            TextButton(onClick = onCreateEnvelope, modifier = Modifier.padding(top = 4.dp)) {
+                Text("Créer une enveloppe")
             }
-            Text(
-                allowance.remainingToday.formatted(),
-                style = MaterialTheme.typography.displaySmall,
-                color = if (allowance.remainingToday.isNegative) {
-                    MaterialTheme.colorScheme.error
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                },
-            )
-            Text(
-                "Part du jour ${allowance.allowance.formatted()} · déjà dépensé ${allowance.spentToday.formatted()}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                "Budget quotidien du mois : ${dashboard.dailyBudget.formatted()}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            return@Column
         }
+        Text(
+            allowance.remainingToday.formatted(),
+            style = MaterialTheme.typography.displayLarge,
+            color = if (allowance.remainingToday.isNegative) BankTheme.status.over else MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+        Text(
+            todayExplanation(allowance.allowance, allowance.spentToday, dashboard.daysRemaining),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp, bottom = 20.dp),
+        )
+        MonthStrip(days = dashboard.monthDays, averageShare = dashboard.averageDailyShare)
+        Text(
+            buildString {
+                append("${dashboard.dailySpent.formatted()} dépensés sur ${dashboard.dailyBudget.formatted()} ce mois")
+                if (dashboard.catchUpSpent.isPositive) {
+                    append(", dont ${dashboard.catchUpSpent.formatted()} en rattrapage")
+                }
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 12.dp),
+        )
     }
 }
 
+private fun todayExplanation(share: Money, spentToday: Money, daysRemaining: Int): String {
+    val days = if (daysRemaining > 1) "$daysRemaining jours restants" else "dernier jour du mois"
+    return if (spentToday.isPositive) {
+        "Part du jour ${share.formatted()}, déjà ${spentToday.formatted()} dépensés. $days."
+    } else {
+        "Part du jour sur ce qui reste du mois, $days."
+    }
+}
+
+/** Le portefeuille sur une ligne : ce que le salaire laisse sans enveloppe. */
 @Composable
-private fun WalletCard(dashboard: Dashboard, onEditIncome: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+private fun WalletLine(unallocated: Money?, onEditIncome: () -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+    ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
+            modifier = Modifier.padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                val unallocated = dashboard.unallocated
-                if (unallocated == null) {
-                    Text("Portefeuille", style = MaterialTheme.typography.titleSmall)
-                    Text(
-                        "Renseigne ton salaire pour voir ce qui reste à répartir.",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                } else {
-                    Text(
-                        "Portefeuille : ${unallocated.formatted()}",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = if (unallocated.isNegative) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            MaterialTheme.colorScheme.onSurface
-                        },
-                    )
-                    Text(
-                        if (unallocated.isNegative) {
-                            "Tes enveloppes dépassent ton salaire du mois."
-                        } else {
-                            "Non attribué ce mois-ci, à répartir dans tes enveloppes."
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
+                Text("Portefeuille", style = MaterialTheme.typography.labelLarge)
+                Text(
+                    when {
+                        unallocated == null -> "Indique ton salaire pour savoir ce qui reste à répartir."
+                        unallocated.isNegative -> "Tes enveloppes dépassent ton salaire de ${(-unallocated).formatted()}."
+                        else -> "Non réparti ce mois-ci."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
-            TextButton(onClick = onEditIncome) { Text("Salaire") }
+            if (unallocated != null) {
+                Text(
+                    unallocated.formatted(),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (unallocated.isNegative) BankTheme.status.over else MaterialTheme.colorScheme.onSurface,
+                )
+            } else {
+                TextButton(onClick = onEditIncome) { Text("Indiquer") }
+            }
         }
     }
+}
+
+@Composable
+private fun SectionTitle(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(top = 24.dp, bottom = 4.dp),
+    )
 }

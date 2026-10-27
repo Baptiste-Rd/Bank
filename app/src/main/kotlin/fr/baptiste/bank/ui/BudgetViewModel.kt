@@ -42,8 +42,8 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
 
     fun setMonthlyIncome(income: Money) = perform { repository.setMonthlyIncome(income) }
 
-    fun addExpense(amount: Money, date: LocalDate, label: String, envelope: Envelope) =
-        perform { repository.addManualExpense(amount, date, label, envelope) }
+    fun addExpense(amount: Money, date: LocalDate, label: String, envelope: Envelope, wholePeriod: Boolean) =
+        perform { repository.addManualExpense(amount, date, label, envelope, wholePeriod) }
 
     fun deleteExpense(transactionId: Long) = perform { repository.deleteManualExpense(transactionId) }
 

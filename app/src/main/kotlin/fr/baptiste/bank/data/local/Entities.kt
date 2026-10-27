@@ -116,6 +116,8 @@ data class ImputationEntity(
     /** Part de la transaction imputée ici : une transaction peut être répartie sur plusieurs lignes. */
     @ColumnInfo(name = "amount_cents") val amountCents: Long,
     val mode: ImputationMode,
+    /** Rattrapage : la dépense porte sur toute la période, pas sur la date de la transaction. */
+    @ColumnInfo(name = "whole_period", defaultValue = "0") val wholePeriod: Boolean = false,
 )
 
 @Entity(

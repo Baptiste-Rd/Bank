@@ -42,7 +42,7 @@ class BudgetRepository(
     fun dashboard(today: LocalDate = LocalDate.now()): Flow<Dashboard> {
         val range = dashboardDateRange(today)
         val spendings = imputationDao.observeSpendings(range.start, range.endInclusive)
-            .map { rows -> rows.map { Spending(it.envelopeId, it.date, Money(it.amountCents)) } }
+            .map { rows -> rows.map { Spending(it.envelopeId, it.date, Money(it.amountCents), it.wholePeriod) } }
         val allocations = database.allocationDao().observeAll()
             .map { rows -> rows.associate { (it.envelopeId to it.periodKey) to Money(it.amountCents) } }
         return combine(envelopes, allocations, spendings, settings.monthlyIncome) { envelopes, allocs, spent, income ->
@@ -69,8 +69,16 @@ class BudgetRepository(
      * Enregistre une dépense saisie à la main et l'impute sur une enveloppe.
      * La transaction porte un montant négatif (sortie d'argent), l'imputation un montant
      * positif (ce qui est consommé dans l'enveloppe), sur la période de l'enveloppe à cette date.
+     *
+     * @param wholePeriod rattrapage : la dépense couvre toute la période de l'enveloppe contenant [date].
      */
-    suspend fun addManualExpense(amount: Money, date: LocalDate, label: String, envelope: Envelope) {
+    suspend fun addManualExpense(
+        amount: Money,
+        date: LocalDate,
+        label: String,
+        envelope: Envelope,
+        wholePeriod: Boolean = false,
+    ) {
         require(amount.isPositive) { "Une dépense doit avoir un montant positif" }
         database.withTransaction {
             val transactionId = transactionDao.insert(
@@ -90,6 +98,7 @@ class BudgetRepository(
                     periodKey = envelope.scale.periodContaining(date).key,
                     amountCents = amount.cents,
                     mode = ImputationMode.MANUAL,
+                    wholePeriod = wholePeriod,
                 ),
             )
         }

@@ -27,6 +27,9 @@ data class Projection(
  * [alertThresholdPercent] %. Avec un disponible nul, toute dépense projetée déclenche l'alerte.
  *
  * @param available budget de la période (allocation, reliquat et transferts compris).
+ * @param spent total dépensé sur la période, rattrapages compris.
+ * @param lumpSum part de [spent] saisie en rattrapage sur toute la période : elle n'est pas
+ *   extrapolée, puisqu'elle ne reflète pas un rythme de dépense mais un total déjà connu.
  */
 fun project(
     spent: Money,
@@ -34,13 +37,15 @@ fun project(
     period: Period,
     today: LocalDate,
     alertThresholdPercent: Int = 10,
+    lumpSum: Money = Money.ZERO,
 ): Projection {
     require(alertThresholdPercent >= 0) { "Le seuil d'alerte ne peut pas être négatif" }
     val elapsed = period.daysElapsedAt(today).toLong()
+    val paced = spent - lumpSum
     val projected = if (elapsed == 0L) {
         spent
     } else {
-        (spent * period.lengthInDays.toLong()).divideCeil(elapsed)
+        lumpSum + (paced * period.lengthInDays.toLong()).divideCeil(elapsed)
     }
     val overrun = if (projected > available) projected - available else Money.ZERO
     val tolerance = if (available.isPositive) {
