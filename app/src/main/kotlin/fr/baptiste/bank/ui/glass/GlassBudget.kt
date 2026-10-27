@@ -126,8 +126,9 @@ fun GlassBudgetContent(
     onCover: (EnvelopeLine) -> Unit,
     onEdit: (Envelope) -> Unit,
     onRestore: (Envelope) -> Unit,
+    initialView: BudgetView = BudgetView.MONTH,
 ) {
-    var view by rememberSaveable { mutableStateOf(BudgetView.MONTH) }
+    var view by rememberSaveable { mutableStateOf(initialView) }
     var showInfo by remember { mutableStateOf(false) }
     val isCurrentMonth = month == YearMonth.now()
     val parts = dashboard?.let(::planParts).orEmpty()

@@ -68,6 +68,7 @@ fun GlassMainScreen(
     onStyleChange: (UiStyle) -> Unit,
     initialTab: Tab = Tab.HOME,
     initialDialog: OpenDialog? = null,
+    initialBudgetView: BudgetView = BudgetView.MONTH,
 ) {
     val controller = rememberAppController(initialTab, initialDialog)
     val dashboard by viewModel.dashboard.collectAsStateWithLifecycle()
@@ -132,6 +133,7 @@ fun GlassMainScreen(
                                 viewModel.restoreEnvelope(it.id)
                                 controller.notify("${it.name} est de nouveau active.")
                             },
+                            initialView = initialBudgetView,
                         )
                     }
                     Tab.SAVINGS -> GlassSavingsContent(

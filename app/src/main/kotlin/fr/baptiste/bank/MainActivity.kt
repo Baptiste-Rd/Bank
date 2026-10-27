@@ -19,6 +19,7 @@ import fr.baptiste.bank.domain.money.Money
 import fr.baptiste.bank.ui.ClassicMainScreen
 import fr.baptiste.bank.ui.OpenDialog
 import fr.baptiste.bank.ui.Tab
+import fr.baptiste.bank.ui.glass.BudgetView
 import fr.baptiste.bank.ui.glass.GlassMainScreen
 import fr.baptiste.bank.ui.glass.GlassTheme
 import fr.baptiste.bank.ui.theme.BankTheme
@@ -30,7 +31,8 @@ import java.time.YearMonth
 /**
  * Paramètres de lancement facultatifs, utilisés par les captures d'écran automatiques :
  * `demo` (base d'exemple séparée), `style` (GLASS ou CLASSIC, sans enregistrer le choix)
- * `tab` (HOME, BUDGET, SAVINGS ou OPERATIONS) et `dialog` (BANK ou PLANNED).
+ * `tab` (HOME, BUDGET, SAVINGS ou OPERATIONS), `dialog` (BANK ou PLANNED), `monthsBack`
+ * (nombre de mois en arrière) et `budgetView` (YEAR pour la vue à l'année).
  */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,6 +47,8 @@ class MainActivity : ComponentActivity() {
         val initialTab = intent.getStringExtra(EXTRA_TAB)?.let { name -> Tab.entries.firstOrNull { it.name == name } }
             ?: Tab.HOME
         // Fenêtres ouvrables au lancement, pour les captures : la connexion bancaire, un achat prévu.
+        val monthsBack = intent.getIntExtra(EXTRA_MONTHS_BACK, 0).coerceIn(0, 36)
+        val initialBudgetView = if (intent.getStringExtra(EXTRA_BUDGET_VIEW) == "YEAR") BudgetView.YEAR else BudgetView.MONTH
         val initialDialog = when (intent.getStringExtra(EXTRA_DIALOG)) {
             "BANK" -> OpenDialog.Bank
             // Formulaire d'un nouvel achat prévu, pré-rempli comme depuis le modèle.
@@ -62,6 +66,8 @@ class MainActivity : ComponentActivity() {
             val budgetViewModel: BudgetViewModel = viewModel(factory = BudgetViewModel.Factory)
             val updateViewModel: UpdateViewModel = viewModel(factory = UpdateViewModel.Factory)
             val onStyleChange: (UiStyle) -> Unit = { scope.launch { settings.setUiStyle(it) } }
+            // Captures : se placer quelques mois en arrière dans Budget et Épargne.
+            LaunchedEffect(Unit) { repeat(monthsBack) { budgetViewModel.previousMonth() } }
             // L'interface verre est toujours sombre : icônes de la barre d'état en blanc.
             LaunchedEffect(style) {
                 if (style == UiStyle.GLASS) {
@@ -77,7 +83,7 @@ class MainActivity : ComponentActivity() {
                 // Premier instant, avant la lecture du réglage : rien à afficher.
                 null -> Unit
                 UiStyle.GLASS -> GlassTheme {
-                    GlassMainScreen(budgetViewModel, updateViewModel, onStyleChange, initialTab, initialDialog)
+                    GlassMainScreen(budgetViewModel, updateViewModel, onStyleChange, initialTab, initialDialog, initialBudgetView)
                 }
                 UiStyle.CLASSIC -> BankTheme {
                     ClassicMainScreen(budgetViewModel, updateViewModel, onStyleChange, initialTab, initialDialog)
@@ -91,5 +97,7 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_STYLE = "style"
         const val EXTRA_TAB = "tab"
         const val EXTRA_DIALOG = "dialog"
+        const val EXTRA_MONTHS_BACK = "monthsBack"
+        const val EXTRA_BUDGET_VIEW = "budgetView"
     }
 }
