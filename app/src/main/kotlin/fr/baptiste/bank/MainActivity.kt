@@ -32,7 +32,7 @@ class MainActivity : ComponentActivity() {
         val container = (application as BankApplication).container
         if (intent.getBooleanExtra(EXTRA_DEMO, false)) {
             container.enableDemo()
-            lifecycleScope.launch { DemoData.seedIfEmpty(container.budgetRepository) }
+            lifecycleScope.launch { DemoData.seedIfEmpty(container.database, container.budgetRepository) }
         }
         val forcedStyle = intent.getStringExtra(EXTRA_STYLE)?.let { name -> UiStyle.entries.firstOrNull { it.name == name } }
         val initialTab = intent.getStringExtra(EXTRA_TAB)?.let { name -> Tab.entries.firstOrNull { it.name == name } }

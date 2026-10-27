@@ -5,6 +5,8 @@ import fr.baptiste.bank.domain.model.EnvelopeType
 import fr.baptiste.bank.domain.money.Money
 import fr.baptiste.bank.domain.period.Frequency
 import fr.baptiste.bank.domain.period.Scale
+import androidx.room.withTransaction
+import fr.baptiste.bank.data.local.BankDatabase
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
 
@@ -15,9 +17,17 @@ import java.time.LocalDate
  */
 object DemoData {
 
-    suspend fun seedIfEmpty(repository: BudgetRepository, today: LocalDate = LocalDate.now()) {
-        if (repository.envelopes.first().isNotEmpty()) return
+    /**
+     * Remplit la base de démo en une seule transaction : si l'app est arrêtée en cours de route,
+     * rien n'est écrit et tout est refait au lancement suivant (pas de démo à moitié remplie).
+     */
+    suspend fun seedIfEmpty(database: BankDatabase, repository: BudgetRepository, today: LocalDate = LocalDate.now()) {
         repository.setMonthlyIncome(Money.euros(2400))
+        database.withTransaction { seed(repository, today) }
+    }
+
+    private suspend fun seed(repository: BudgetRepository, today: LocalDate) {
+        if (repository.envelopes.first().isNotEmpty()) return
 
         fun envelope(name: String, type: EnvelopeType, euros: Long, frequency: Frequency = type.defaultFrequency) =
             Envelope(
