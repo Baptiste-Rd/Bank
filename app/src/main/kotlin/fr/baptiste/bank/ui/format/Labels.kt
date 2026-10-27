@@ -72,6 +72,22 @@ val Period.label: String
         }
     }
 
+/**
+ * Période en version courte, pour une ligne de détail : le mois sans l'année quand c'est l'année
+ * en cours (« octobre »), une plage en dates courtes (« 7 oct. → 17 nov. »).
+ */
+val Period.shortLabel: String
+    get() = when (this) {
+        is Period.Month -> if (yearMonth.year == LocalDate.now().year) {
+            yearMonth.month.getDisplayName(TextStyle.FULL, french)
+        } else {
+            label
+        }
+        is Period.Year -> year.toString()
+        is Period.Week -> "semaine $week"
+        is Period.Span -> if (start == endInclusive) start.format(dayMonth) else "${start.format(dayMonth)} → ${endInclusive.format(dayMonth)}"
+    }
+
 /** Désignation de la période pour une phrase : « le mois », « la semaine », « la période ». */
 val Period.noun: String
     get() = when (this) {

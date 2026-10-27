@@ -49,3 +49,15 @@ val Envelope.purchaseMonth: YearMonth?
 
 /** Ce que l'achat prévu réserve chaque mois. */
 val Envelope.monthlyShare: Money get() = amount.convert(frequency, Frequency.MONTHLY)
+
+/**
+ * Ce qui est déjà mis de côté pour un achat prévu à [today] : la part mensuelle multipliée par le
+ * nombre de mois commencés depuis le début (mois en cours compris), sans dépasser le prix.
+ */
+fun Envelope.savedSoFar(today: LocalDate): Money {
+    val start = anchor ?: return Money.ZERO
+    if (type != EnvelopeType.PLANNED) return Money.ZERO
+    val months = (ChronoUnit.MONTHS.between(YearMonth.from(start), YearMonth.from(today)) + 1)
+        .coerceIn(0, frequency.every.toLong())
+    return minOf(monthlyShare * months, amount)
+}

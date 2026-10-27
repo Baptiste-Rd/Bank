@@ -29,6 +29,11 @@ import androidx.compose.ui.unit.dp
 import fr.baptiste.bank.domain.budget.EnvelopeLine
 import fr.baptiste.bank.domain.budget.monthlyShare
 import fr.baptiste.bank.domain.budget.purchaseMonth
+import fr.baptiste.bank.domain.budget.savedSoFar
+import fr.baptiste.bank.domain.model.EnvelopeType
+import fr.baptiste.bank.domain.money.Money
+import fr.baptiste.bank.ui.format.shortLabel
+import java.time.LocalDate
 import fr.baptiste.bank.ui.components.RowActionButton
 import fr.baptiste.bank.ui.components.StatusChip
 import fr.baptiste.bank.ui.components.StatusKind
@@ -62,14 +67,36 @@ fun EnvelopeRow(
         line.projection.isAlert -> status.warning
         else -> accent ?: status.good
     }
-    val ratio = when {
-        line.available.isPositive -> (line.spent.cents.toFloat() / line.available.cents).coerceIn(0f, 1f)
-        line.spent.isPositive -> 1f
-        else -> 0f
+    // Ce que la ligne montre dépend de la famille : ce qu'il reste pour une enveloppe de
+    // dépense, ce qui est mis de côté pour l'épargne et pour un achat prévu.
+    val today = LocalDate.now()
+    val display = when (line.envelope.type) {
+        EnvelopeType.SAVINGS -> RowDisplay(
+            detail = "${line.envelope.amount.formatted()} ${line.envelope.frequency.label}",
+            value = line.available,
+            caption = "ce mois",
+            ratio = null,
+        )
+        EnvelopeType.PLANNED -> {
+            val saved = line.envelope.savedSoFar(today)
+            RowDisplay(
+                detail = "${line.envelope.monthlyShare.formatted()} par mois · achat en ${line.envelope.purchaseMonth?.label.orEmpty()}",
+                value = saved,
+                caption = "sur ${line.envelope.amount.formatted()}",
+                ratio = if (line.envelope.amount.isPositive) saved.cents.toFloat() / line.envelope.amount.cents else 0f,
+            )
+        }
+        else -> RowDisplay(
+            detail = "${line.spent.formatted()} sur ${line.available.formatted()} · ${line.period.shortLabel}",
+            value = line.remaining,
+            caption = "reste",
+            ratio = when {
+                line.available.isPositive -> (line.spent.cents.toFloat() / line.available.cents).coerceIn(0f, 1f)
+                line.spent.isPositive -> 1f
+                else -> 0f
+            },
+        )
     }
-    val detail = line.envelope.purchaseMonth?.let { month ->
-        "${line.envelope.monthlyShare.formatted()} par mois · achat en ${month.label}"
-    } ?: "${line.spent.formatted()} sur ${line.available.formatted()} · ${line.period.label}"
 
     Row(
         modifier = modifier
@@ -84,7 +111,7 @@ fun EnvelopeRow(
                 Column(Modifier.weight(1f)) {
                     Text(line.envelope.name, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium))
                     Text(
-                        detail,
+                        display.detail,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -94,15 +121,16 @@ fun EnvelopeRow(
                 Spacer(Modifier.width(12.dp))
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        line.remaining.formatted(),
+                        display.value.formatted(),
                         style = MaterialTheme.typography.titleMedium,
-                        color = if (overspent) status.over else MaterialTheme.colorScheme.onSurface,
+                        color = if (display.value.isNegative) status.over else MaterialTheme.colorScheme.onSurface,
                     )
-                    Text("reste", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(display.caption, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            LinearProgressIndicator(
-                progress = { ratio },
+            val ratio = display.ratio
+            if (ratio != null) LinearProgressIndicator(
+                progress = { ratio.coerceIn(0f, 1f) },
                 color = color,
                 trackColor = MaterialTheme.colorScheme.surfaceVariant,
                 strokeCap = StrokeCap.Round,
@@ -146,3 +174,6 @@ fun CategoryAvatar(name: String, color: Color, modifier: Modifier = Modifier) {
         )
     }
 }
+
+/** Ce qu'une ligne d'enveloppe affiche : détail, valeur à droite et sa légende, avancement (null : pas de barre). */
+private data class RowDisplay(val detail: String, val value: Money, val caption: String, val ratio: Float?)

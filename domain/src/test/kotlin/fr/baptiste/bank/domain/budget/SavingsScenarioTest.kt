@@ -111,4 +111,13 @@ class SavingsScenarioTest {
         assertEquals(Money(2941), dashboard.dailyCapForTarget())
         assertEquals(null, computeDashboard(budgets, emptyMap(), spendings, income, endOfSeptember).dailyCapForTarget())
     }
+
+    @Test
+    fun `a planned purchase shows what is already set aside`() {
+        val velo = plannedPurchase("Vélo", Money.euros(600), YearMonth.of(2027, 3), today)
+        assertEquals(Money.euros(100), velo.savedSoFar(today))
+        assertEquals(Money.euros(300), velo.savedSoFar(LocalDate.of(2026, 12, 2)))
+        assertEquals(Money.euros(600), velo.savedSoFar(LocalDate.of(2027, 8, 1)))
+        assertEquals(Money.ZERO, velo.savedSoFar(LocalDate.of(2026, 9, 30)))
+    }
 }

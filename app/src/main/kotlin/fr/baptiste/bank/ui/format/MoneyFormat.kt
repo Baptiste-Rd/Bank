@@ -9,5 +9,15 @@ private val euroFormat: NumberFormat = NumberFormat.getCurrencyInstance(Locale.F
     currency = Currency.getInstance("EUR")
 }
 
-/** Affiche un montant au format français : « 24,28 € ». */
+/**
+ * Affiche un montant au format français : « 1 234,56 € », « −12,40 € ».
+ *
+ * Deux retouches au format standard :
+ * - les espaces fines insécables (U+202F) que Java place entre les milliers et avant « € »
+ *   deviennent des espaces insécables ordinaires : la police Inter ne leur donne aucune largeur
+ *   hors chiffres tabulaires, ce qui collait « 1183,33 » ;
+ * - le trait d'union devient un vrai signe moins (U+2212), de la largeur d'un chiffre.
+ */
 fun Money.formatted(): String = euroFormat.format(cents / 100.0)
+    .replace(' ', ' ')
+    .replace('-', '−')
