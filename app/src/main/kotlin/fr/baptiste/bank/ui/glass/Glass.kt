@@ -230,7 +230,7 @@ private fun Modifier.glass(
         onDrawSurface = {
             if (accent != null) {
                 drawRect(accent, blendMode = BlendMode.Hue)
-                drawRect(accent.copy(alpha = 0.82f))
+                drawRect(accent.copy(alpha = 0.72f))
             } else {
                 drawRect(tint)
             }
@@ -329,12 +329,12 @@ fun GlassPillButton(
 data class GlassTabItem(val title: String, val icon: Painter)
 
 /**
- * Barre d'onglets flottante. L'indicateur est une goutte de verre posée sur la barre : il courbe
- * les icônes qui passent dessous, avec l'aberration chromatique. Il glisse d'un onglet à l'autre en
- * ligne droite (320 ms, sans rebond) ; la barre et le reste de l'écran ne bougent pas.
- *
- * Pour que l'indicateur puisse courber les icônes, la barre (verre et icônes) est enregistrée
- * dans sa propre couche, que l'indicateur, dessiné par-dessus, utilise comme arrière-plan.
+ * Barre d'onglets flottante, en trois couches superposées :
+ * 1. le verre de la barre, qui courbe et irise le contenu qui défile dessous ;
+ * 2. l'indicateur, une goutte de verre qui courbe à son tour ce verre et ce contenu : son
+ *    irisation change quand le contenu défile et quand elle glisse d'un onglet à l'autre ;
+ * 3. les icônes et libellés, dessinés par-dessus, toujours nets.
+ * L'indicateur glisse en ligne droite (320 ms, sans rebond) ; la barre et l'écran ne bougent pas.
  */
 @Composable
 fun GlassTabBar(
@@ -351,17 +351,14 @@ fun GlassTabBar(
         label = "indicateur",
     )
     Box(modifier.height(64.dp)) {
-        Row(
+        // 1. Verre de la barre, enregistré pour que l'indicateur puisse le courber.
+        Box(
             Modifier
                 .matchParentSize()
                 .layerBackdrop(barBackdrop)
-                .glass(backdrop, Glass.Bar, BarOptics)
-                .padding(4.dp),
-        ) {
-            items.forEachIndexed { index, item ->
-                GlassTab(item, selected = index == selectedIndex, onClick = { onSelect(index) })
-            }
-        }
+                .glass(backdrop, Glass.Bar, BarOptics),
+        )
+        // 2. Indicateur.
         BoxWithConstraints(Modifier.matchParentSize().padding(4.dp)) {
             val tabWidth = maxWidth / items.size
             Box(
@@ -373,12 +370,9 @@ fun GlassTabBar(
                         backdrop = barBackdrop,
                         shape = { Capsule() },
                         effects = {
-                            // Effet de profondeur : toute la goutte grossit ce qui est dessous,
-                            // pas seulement ses bords ; les icônes se déforment en la traversant.
                             lens(
                                 refractionHeight = 14.dp.toPx(),
-                                refractionAmount = 22.dp.toPx(),
-                                depthEffect = true,
+                                refractionAmount = 24.dp.toPx(),
                                 chromaticAberration = true,
                             )
                         },
@@ -387,6 +381,12 @@ fun GlassTabBar(
                         onDrawSurface = { drawRect(Glass.Indicator) },
                     ),
             )
+        }
+        // 3. Icônes et libellés, au-dessus de tout.
+        Row(Modifier.matchParentSize().padding(4.dp)) {
+            items.forEachIndexed { index, item ->
+                GlassTab(item, selected = index == selectedIndex, onClick = { onSelect(index) })
+            }
         }
     }
 }
