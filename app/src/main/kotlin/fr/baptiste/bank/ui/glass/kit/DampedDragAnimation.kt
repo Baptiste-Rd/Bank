@@ -2,6 +2,7 @@
 // Voir third_party/AndroidLiquidGlass-LICENSE.txt. Modifications : paquet, couleurs et API Android.
 package fr.baptiste.bank.ui.glass.kit
 
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.MutatorMutex
@@ -94,7 +95,7 @@ class DampedDragAnimation(
 
     fun release() {
         animationScope.launch {
-            awaitFrame()
+            withFrameNanos { }
             if (value != targetValue) {
                 val threshold = (valueRange.endInclusive - valueRange.start) * 0.025f
                 snapshotFlow { valueAnimation.value }
