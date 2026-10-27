@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Bank</string>
+    <string name="home_available_today">Disponible aujourd\'hui</string>
+    <string name="home_empty">Aucune donnée pour l\'instant. Crée tes enveloppes et importe un relevé pour commencer.</string>
+    <string name="home_envelope_count">%1$d enveloppe(s) active(s)</string>
+</resources>
