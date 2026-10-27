@@ -43,3 +43,28 @@ for theme in clair sombre; do
   done
   shoot CLASSIC HOME "$theme"
 done
+
+# Mouvement : une courte vidéo de l'interface verre (changement d'onglet, défilement), pour
+# vérifier ce qu'une capture fixe ne montre pas. Les animations sont réactivées le temps de la
+# vidéo. Coordonnées pour un Pixel 7 (1080 x 2400) : centres des trois onglets de la barre.
+adb shell cmd uimode night yes
+adb shell settings put global animator_duration_scale 1
+adb shell am force-stop "$PKG"
+adb shell am start -W -n "$PKG/.MainActivity" --ez demo true --es style GLASS --es tab HOME > /dev/null
+sleep 8
+close_dialogs
+sleep 1
+adb shell screenrecord --time-limit 12 --bit-rate 8000000 /sdcard/motion.mp4 &
+REC=$!
+sleep 1.5
+adb shell input tap 540 2226; sleep 1.5
+adb shell input tap 774 2226; sleep 1.5
+adb shell input tap 306 2226; sleep 1.5
+# Défilement lent : les cartes passent sous la barre d'onglets puis sous les boutons du haut.
+adb shell input swipe 540 1700 540 900 1800; sleep 1
+adb exec-out screencap -p > "$OUT/glass-home-defile.png"
+adb shell input swipe 540 1500 540 700 1800; sleep 1.5
+adb exec-out screencap -p > "$OUT/glass-home-defile2.png"
+wait $REC || true
+adb pull /sdcard/motion.mp4 "$OUT/glass-mouvement.mp4" || echo "pas de vidéo"
+adb shell settings put global animator_duration_scale 0
