@@ -74,7 +74,7 @@ object DemoData {
         spend("Coiffeur", maxOf(1, today.dayOfMonth - 10), 3000L)
 
         // Cinq mois d'historique, pour l'épargne mois par mois : le quotidien varie d'un mois à l'autre.
-        val monthlyDaily = listOf(118000L, 131000L, 96000L, 124000L, 109000L)
+        val monthlyDaily = listOf(62000L, 71000L, 58000L, 66000L, 69000L)
         monthlyDaily.forEachIndexed { index, total ->
             val month = YearMonth.from(today).minusMonths(index + 1L)
             val split = listOf("Courses" to 0.62, "Essence" to 0.18, "Sorties" to 0.20)
