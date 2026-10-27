@@ -2,6 +2,8 @@ package fr.baptiste.bank
 
 import android.app.Application
 import fr.baptiste.bank.data.local.BankDatabase
+import fr.baptiste.bank.update.ApkInstaller
+import fr.baptiste.bank.update.UpdateRepository
 
 /**
  * Point d'entrée de l'application. Il porte le conteneur de dépendances,
@@ -23,4 +25,6 @@ class BankApplication : Application() {
  */
 class AppContainer(application: Application) {
     val database: BankDatabase by lazy { BankDatabase.create(application) }
+    val updateRepository: UpdateRepository by lazy { UpdateRepository(BuildConfig.UPDATE_REPOSITORY) }
+    val apkInstaller: ApkInstaller by lazy { ApkInstaller(application) }
 }

@@ -10,3 +10,5 @@ build/
 .cxx
 *.keystore
 *.jks
+# Seule exception : la clé de debug partagée, qui permet aux mises à jour de s'installer par-dessus.
+!signing/debug-updates.jks

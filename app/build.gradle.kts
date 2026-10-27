@@ -4,6 +4,11 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+// Sur la CI, chaque build reçoit le numéro d'exécution GitHub Actions comme versionCode :
+// il augmente à chaque push, ce qui permet à l'app de savoir si une version plus récente existe.
+// En local, la valeur reste 1.
+val ciBuildNumber: Int? = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
+
 android {
     namespace = "fr.baptiste.bank"
     compileSdk = 37
@@ -12,8 +17,23 @@ android {
         applicationId = "fr.baptiste.bank"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = ciBuildNumber ?: 1
+        versionName = "0.1.${ciBuildNumber ?: 0}"
+
+        // Dépôt GitHub dont les releases servent de source aux mises à jour intégrées.
+        buildConfigField("String", "UPDATE_REPOSITORY", "\"Baptiste-Rd/bank\"")
+    }
+
+    signingConfigs {
+        // Android refuse d'installer une mise à jour signée par une autre clé.
+        // La clé de debug par défaut étant recréée à chaque exécution de la CI,
+        // on utilise une clé dédiée, versionnée dans le dépôt.
+        getByName("debug") {
+            storeFile = rootProject.file("signing/debug-updates.jks")
+            storePassword = "android"
+            keyAlias = "bank-debug"
+            keyPassword = "android"
+        }
     }
 
     buildTypes {
@@ -29,6 +49,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

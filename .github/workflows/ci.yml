@@ -9,6 +9,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      # Nécessaire pour publier la release lue par la mise à jour intégrée.
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -19,8 +22,8 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Tests du domaine et APK de debug
-        run: ./gradlew :domain:test :app:assembleDebug --stacktrace
+      - name: Tests et APK de debug
+        run: ./gradlew :domain:test :app:testDebugUnitTest :app:assembleDebug --stacktrace
 
       - name: Rapports de tests
         if: failure()
@@ -34,3 +37,18 @@ jobs:
         with:
           name: bank-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+
+      # Chaque push sur main publie une release « build-N ». L'app compare N à son propre
+      # versionCode (le même numéro d'exécution) pour proposer la mise à jour.
+      - name: Publier la release pour la mise à jour intégrée
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk bank-debug.apk
+          gh release create "build-${{ github.run_number }}" bank-debug.apk \
+            --target "${{ github.sha }}" \
+            --title "Build ${{ github.run_number }}" \
+            --notes "$COMMIT_MESSAGE" \
+            --latest

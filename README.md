@@ -27,8 +27,19 @@ Les versions sont centralisées dans `gradle/libs.versions.toml`.
 
 JDK 17 requis.
 
-## Installer l'APK sans Android Studio
+## Installer et mettre à jour l'app
 
-Chaque push sur `main` lance la CI GitHub Actions, qui exécute les tests et construit l'APK de debug.
-Dans l'onglet **Actions**, ouvre la dernière exécution réussie et télécharge l'artefact `bank-debug-apk`.
-Sur le téléphone, ouvre le fichier `.apk` et autorise l'installation depuis cette source.
+Chaque push sur `main` lance la CI GitHub Actions : tests, APK de debug, puis publication
+d'une release `build-N` contenant `bank-debug.apk`. N est aussi le `versionCode` de l'APK.
+
+**Première installation** : sur le téléphone, ouvre la dernière release du dépôt
+(onglet **Releases**), télécharge `bank-debug.apk`, ouvre-le et autorise l'installation.
+
+**Mises à jour** : l'app interroge la dernière release au démarrage. Si son numéro est plus
+élevé que celui installé, le bouton **Installer** de l'accueil télécharge l'APK et lance
+l'installation Android. La première fois, Android demande d'autoriser l'app à installer des
+applications.
+
+Les APK sont signés avec la clé `signing/debug-updates.jks`, versionnée pour que chaque build
+de la CI porte la même signature (condition imposée par Android pour installer une mise à jour).
+C'est une clé de debug, à ne pas réutiliser pour une version publiée.
