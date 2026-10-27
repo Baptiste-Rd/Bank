@@ -1,22 +1,26 @@
 package fr.baptiste.bank.ui.glass
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -29,6 +33,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -39,8 +45,11 @@ import fr.baptiste.bank.domain.budget.Dashboard
 import fr.baptiste.bank.domain.budget.EnvelopeLine
 import fr.baptiste.bank.domain.model.Envelope
 import fr.baptiste.bank.domain.model.EnvelopeType
+import fr.baptiste.bank.domain.model.TransactionSource
 import fr.baptiste.bank.domain.money.Money
+import fr.baptiste.bank.domain.period.Period
 import fr.baptiste.bank.ui.components.BlurBehindWindow
+import fr.baptiste.bank.ui.envelopes.CategoryAvatar
 import fr.baptiste.bank.ui.envelopes.EnvelopeRow
 import fr.baptiste.bank.ui.envelopes.TemplateChips
 import fr.baptiste.bank.ui.envelopes.envelopeTemplates
@@ -49,12 +58,22 @@ import fr.baptiste.bank.ui.format.formatted
 import fr.baptiste.bank.ui.format.label
 import fr.baptiste.bank.ui.home.MonthStrip
 import fr.baptiste.bank.ui.home.todayExplanation
-import fr.baptiste.bank.ui.operations.OperationItem
 import fr.baptiste.bank.ui.operations.dayTitle
 import fr.baptiste.bank.ui.theme.BankTheme
+import fr.baptiste.bank.ui.theme.envelopeTypeColor
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+/*
+ * Contenu des trois onglets de l'interface verre.
+ *
+ * Organisation : chaque groupe a un titre de section (avec la pastille de couleur de son type
+ * et un total à droite) puis une seule carte qui réunit ses lignes. Les lignes d'une carte sont
+ * séparées par de l'espace, sans trait. Les couleurs suivent deux codes distincts :
+ * - le type d'enveloppe (bleu, violet, cyan, ardoise, vert) pour se repérer ;
+ * - le statut (bleu, ambre, rouge) pour ce qui demande une action.
+ */
 
 /** Le contenu défile sous la barre d'état et sous la barre d'onglets flottante, comme sur iOS. */
 @Composable
@@ -64,10 +83,10 @@ private fun glassContentPadding(): PaddingValues {
     return PaddingValues(start = 16.dp, end = 16.dp, top = top + 12.dp, bottom = bottom + 112.dp)
 }
 
-/** Grand titre en haut de page, qui défile avec le contenu. La place à droite est celle du bouton ⋮. */
+/** Grand titre en haut de page, qui défile avec le contenu. La place à droite est celle des boutons. */
 private fun LazyListScope.largeTitle(title: String, subtitle: String? = null) {
     item(key = "title") {
-        Column(modifier = Modifier.padding(start = 4.dp, end = 72.dp, top = 8.dp, bottom = 8.dp)) {
+        Column(modifier = Modifier.padding(start = 4.dp, end = 120.dp, top = 8.dp, bottom = 8.dp)) {
             Text(title, fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.Bold)
             if (subtitle != null) {
                 Text(
@@ -80,16 +99,20 @@ private fun LazyListScope.largeTitle(title: String, subtitle: String? = null) {
     }
 }
 
-private fun LazyListScope.sectionLabel(key: String, text: String, trailing: String? = null) {
+/** Titre de section : une pastille de couleur facultative, le libellé, et un total à droite. */
+private fun LazyListScope.sectionLabel(key: String, text: String, trailing: String? = null, dot: Color? = null) {
     item(key = key) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 12.dp),
-            verticalAlignment = Alignment.Bottom,
+            modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
+            if (dot != null) {
+                Box(Modifier.padding(end = 8.dp).size(8.dp).clip(CircleShape).background(dot))
+            }
             Text(
                 text,
                 style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f),
             )
             if (trailing != null) {
@@ -98,6 +121,22 @@ private fun LazyListScope.sectionLabel(key: String, text: String, trailing: Stri
         }
     }
 }
+
+/** Espace entre deux lignes d'une même carte : pas de trait, la respiration suffit. */
+@Composable
+private fun RowGap() {
+    Spacer(Modifier.height(4.dp))
+}
+
+/** Somme de ce qu'il reste dans un groupe d'enveloppes, pour le titre de section. */
+private fun List<EnvelopeLine>.remainingLabel(): String {
+    val total = fold(Money.ZERO) { sum, line -> sum + line.remaining }
+    return if (total.isNegative) "${(-total).formatted()} de dépassement" else "${total.formatted()} restants"
+}
+
+/** Teintes des cartes d'alerte : chaudes et claires, pour ressortir sans assombrir. */
+private val WarningTint = Color(0xFFFFD98A).copy(alpha = 0.12f)
+private val OverTint = Color(0xFFFFB3BD).copy(alpha = 0.13f)
 
 private val todayTitle = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.FRANCE)
 
@@ -120,7 +159,8 @@ fun GlassHomeContent(
             return@LazyColumn
         }
         val allowance = dashboard.dailyAllowance
-        if (!dashboard.dailyBudget.isPositive) {
+        val hasBudget = dashboard.dailyBudget.isPositive
+        if (!hasBudget) {
             item(key = "empty") {
                 GlassCard(strong = true) {
                     Text("Pas encore de budget du jour", style = MaterialTheme.typography.titleLarge)
@@ -134,7 +174,7 @@ fun GlassHomeContent(
                 }
             }
         } else {
-            // Le chiffre du jour, posé directement sur le fond liquide : c'est la seule chose en très grand.
+            // Le chiffre du jour, posé directement sur le fond : c'est la seule chose en très grand.
             item(key = "hero") {
                 Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
                     Text(
@@ -161,75 +201,113 @@ fun GlassHomeContent(
                     )
                 }
             }
-            item(key = "month") {
-                GlassCard {
-                    Text("Ce mois-ci", style = MaterialTheme.typography.titleSmall)
+        }
+        // Le mois en un seul bloc : le rythme jour par jour (s'il y a un budget), puis les deux
+        // chiffres qui comptent, côte à côte.
+        item(key = "month") {
+            GlassCard {
+                Text("Ce mois-ci", style = MaterialTheme.typography.titleSmall)
+                if (hasBudget) {
                     MonthStrip(
                         days = dashboard.monthDays,
                         averageShare = dashboard.averageDailyShare,
                         modifier = Modifier.padding(top = 8.dp),
                     )
-                    Text(
-                        buildString {
-                            append("${dashboard.dailySpent.formatted()} dépensés sur ${dashboard.dailyBudget.formatted()}")
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    StatTile(
+                        label = "Dépensé",
+                        value = dashboard.dailySpent.formatted(),
+                        caption = buildString {
+                            append("sur ${dashboard.dailyBudget.formatted()}")
                             if (dashboard.catchUpSpent.isPositive) {
                                 append(", dont ${dashboard.catchUpSpent.formatted()} en rattrapage")
                             }
                         },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 8.dp),
+                        modifier = Modifier.weight(1f),
                     )
-                }
-            }
-        }
-        item(key = "wallet") {
-            val unallocated = dashboard.unallocated
-            GlassCard(onClick = onEditIncome, contentPadding = 18.dp) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Portefeuille", style = MaterialTheme.typography.titleSmall)
-                        Text(
-                            when {
-                                unallocated == null -> "Touche ici pour indiquer ton salaire."
-                                unallocated.isNegative -> "Tes enveloppes dépassent ton salaire."
-                                else -> "Dans ton budget du jour, rangé dans aucune enveloppe."
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    if (unallocated != null) {
-                        Text(
-                            unallocated.formatted(),
-                            style = MaterialTheme.typography.titleLarge,
-                            color = if (unallocated.isNegative) BankTheme.status.over else MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
+                    val unallocated = dashboard.unallocated
+                    StatTile(
+                        label = "Portefeuille",
+                        value = unallocated?.formatted() ?: "À définir",
+                        caption = when {
+                            unallocated == null -> "touche pour indiquer ton salaire"
+                            unallocated.isNegative -> "enveloppes au-delà du salaire"
+                            else -> "hors enveloppes"
+                        },
+                        valueColor = if (unallocated?.isNegative == true) BankTheme.status.over else null,
+                        onClick = onEditIncome,
+                        modifier = Modifier.weight(1f),
+                    )
                 }
             }
         }
         val watched = dashboard.alerts
         if (watched.isNotEmpty()) {
-            sectionLabel("watched-label", "À surveiller")
-            items(watched, key = { "watch-${it.envelope.id}" }) { line ->
-                GlassCard(contentPadding = 16.dp) {
-                    EnvelopeRow(line, onClick = { onOpenEnvelope(line) }, onCover = { onCover(line) })
+            val anyOver = watched.any { it.remaining.isNegative }
+            sectionLabel(
+                key = "watched-label",
+                text = "À surveiller",
+                trailing = if (watched.size > 1) "${watched.size} enveloppes" else "1 enveloppe",
+                dot = if (anyOver) BankTheme.status.over else BankTheme.status.warning,
+            )
+            item(key = "watched") {
+                GlassCard(tint = if (anyOver) OverTint else WarningTint, contentPadding = 16.dp) {
+                    watched.forEachIndexed { index, line ->
+                        if (index > 0) RowGap()
+                        EnvelopeRow(
+                            line,
+                            onClick = { onOpenEnvelope(line) },
+                            onCover = { onCover(line) },
+                            accent = envelopeTypeColor(line.envelope.type),
+                        )
+                    }
                 }
             }
         }
         val daily = dashboard.envelopes.filter { it.envelope.type == EnvelopeType.DAILY && it !in watched }
         if (daily.isNotEmpty()) {
-            sectionLabel("daily-label", "Quotidien")
+            sectionLabel("daily-label", "Quotidien", daily.remainingLabel(), envelopeTypeColor(EnvelopeType.DAILY))
             item(key = "daily") {
                 GlassCard(contentPadding = 16.dp) {
                     daily.forEachIndexed { index, line ->
                         if (index > 0) RowGap()
-                        EnvelopeRow(line, onClick = { onOpenEnvelope(line) })
+                        EnvelopeRow(line, onClick = { onOpenEnvelope(line) }, accent = envelopeTypeColor(EnvelopeType.DAILY))
                     }
                 }
             }
         }
+    }
+}
+
+/** Chiffre clé dans une carte : libellé, valeur, précision. Un fond légèrement plus clair le détache. */
+@Composable
+private fun StatTile(
+    label: String,
+    value: String,
+    caption: String,
+    modifier: Modifier = Modifier,
+    valueColor: Color? = null,
+    onClick: (() -> Unit)? = null,
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.White.copy(alpha = 0.06f))
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(12.dp),
+    ) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            value,
+            style = MaterialTheme.typography.titleLarge,
+            color = valueColor ?: MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(vertical = 2.dp),
+        )
+        Text(caption, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -265,13 +343,15 @@ fun GlassEnvelopesContent(
                 }
             }
         }
-        lines.groupBy { it.envelope.type }.forEach { (type, typeLines) ->
-            sectionLabel("label-$type", type.label)
+        // Toujours le même ordre de types, du plus quotidien au plus lointain.
+        lines.groupBy { it.envelope.type }.toSortedMap(compareBy<EnvelopeType> { it.ordinal }).forEach { (type, typeLines) ->
+            val color = envelopeTypeColor(type)
+            sectionLabel("label-$type", type.label, typeLines.remainingLabel(), color)
             item(key = "group-$type") {
                 GlassCard(contentPadding = 16.dp) {
                     typeLines.forEachIndexed { index, line ->
                         if (index > 0) RowGap()
-                        EnvelopeRow(line, onClick = { onOpen(line) }, onCover = { onCover(line) })
+                        EnvelopeRow(line, onClick = { onOpen(line) }, onCover = { onCover(line) }, accent = color)
                     }
                 }
             }
@@ -284,7 +364,7 @@ fun GlassEnvelopesContent(
             }
         }
         if (archived.isNotEmpty()) {
-            sectionLabel("archived-label", "Archivées")
+            sectionLabel("archived-label", "Archivées", if (archived.size > 1) "${archived.size} enveloppes" else null)
             item(key = "archived") {
                 GlassCard(contentPadding = 16.dp) {
                     archived.forEachIndexed { index, envelope ->
@@ -310,10 +390,12 @@ fun GlassEnvelopesContent(
 @Composable
 fun GlassOperationsContent(
     operations: List<OperationRow>,
+    envelopes: List<Envelope>,
     onDelete: (Long) -> Unit,
 ) {
     var pendingDelete by remember { mutableStateOf<OperationRow?>(null) }
     val today = LocalDate.now()
+    val typeByName = remember(envelopes) { envelopes.associate { it.name to it.type } }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -339,9 +421,17 @@ fun GlassOperationsContent(
                 GlassCard(contentPadding = 12.dp) {
                     dayOperations.forEachIndexed { index, operation ->
                         if (index > 0) RowGap()
-                        Box(modifier = Modifier.padding(start = 8.dp)) {
-                            OperationItem(operation, onDelete = { pendingDelete = operation })
-                        }
+                        val firstEnvelope = operation.envelopeNames?.split(", ")?.firstOrNull()
+                        GlassOperationRow(
+                            operation = operation,
+                            color = firstEnvelope?.let { typeByName[it] }?.let(::envelopeTypeColor)
+                                ?: MaterialTheme.colorScheme.onSurfaceVariant,
+                            onClick = if (operation.source == TransactionSource.MANUAL) {
+                                { pendingDelete = operation }
+                            } else {
+                                null
+                            },
+                        )
                     }
                 }
             }
@@ -367,8 +457,46 @@ fun GlassOperationsContent(
     }
 }
 
-/** Espace entre deux lignes d'une même carte : pas de trait, la respiration suffit. */
+/**
+ * Une opération : pastille de la catégorie, libellé et enveloppe, montant. Une dépense saisie à la
+ * main se supprime en la touchant (une confirmation est demandée) ; il n'y a donc plus d'icône
+ * de corbeille sur chaque ligne.
+ */
 @Composable
-private fun RowGap() {
-    Spacer(Modifier.height(10.dp))
+private fun GlassOperationRow(operation: OperationRow, color: Color, onClick: (() -> Unit)?) {
+    val details = buildList {
+        add(operation.envelopeNames ?: "À trier")
+        if (operation.wholePeriod) {
+            val period = operation.periodKey?.let { runCatching { Period.parse(it) }.getOrNull() }
+            add(if (period != null) "rattrapage ${period.label}" else "rattrapage")
+        } else if (operation.source == TransactionSource.MANUAL) {
+            add("saisie à la main")
+        }
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .then(
+                if (onClick != null) Modifier.clickable(onClickLabel = "Supprimer", onClick = onClick) else Modifier,
+            )
+            .padding(horizontal = 4.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        CategoryAvatar(operation.envelopeNames ?: "?", color)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(operation.label, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                details.joinToString(", "),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Text(
+            Money(operation.amountCents).formatted(),
+            style = MaterialTheme.typography.titleMedium,
+            color = if (operation.amountCents > 0) BankTheme.status.good else MaterialTheme.colorScheme.onSurface,
+        )
+    }
 }

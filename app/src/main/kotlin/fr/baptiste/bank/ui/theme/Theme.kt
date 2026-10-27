@@ -115,8 +115,13 @@ private fun ColorScheme.onGlassBackground(): ColorScheme = copy(
     outlineVariant = Color(0x33FFFFFF),
 )
 
-private val GlassCardStatusDark = StatusColors(good = Color(0xFF7DB4FF), warning = Color(0xFFFF8F9C), over = Color(0xFFFF6B7D))
-private val GlassBackgroundStatus = StatusColors(good = Color(0xFFBFDBFF), warning = Color(0xFFFFC2CA), over = Color(0xFFFFB3BD))
+/*
+ * Statuts en verre, selon la convention des feux : bleu (dans le budget), ambre (à surveiller),
+ * rouge (dépassé). Contrastes mesurés sur une carte (#19357D) : bleu 5,3:1, ambre 6,8:1,
+ * rouge 5,1:1, tous au-dessus du seuil de 4,5:1 du texte courant (WCAG 2.2, critère 1.4.3).
+ */
+private val GlassCardStatusDark = StatusColors(good = Color(0xFF7DB4FF), warning = Color(0xFFFBBF24), over = Color(0xFFFF8A97))
+private val GlassBackgroundStatus = StatusColors(good = Color(0xFFBFDBFF), warning = Color(0xFFFCD34D), over = Color(0xFFFFB3BD))
 
 /**
  * Applique les couleurs « sur fond » ([onBackground] = true) ou « sur verre » au contenu.
@@ -132,6 +137,21 @@ fun GlassSurfaceColors(onBackground: Boolean, content: @Composable () -> Unit) {
     ) {
         MaterialTheme(colorScheme = scheme, typography = MaterialTheme.typography, content = content)
     }
+}
+
+/**
+ * Couleur d'identification de chaque type d'enveloppe, dans l'interface verre. Une palette
+ * catégorielle : des teintes nettement séparées (bleu, violet, cyan, ardoise, vert), qui
+ * évitent l'ambre et le rouge réservés aux statuts. Toutes dépassent 6:1 sur une carte, donc
+ * utilisables aussi pour du texte. La couleur n'est jamais seule à porter l'information : le
+ * type est toujours écrit en toutes lettres (WCAG 2.2, critère 1.4.1).
+ */
+fun envelopeTypeColor(type: fr.baptiste.bank.domain.model.EnvelopeType): Color = when (type) {
+    fr.baptiste.bank.domain.model.EnvelopeType.DAILY -> Color(0xFF93C5FD)
+    fr.baptiste.bank.domain.model.EnvelopeType.RECURRING -> Color(0xFFC4B5FD)
+    fr.baptiste.bank.domain.model.EnvelopeType.ANNUAL -> Color(0xFF67E8F9)
+    fr.baptiste.bank.domain.model.EnvelopeType.FIXED -> Color(0xFFCBD5E1)
+    fr.baptiste.bank.domain.model.EnvelopeType.SAVINGS -> Color(0xFF6EE7B7)
 }
 
 /** Couleurs de statut qui n'existent pas dans le schéma Material. */

@@ -51,11 +51,11 @@ fun GlassTheme(content: @Composable () -> Unit) {
 }
 
 /**
- * Interface Liquid Glass, en version sobre :
+ * Interface Liquid Glass :
  * - le contenu défile sur toute la hauteur de l'écran, sous les éléments flottants ;
- * - les cartes floutent le fond (couche [LocalBackgroundBackdrop]) ;
- * - la barre d'onglets, les boutons et les messages floutent le fond et le contenu qui passe
- *   dessous (couche [LocalScreenBackdrop]) ;
+ * - les cartes courbent et floutent le fond (couche [LocalBackgroundBackdrop]) ;
+ * - la barre d'onglets, les boutons et les messages courbent et floutent le fond et le contenu
+ *   qui passe dessous (couche [LocalScreenBackdrop]) ;
  * - changer d'onglet remplace le contenu sans animation ; seul l'indicateur de la barre glisse.
  */
 @Composable
@@ -69,6 +69,7 @@ fun GlassMainScreen(
     val dashboard by viewModel.dashboard.collectAsStateWithLifecycle()
     val operations by viewModel.operations.collectAsStateWithLifecycle()
     val archived by viewModel.archivedEnvelopes.collectAsStateWithLifecycle()
+    val envelopes by viewModel.envelopes.collectAsStateWithLifecycle()
     val updateAvailable = rememberUpdateAvailable(updateViewModel)
     var menuOpen by remember { mutableStateOf(false) }
 
@@ -105,6 +106,7 @@ fun GlassMainScreen(
                     )
                     Tab.OPERATIONS -> GlassOperationsContent(
                         operations = operations,
+                        envelopes = envelopes + archived,
                         onDelete = viewModel::deleteExpense,
                     )
                 }

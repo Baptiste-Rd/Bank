@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.semantics.Role
@@ -45,16 +46,21 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.shapes.Capsule
 import com.kyant.shapes.RoundedRectangle
 import fr.baptiste.bank.ui.theme.GlassSurfaceColors
 import kotlin.math.PI
 import kotlin.math.cos
+import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /*
@@ -65,9 +71,13 @@ import kotlin.math.sin
  * contenu (flouté par les éléments flottants : barre d'onglets, boutons, messages). Une carte ne
  * floute jamais une couche qui la contient, ce qui serait circulaire.
  *
- * Parti pris : sobriété. Pas de liseré lumineux, pas d'effet de lentille sur les bords, pas
- * d'ombre portée : le verre se lit uniquement par le flou et une teinte un peu plus claire que
- * le fond. Aucune bordure.
+ * Chaque surface de verre combine trois effets, comme le Liquid Glass d'Apple :
+ * - un flou de ce qui est derrière (Android 12 et plus) ;
+ * - une lentille : près des bords, l'image est courbée comme à travers l'épaisseur d'un verre ;
+ * - une aberration chromatique : dans cette courbure, le rouge, le vert et le bleu sont déviés
+ *   un peu différemment, ce qui irise les contours de ce qui passe dessous.
+ * La lentille et l'aberration demandent Android 13 (shaders d'exécution) ; en dessous, le verre
+ * reste flou. Pas de liseré lumineux ni d'ombre portée : ce sont eux qui dessinaient un rebord.
  */
 
 /** Couche du fond seul, floutée par les cartes du contenu. */
@@ -95,6 +105,9 @@ object Glass {
         Color(0xFF4338CA).copy(alpha = 0.24f),
         Color(0xFF0EA5E9).copy(alpha = 0.10f),
         Color(0xFF1E3A8A).copy(alpha = 0.40f),
+        // Deux halos plus petits et plus nets : la lentille a ainsi des dégradés à courber.
+        Color(0xFF3B82F6).copy(alpha = 0.22f),
+        Color(0xFF6366F1).copy(alpha = 0.18f),
     )
 
     /** Cartes : un voile blanc léger sur le fond flouté. */
@@ -103,9 +116,9 @@ object Glass {
 
     /** Barre d'onglets et boutons flottants, un cran plus clairs que les cartes. */
     val Floating = Color.White.copy(alpha = 0.10f)
-    val Indicator = Color.White.copy(alpha = 0.16f)
+    val Indicator = Color.White.copy(alpha = 0.12f)
 
-    /** Bouton principal : bleu plein, texte blanc (contraste 5,2:1). */
+    /** Bouton principal : verre teinté de bleu, texte blanc (contraste 5,2:1 sur le bleu pur). */
     val Accent = Color(0xFF2563EB)
 
     val CornerRadius: Dp = 18.dp
@@ -125,6 +138,8 @@ private val glows = listOf(
     Glow(0.95f, 0.35f, 0.60f, 0.06f, 0.08f, 1.7f),
     Glow(0.25f, 0.70f, 0.65f, 0.10f, 0.06f, 3.1f),
     Glow(0.80f, 0.95f, 0.55f, 0.07f, 0.05f, 4.4f),
+    Glow(0.70f, 0.55f, 0.28f, 0.12f, 0.10f, 2.3f),
+    Glow(0.20f, 0.35f, 0.24f, 0.10f, 0.12f, 5.2f),
 )
 
 /**
@@ -160,22 +175,54 @@ fun LiquidBackground(modifier: Modifier = Modifier) {
     }
 }
 
+/** Réglages d'un verre : intensité du flou et de la lentille, selon la taille de la surface. */
+private class GlassOptics(
+    val blur: Dp,
+    /** Largeur de la bande, depuis le bord, où l'image est courbée. */
+    val refractionHeight: Dp,
+    /** Amplitude de la déviation dans cette bande. */
+    val refractionAmount: Dp,
+)
+
+private val CardOptics = GlassOptics(blur = 12.dp, refractionHeight = 14.dp, refractionAmount = 28.dp)
+private val BarOptics = GlassOptics(blur = 8.dp, refractionHeight = 20.dp, refractionAmount = 24.dp)
+private val ButtonOptics = GlassOptics(blur = 6.dp, refractionHeight = 12.dp, refractionAmount = 20.dp)
+
 /**
- * Surface de verre générique : flou et légère saturation de ce qui est derrière, voile clair,
- * aucune bordure. Le flou demande Android 12 ; en dessous, seul le voile reste.
- * [cornerRadius] nul donne une capsule.
+ * Surface de verre : flou, saturation, lentille et aberration chromatique de ce qui est derrière,
+ * puis une teinte. Aucune bordure. [cornerRadius] nul donne une capsule. Si [accent] est donné,
+ * la surface est teintée de cette couleur (comme le bouton principal d'iOS) : la teinte reste
+ * assez transparente pour que la lentille se voie sur les bords.
  */
-private fun Modifier.glass(backdrop: Backdrop, tint: Color, cornerRadius: Dp? = null): Modifier =
+private fun Modifier.glass(
+    backdrop: Backdrop,
+    tint: Color,
+    optics: GlassOptics,
+    cornerRadius: Dp? = null,
+    accent: Color? = null,
+): Modifier =
     drawBackdrop(
         backdrop = backdrop,
         shape = { if (cornerRadius == null) Capsule() else RoundedRectangle(cornerRadius) },
         effects = {
             vibrancy()
-            blur(24.dp.toPx())
+            blur(optics.blur.toPx())
+            lens(
+                refractionHeight = optics.refractionHeight.toPx(),
+                refractionAmount = optics.refractionAmount.toPx(),
+                chromaticAberration = true,
+            )
         },
         highlight = null,
         shadow = null,
-        onDrawSurface = { drawRect(tint) },
+        onDrawSurface = {
+            if (accent != null) {
+                drawRect(accent, blendMode = BlendMode.Hue)
+                drawRect(accent.copy(alpha = 0.82f))
+            } else {
+                drawRect(tint)
+            }
+        },
     )
 
 /** Carte de verre. Son contenu reprend les couleurs « sur verre ». */
@@ -183,6 +230,8 @@ private fun Modifier.glass(backdrop: Backdrop, tint: Color, cornerRadius: Dp? = 
 fun GlassCard(
     modifier: Modifier = Modifier,
     strong: Boolean = false,
+    /** Teinte de la carte, pour un groupe qui doit ressortir (alertes). */
+    tint: Color? = null,
     onClick: (() -> Unit)? = null,
     contentPadding: Dp = 20.dp,
     content: @Composable ColumnScope.() -> Unit,
@@ -191,7 +240,12 @@ fun GlassCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .glass(backdrop, if (strong) Glass.SurfaceStrong else Glass.Surface, Glass.CornerRadius)
+            .glass(
+                backdrop = backdrop,
+                tint = tint ?: if (strong) Glass.SurfaceStrong else Glass.Surface,
+                optics = CardOptics,
+                cornerRadius = Glass.CornerRadius,
+            )
             .clip(RoundedCornerShape(Glass.CornerRadius))
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(contentPadding),
@@ -216,13 +270,8 @@ fun GlassIconButton(
     Box(
         modifier = modifier
             .size(48.dp)
-            .then(
-                if (accent) {
-                    Modifier.clip(CircleShape).background(Glass.Accent)
-                } else {
-                    Modifier.glass(backdrop, Glass.Floating).clip(CircleShape)
-                },
-            )
+            .glass(backdrop, Glass.Floating, ButtonOptics, accent = if (accent) Glass.Accent else null)
+            .clip(CircleShape)
             .clickable(onClick = onClick, role = Role.Button),
         contentAlignment = Alignment.Center,
     ) {
@@ -240,7 +289,7 @@ fun GlassIconButton(
     }
 }
 
-/** Bouton principal en capsule : bleu plein, sans bordure. */
+/** Bouton principal en capsule, en verre teinté de bleu. Il est posé dans le contenu : il courbe le fond. */
 @Composable
 fun GlassPillButton(
     text: String,
@@ -248,11 +297,12 @@ fun GlassPillButton(
     modifier: Modifier = Modifier,
     icon: Painter? = null,
 ) {
+    val backdrop = LocalBackgroundBackdrop.current
     Row(
         modifier = modifier
             .height(48.dp)
+            .glass(backdrop, Glass.Floating, ButtonOptics, accent = Glass.Accent)
             .clip(CircleShape)
-            .background(Glass.Accent)
             .clickable(onClick = onClick, role = Role.Button)
             .padding(horizontal = 20.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -267,8 +317,12 @@ fun GlassPillButton(
 data class GlassTabItem(val title: String, val icon: Painter)
 
 /**
- * Barre d'onglets flottante. L'indicateur glisse d'un onglet à l'autre en ligne droite
- * (250 ms, sans rebond) ; la barre et le reste de l'écran ne bougent pas.
+ * Barre d'onglets flottante. L'indicateur est une goutte de verre posée sur la barre : il courbe
+ * les icônes qui passent dessous, avec l'aberration chromatique. Il glisse d'un onglet à l'autre en
+ * ligne droite (250 ms, sans rebond) ; la barre et le reste de l'écran ne bougent pas.
+ *
+ * Pour que l'indicateur puisse courber les icônes, la barre (verre et icônes) est enregistrée
+ * dans sa propre couche, que l'indicateur, dessiné par-dessus, utilise comme arrière-plan.
  */
 @Composable
 fun GlassTabBar(
@@ -278,30 +332,46 @@ fun GlassTabBar(
     modifier: Modifier = Modifier,
 ) {
     val backdrop = LocalScreenBackdrop.current
+    val barBackdrop = rememberLayerBackdrop()
     val position by animateFloatAsState(
         targetValue = selectedIndex.toFloat(),
         animationSpec = tween(250, easing = FastOutSlowInEasing),
         label = "indicateur",
     )
-    BoxWithConstraints(
-        modifier = modifier
-            .height(64.dp)
-            .glass(backdrop, Glass.Floating)
-            .padding(4.dp),
-    ) {
-        val tabWidth = maxWidth / items.size
-        Box(
+    Box(modifier.height(64.dp)) {
+        Row(
             Modifier
-                .offset(x = tabWidth * position)
-                .width(tabWidth)
-                .fillMaxHeight()
-                .clip(CircleShape)
-                .background(Glass.Indicator),
-        )
-        Row(Modifier.fillMaxSize()) {
+                .matchParentSize()
+                .layerBackdrop(barBackdrop)
+                .glass(backdrop, Glass.Floating, BarOptics)
+                .padding(4.dp),
+        ) {
             items.forEachIndexed { index, item ->
                 GlassTab(item, selected = index == selectedIndex, onClick = { onSelect(index) })
             }
+        }
+        BoxWithConstraints(Modifier.matchParentSize().padding(4.dp)) {
+            val tabWidth = maxWidth / items.size
+            Box(
+                Modifier
+                    .offset { IntOffset((tabWidth.toPx() * position).roundToInt(), 0) }
+                    .width(tabWidth)
+                    .fillMaxHeight()
+                    .drawBackdrop(
+                        backdrop = barBackdrop,
+                        shape = { Capsule() },
+                        effects = {
+                            lens(
+                                refractionHeight = 10.dp.toPx(),
+                                refractionAmount = 14.dp.toPx(),
+                                chromaticAberration = true,
+                            )
+                        },
+                        highlight = null,
+                        shadow = null,
+                        onDrawSurface = { drawRect(Glass.Indicator) },
+                    ),
+            )
         }
     }
 }
@@ -334,7 +404,7 @@ fun GlassBanner(modifier: Modifier = Modifier, content: @Composable RowScope.() 
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .glass(backdrop, Glass.SurfaceStrong)
+            .glass(backdrop, Glass.SurfaceStrong, BarOptics)
             .padding(start = 20.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         content = content,
