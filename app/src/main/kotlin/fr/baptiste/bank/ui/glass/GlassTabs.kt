@@ -148,6 +148,8 @@ fun GlassHomeContent(
     onOpenEnvelope: (EnvelopeLine) -> Unit,
     onCover: (EnvelopeLine) -> Unit,
 ) {
+    // Lu ici : le contenu d'une LazyColumn se construit hors composition.
+    val status = BankTheme.status
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = glassContentPadding(),
@@ -252,7 +254,7 @@ fun GlassHomeContent(
                 key = "watched-label",
                 text = "À surveiller",
                 trailing = if (watched.size > 1) "${watched.size} enveloppes" else "1 enveloppe",
-                dot = if (anyOver) BankTheme.status.over else BankTheme.status.warning,
+                dot = if (anyOver) status.over else status.warning,
             )
             item(key = "watched") {
                 GlassCard(tint = if (anyOver) OverTint else WarningTint, contentPadding = 16.dp) {
