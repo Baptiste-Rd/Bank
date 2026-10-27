@@ -251,6 +251,8 @@ fun GlassCard(
     tint: Color? = null,
     onClick: (() -> Unit)? = null,
     contentPadding: Dp = 20.dp,
+    /** Marge haute et basse, quand elle diffère des côtés (une carte de lignes séparées par des filets). */
+    verticalPadding: Dp = contentPadding,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val backdrop = LocalBackgroundBackdrop.current
@@ -265,7 +267,7 @@ fun GlassCard(
             )
             .clip(RoundedCornerShape(Glass.CornerRadius))
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(contentPadding),
+            .padding(horizontal = contentPadding, vertical = verticalPadding),
     ) {
         GlassSurfaceColors(onBackground = false) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp), content = content)

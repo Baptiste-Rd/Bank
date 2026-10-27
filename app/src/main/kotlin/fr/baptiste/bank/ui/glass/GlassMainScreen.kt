@@ -33,6 +33,7 @@ import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import fr.baptiste.bank.R
 import fr.baptiste.bank.data.UiStyle
+import fr.baptiste.bank.domain.budget.EnvelopeLine
 import fr.baptiste.bank.ui.AppDialogs
 import fr.baptiste.bank.ui.AppMenuItems
 import fr.baptiste.bank.ui.BudgetViewModel
@@ -73,6 +74,7 @@ fun GlassMainScreen(
     val envelopes by viewModel.envelopes.collectAsStateWithLifecycle()
     val unsortedCount by viewModel.unsortedCount.collectAsStateWithLifecycle()
     val savingsHistory by viewModel.savingsHistory.collectAsStateWithLifecycle()
+    val income by viewModel.monthlyIncome.collectAsStateWithLifecycle()
     val updateAvailable = rememberUpdateAvailable(updateViewModel)
     var menuOpen by remember { mutableStateOf(false) }
 
@@ -88,30 +90,43 @@ fun GlassMainScreen(
             // Couche enregistrée pour les éléments flottants : le fond liquide et le contenu.
             Box(Modifier.fillMaxSize().layerBackdrop(screenBackdrop)) {
                 LiquidBackground(Modifier.layerBackdrop(backgroundBackdrop))
+                val openEnvelope: (EnvelopeLine) -> Unit = { controller.dialog = OpenDialog.EnvelopeDetail(it.envelope.id) }
+                val cover: (EnvelopeLine) -> Unit = { controller.dialog = OpenDialog.Cover(it.envelope.id) }
                 when (controller.tab) {
                     Tab.HOME -> GlassHomeContent(
                         dashboard = dashboard,
                         savingsHistory = savingsHistory,
+                        unsortedCount = unsortedCount,
                         onAddExpense = { controller.dialog = OpenDialog.Expense },
                         onEditIncome = { controller.dialog = OpenDialog.Income },
-                        onOpenEnvelope = { controller.dialog = OpenDialog.EnvelopeDetail(it.envelope.id) },
-                        onCover = { controller.dialog = OpenDialog.Cover(it.envelope.id) },
+                        onCover = cover,
+                        onOpenEnvelope = openEnvelope,
+                        onOpenTab = { controller.tab = it },
                     )
-                    Tab.ENVELOPES -> GlassEnvelopesContent(
+                    Tab.BUDGET -> GlassBudgetContent(
                         dashboard = dashboard,
+                        monthlyIncome = income,
                         archived = archived,
-                        onOpen = { controller.dialog = OpenDialog.EnvelopeDetail(it.envelope.id) },
-                        onCover = { controller.dialog = OpenDialog.Cover(it.envelope.id) },
+                        onEditIncome = { controller.dialog = OpenDialog.Income },
+                        onOpen = openEnvelope,
+                        onCover = cover,
                         onEdit = { controller.dialog = OpenDialog.EnvelopeEditor(it) },
                         onRestore = {
                             viewModel.restoreEnvelope(it.id)
                             controller.notify("${it.name} est de nouveau active.")
                         },
                     )
+                    Tab.SAVINGS -> GlassSavingsContent(
+                        dashboard = dashboard,
+                        history = savingsHistory,
+                        onPutAside = { controller.dialog = OpenDialog.Move(it.envelope.id, incoming = true) },
+                        onPlanPurchase = { controller.dialog = controller.primaryAction.second },
+                        onOpenEnvelope = openEnvelope,
+                        onCover = cover,
+                    )
                     Tab.OPERATIONS -> GlassOperationsContent(
                         operations = operations,
                         envelopes = envelopes + archived,
-                        unsortedCount = unsortedCount,
                         onDelete = viewModel::deleteExpense,
                         onSort = { controller.dialog = OpenDialog.SortOperation(it) },
                         onOpenBank = { controller.dialog = OpenDialog.Bank },
@@ -181,8 +196,8 @@ fun GlassMainScreen(
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
                     .padding(bottom = 12.dp)
-                    .widthIn(max = 320.dp)
-                    .fillMaxWidth(0.86f),
+                    .widthIn(max = 380.dp)
+                    .fillMaxWidth(0.92f),
             )
         }
         }

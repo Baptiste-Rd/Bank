@@ -6,16 +6,17 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,20 +24,28 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import fr.baptiste.bank.domain.budget.EnvelopeLine
 import fr.baptiste.bank.domain.budget.monthlyShare
 import fr.baptiste.bank.domain.budget.purchaseMonth
+import fr.baptiste.bank.ui.components.RowActionButton
+import fr.baptiste.bank.ui.components.StatusChip
+import fr.baptiste.bank.ui.components.StatusKind
 import fr.baptiste.bank.ui.format.formatted
 import fr.baptiste.bank.ui.format.label
-import fr.baptiste.bank.ui.format.endPhrase
 import fr.baptiste.bank.ui.theme.BankTheme
 
 /**
- * Une enveloppe : ce qu'il reste à droite, en gros ; à gauche le nom et la période.
- * La barre montre la part consommée, dans la couleur de son statut : [accent] (ou le bleu du
- * thème) dans le budget, couleur d'alerte si le rythme actuel mène au dépassement, rouge si c'est
- * dépassé. Avec un [accent], la ligne commence par une pastille à l'initiale de l'enveloppe.
+ * Une enveloppe, lue de gauche à droite comme une ligne de relevé :
+ * - la pastille de sa catégorie (avec un [accent]) ;
+ * - son nom, et une ligne de détail : « 306,60 € sur 320,00 € · octobre 2026 » ;
+ * - à droite, ce qu'il reste, le chiffre qu'on cherche ;
+ * - la barre de ce qui est consommé ;
+ * - si elle dérape : une puce de statut (« Dépassé 0,50 € », « Prévu +32,03 € ») et le bouton
+ *   Couvrir, au lieu d'une phrase.
+ * La couleur de la barre et des puces suit le statut : [accent] (ou le bleu) dans le budget,
+ * ambre si le rythme mène au dépassement, rouge si c'est dépassé.
  */
 @Composable
 fun EnvelopeRow(
@@ -58,6 +67,9 @@ fun EnvelopeRow(
         line.spent.isPositive -> 1f
         else -> 0f
     }
+    val detail = line.envelope.purchaseMonth?.let { month ->
+        "${line.envelope.monthlyShare.formatted()} par mois · achat en ${month.label}"
+    } ?: "${line.spent.formatted()} sur ${line.available.formatted()} · ${line.period.label}"
 
     Row(
         modifier = modifier
@@ -67,71 +79,46 @@ fun EnvelopeRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (accent != null) CategoryAvatar(line.envelope.name, accent)
-        EnvelopeDetails(line, ratio, color, overspent, onCover, Modifier.weight(1f))
-    }
-}
-
-@Composable
-private fun EnvelopeDetails(
-    line: EnvelopeLine,
-    ratio: Float,
-    color: Color,
-    overspent: Boolean,
-    onCover: (() -> Unit)?,
-    modifier: Modifier,
-) {
-    val status = BankTheme.status
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(line.envelope.name, style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    line.envelope.purchaseMonth?.let { month ->
-                        "${line.envelope.monthlyShare.formatted()} par mois, achat en ${month.label}"
-                    } ?: "${line.spent.formatted()} sur ${line.available.formatted()}, ${line.period.label}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f)) {
+                    Text(line.envelope.name, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium))
+                    Text(
+                        detail,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        line.remaining.formatted(),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = if (overspent) status.over else MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text("reste", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    line.remaining.formatted(),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = if (overspent) status.over else MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    if (overspent) "dépassé" else "restant",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        LinearProgressIndicator(
-            progress = { ratio },
-            color = color,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant,
-            strokeCap = StrokeCap.Round,
-            gapSize = 0.dp,
-            drawStopIndicator = {},
-            modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
-        )
-        if (line.needsCover) {
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(
+            LinearProgressIndicator(
+                progress = { ratio },
+                color = color,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                strokeCap = StrokeCap.Round,
+                gapSize = 0.dp,
+                drawStopIndicator = {},
+                modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
+            )
+            if (line.needsCover) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
                     if (overspent) {
-                        "Dépassé de ${(-line.remaining).formatted()}."
+                        StatusChip("Dépassé ${(-line.remaining).formatted()}", StatusKind.OVER)
                     } else {
-                        "À ce rythme, ${line.projection.overrun.formatted()} de trop ${line.period.endPhrase}."
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (overspent) status.over else status.warning,
-                    modifier = Modifier.weight(1f),
-                )
-                if (onCover != null) {
-                    TextButton(onClick = onCover) { Text("Couvrir") }
+                        StatusChip("Prévu +${line.projection.overrun.formatted()}", StatusKind.WARNING)
+                    }
+                    Spacer(Modifier.weight(1f))
+                    if (onCover != null) RowActionButton("Couvrir", onClick = onCover)
                 }
             }
         }

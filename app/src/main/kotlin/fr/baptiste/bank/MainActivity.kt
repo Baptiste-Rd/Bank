@@ -30,7 +30,7 @@ import java.time.YearMonth
 /**
  * Paramètres de lancement facultatifs, utilisés par les captures d'écran automatiques :
  * `demo` (base d'exemple séparée), `style` (GLASS ou CLASSIC, sans enregistrer le choix)
- * `tab` (HOME, ENVELOPES ou OPERATIONS) et `dialog` (BANK ou PLANNED).
+ * `tab` (HOME, BUDGET, SAVINGS ou OPERATIONS) et `dialog` (BANK ou PLANNED).
  */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

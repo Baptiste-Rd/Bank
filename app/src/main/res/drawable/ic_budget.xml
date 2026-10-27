@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Budget : un disque partagé en parts, le salaire réparti. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M11,2.05C5.94,2.55 2,6.81 2,12c0,5.52 4.48,10 10,10 5.19,0 9.45,-3.94 9.95,-9H11V2.05zM13,2.05V11h8.95C21.48,6.28 17.72,2.52 13,2.05z" />
+</vector>

@@ -23,7 +23,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.baptiste.bank.R
 import fr.baptiste.bank.data.UiStyle
@@ -110,7 +112,7 @@ fun ClassicMainScreen(
                 onOpenEnvelope = { controller.dialog = OpenDialog.EnvelopeDetail(it.envelope.id) },
                 modifier = modifier,
             )
-            Tab.ENVELOPES -> EnvelopesTab(
+            Tab.BUDGET -> EnvelopesTab(
                 dashboard = dashboard,
                 onEdit = { controller.dialog = OpenDialog.EnvelopeEditor(it) },
                 onOpen = { controller.dialog = OpenDialog.EnvelopeDetail(it.envelope.id) },
@@ -122,6 +124,18 @@ fun ClassicMainScreen(
                 },
                 modifier = modifier,
             )
+            Tab.SAVINGS -> {
+                val board = dashboard
+                if (board != null) {
+                    androidx.compose.foundation.layout.Column(
+                        modifier = modifier
+                            .verticalScroll(androidx.compose.foundation.rememberScrollState())
+                            .padding(horizontal = 20.dp, vertical = 8.dp),
+                    ) {
+                        fr.baptiste.bank.ui.home.SavingsSummary(board, savingsHistory, accent = fr.baptiste.bank.ui.theme.BankTheme.status.good)
+                    }
+                }
+            }
             Tab.OPERATIONS -> OperationsTab(
                 operations = operations,
                 onDelete = viewModel::deleteExpense,

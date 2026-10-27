@@ -81,7 +81,7 @@ fun SavingsSummary(dashboard: Dashboard, history: List<MonthSavings>, accent: Co
             }
         }
 
-        if (history.size > 1) SavingsBars(history, outlook.target, accent)
+        if (history.size > 1) SavingsBarsChart(history, outlook.target, accent)
 
         // Le détail du calcul, pour comprendre d'où vient le chiffre.
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -138,7 +138,7 @@ private fun Breakdown(label: String, value: String) {
  * Une épargne négative descend sous la ligne de base.
  */
 @Composable
-private fun SavingsBars(history: List<MonthSavings>, target: Money, accent: Color) {
+fun SavingsBarsChart(history: List<MonthSavings>, target: Money, accent: Color, legend: String? = "Pointillés : objectif mensuel. Barre pâle : prévision du mois en cours.") {
     val values = history.map { it.outlook.forecast.cents }
     val top = maxOf(values.maxOrNull() ?: 0, target.cents, 1)
     val bottom = minOf(values.minOrNull() ?: 0, 0)
@@ -182,10 +182,8 @@ private fun SavingsBars(history: List<MonthSavings>, target: Money, accent: Colo
                 )
             }
         }
-        Text(
-            "Pointillés : objectif mensuel. Barre pâle : prévision du mois en cours.",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        if (legend != null) {
+            Text(legend, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }

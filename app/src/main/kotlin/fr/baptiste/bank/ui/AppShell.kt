@@ -24,6 +24,7 @@ import fr.baptiste.bank.data.local.OperationRow
 import fr.baptiste.bank.data.UiStyle
 import fr.baptiste.bank.domain.budget.TransferLeg
 import fr.baptiste.bank.domain.budget.coveragePlan
+import fr.baptiste.bank.domain.budget.plannedPurchase
 import fr.baptiste.bank.domain.model.Envelope
 import fr.baptiste.bank.domain.money.Money
 import fr.baptiste.bank.ui.components.EnvelopeDialog
@@ -41,15 +42,26 @@ import fr.baptiste.bank.update.UpdateUiState
 import fr.baptiste.bank.update.UpdateViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.YearMonth
 
 /*
  * Ce qui est commun aux deux styles d'interface (classique et Liquid Glass) : les onglets,
  * les fenêtres, les messages de confirmation et le menu ⋮. Chaque style ne fait que la mise en page.
  */
 
+/** Quatre onglets, une question chacun (docs/refonte-ux.md). */
 enum class Tab(val title: String, @DrawableRes val icon: Int) {
+    /** Puis-je dépenser aujourd'hui ? */
     HOME("Aujourd'hui", R.drawable.ic_home),
-    ENVELOPES("Enveloppes", R.drawable.ic_envelope),
+
+    /** Où va mon salaire ? */
+    BUDGET("Budget", R.drawable.ic_budget),
+
+    /** Combien vais-je mettre de côté ? */
+    SAVINGS("Épargne", R.drawable.ic_savings),
+
+    /** Que s'est-il passé ? */
     OPERATIONS("Opérations", R.drawable.ic_list),
 }
 
@@ -80,10 +92,13 @@ class AppController(
     var tab by mutableStateOf(initialTab)
     var dialog by mutableStateOf<OpenDialog?>(null)
 
-    /** L'action principale de l'onglet : une dépense, ou une enveloppe dans l'onglet Enveloppes. */
+    /** Ce que crée le bouton + : une dépense, une enveloppe (Budget) ou un achat prévu (Épargne). */
     val primaryAction: Pair<String, OpenDialog>
         get() = when (tab) {
-            Tab.ENVELOPES -> "Enveloppe" to OpenDialog.EnvelopeEditor(null)
+            Tab.BUDGET -> "Enveloppe" to OpenDialog.EnvelopeEditor(null)
+            Tab.SAVINGS -> "Achat prévu" to OpenDialog.EnvelopeEditor(
+                plannedPurchase("", Money.ZERO, YearMonth.now().plusMonths(5), LocalDate.now()),
+            )
             Tab.HOME, Tab.OPERATIONS -> "Dépense" to OpenDialog.Expense
         }
 
@@ -201,7 +216,7 @@ fun AppDialogs(
             envelopes = envelopes,
             onDismiss = ::close,
             onCreateEnvelope = {
-                controller.tab = Tab.ENVELOPES
+                controller.tab = Tab.BUDGET
                 controller.dialog = OpenDialog.EnvelopeEditor(null)
             },
             onSave = { amount, date, label, envelope, wholePeriod ->

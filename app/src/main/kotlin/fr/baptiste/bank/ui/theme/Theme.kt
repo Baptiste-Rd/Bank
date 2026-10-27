@@ -12,7 +12,10 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import fr.baptiste.bank.R
 import androidx.compose.ui.unit.sp
 
 /*
@@ -173,28 +176,63 @@ object BankTheme {
 }
 
 /**
- * Montants en chiffres tabulaires (« tnum ») : chaque chiffre a la même largeur,
- * les colonnes de montants restent alignées et un chiffre qui change ne fait pas bouger le reste.
+ * Typographie : une seule famille, Inter (licence SIL OFL, dans third_party/), conçue pour les
+ * écrans. Les montants sont en chiffres tabulaires (« tnum ») : chaque chiffre a la même largeur,
+ * les colonnes restent alignées et un chiffre qui change ne fait pas bouger le reste.
+ *
+ * Six rôles seulement, chacun pour un usage (voir docs/refonte-ux.md) :
+ * - chiffre clé : displayLarge (56, Inter Display SemiBold) ;
+ * - titre d'écran : headlineLarge (30, Bold) ;
+ * - titre de carte et montant d'une ligne : titleMedium (17, SemiBold) ;
+ * - texte : bodyLarge / bodyMedium (15, Regular) ;
+ * - libellé : labelMedium (13, Medium), et bodySmall (13, Regular) pour une ligne de détail ;
+ * - légende : labelSmall (12, Medium).
+ * Les rôles intermédiaires (headlineMedium, titleLarge, titleSmall, labelLarge) servent un chiffre
+ * secondaire, une tuile, un en-tête de section et les boutons.
  */
 private const val TABULAR = "tnum"
 
-private val BankTypography = Typography().let { base ->
-    base.copy(
-        displayLarge = base.displayLarge.copy(
-            fontWeight = FontWeight.Light,
-            fontSize = 64.sp,
-            lineHeight = 68.sp,
-            letterSpacing = (-1.5).sp,
-            fontFeatureSettings = TABULAR,
-        ),
-        headlineMedium = base.headlineMedium.copy(fontFeatureSettings = TABULAR),
-        titleLarge = base.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-        titleMedium = base.titleMedium.copy(fontWeight = FontWeight.SemiBold, fontFeatureSettings = TABULAR),
-        bodyLarge = base.bodyLarge.copy(fontFeatureSettings = TABULAR),
-        bodyMedium = base.bodyMedium.copy(fontFeatureSettings = TABULAR),
-        bodySmall = base.bodySmall.copy(fontFeatureSettings = TABULAR),
-    )
-}
+private val Inter = FontFamily(
+    Font(R.font.inter_regular, FontWeight.Normal),
+    Font(R.font.inter_medium, FontWeight.Medium),
+    Font(R.font.inter_semibold, FontWeight.SemiBold),
+    Font(R.font.inter_bold, FontWeight.Bold),
+)
+private val InterDisplay = FontFamily(Font(R.font.inter_display_semibold, FontWeight.SemiBold))
+
+private fun style(
+    size: Int,
+    line: Int,
+    weight: FontWeight,
+    tabular: Boolean = false,
+    family: FontFamily = Inter,
+    tracking: Double = 0.0,
+) = TextStyle(
+    fontFamily = family,
+    fontWeight = weight,
+    fontSize = size.sp,
+    lineHeight = line.sp,
+    letterSpacing = tracking.sp,
+    fontFeatureSettings = if (tabular) TABULAR else null,
+)
+
+private val BankTypography = Typography(
+    displayLarge = style(56, 60, FontWeight.SemiBold, tabular = true, family = InterDisplay, tracking = -1.2),
+    displayMedium = style(44, 50, FontWeight.SemiBold, tabular = true, family = InterDisplay, tracking = -0.8),
+    displaySmall = style(36, 42, FontWeight.SemiBold, tabular = true, family = InterDisplay, tracking = -0.5),
+    headlineLarge = style(30, 36, FontWeight.Bold, tracking = -0.4),
+    headlineMedium = style(26, 32, FontWeight.SemiBold, tabular = true, tracking = -0.3),
+    headlineSmall = style(22, 28, FontWeight.SemiBold, tabular = true),
+    titleLarge = style(20, 26, FontWeight.SemiBold, tabular = true),
+    titleMedium = style(17, 22, FontWeight.SemiBold, tabular = true),
+    titleSmall = style(15, 20, FontWeight.SemiBold),
+    bodyLarge = style(15, 21, FontWeight.Normal, tabular = true),
+    bodyMedium = style(15, 21, FontWeight.Normal, tabular = true),
+    bodySmall = style(13, 18, FontWeight.Normal, tabular = true),
+    labelLarge = style(15, 20, FontWeight.SemiBold),
+    labelMedium = style(13, 18, FontWeight.Medium),
+    labelSmall = style(12, 16, FontWeight.Medium),
+)
 
 /** Style d'un montant dans une liste : chiffres tabulaires, graisse marquée. */
 val AmountStyle: TextStyle

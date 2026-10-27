@@ -38,7 +38,7 @@ shoot() {
 for theme in clair sombre; do
   if [ "$theme" = sombre ]; then adb shell cmd uimode night yes; else adb shell cmd uimode night no; fi
   sleep 2
-  for tab in HOME ENVELOPES OPERATIONS; do
+  for tab in HOME BUDGET SAVINGS OPERATIONS; do
     shoot GLASS "$tab" "$theme"
   done
   shoot CLASSIC HOME "$theme"
@@ -93,14 +93,14 @@ adb shell input swipe 540 1900 540 900 900
 sleep 2
 adb exec-out screencap -p > "$OUT/glass-epargne-suite.png"
 adb shell am force-stop "$PKG"
-adb shell am start -W -n "$PKG/.MainActivity" --ez demo true --es style GLASS --es tab ENVELOPES > /dev/null
+adb shell am start -W -n "$PKG/.MainActivity" --ez demo true --es style GLASS --es tab BUDGET > /dev/null
 sleep 8
 close_dialogs
 adb shell input swipe 540 1900 540 400 900
 sleep 2
 adb exec-out screencap -p > "$OUT/glass-envelopes-suite.png"
 adb shell am force-stop "$PKG"
-adb shell am start -W -n "$PKG/.MainActivity" --ez demo true --es style GLASS --es tab ENVELOPES --es dialog PLANNED > /dev/null
+adb shell am start -W -n "$PKG/.MainActivity" --ez demo true --es style GLASS --es tab BUDGET --es dialog PLANNED > /dev/null
 sleep 8
 close_dialogs
 adb exec-out screencap -p > "$OUT/glass-achat-prevu.png"
