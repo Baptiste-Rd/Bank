@@ -251,6 +251,10 @@ interface TransactionDao {
     @Query("SELECT amount_cents FROM transaction_record WHERE transfer_account_id IS NOT NULL AND date BETWEEN :from AND :to")
     fun observeTransfersToAccounts(from: LocalDate, to: LocalDate): Flow<List<Long>>
 
+    /** Rend le libellé de la banque aux opérations nommées [alias]. */
+    @Query("UPDATE transaction_record SET alias = NULL WHERE alias = :alias")
+    suspend fun clearAlias(alias: String)
+
     @Query("UPDATE transaction_record SET alias = :alias WHERE id = :id")
     suspend fun setAlias(id: Long, alias: String?)
 

@@ -1,6 +1,9 @@
 package fr.baptiste.bank.ui.glass
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -64,6 +67,11 @@ fun GlassHomeContent(
     onOpenTab: (Tab) -> Unit,
     /** Ouvre le bilan du mois dernier (onglet Budget, mois précédent). */
     onOpenReview: () -> Unit = {},
+    /** Reste du jour plutôt que reste du mois (le mois par défaut). */
+    showsDay: Boolean = false,
+    onShowsDayChange: (Boolean) -> Unit = {},
+    /** Solde du compte courant lu à la banque, s'il est connu. */
+    accountBalance: Money? = null,
 ) {
     // Lu ici : le contenu d'une LazyColumn se construit hors composition.
     val warning = BankTheme.status.warning
@@ -92,20 +100,48 @@ fun GlassHomeContent(
                 }
             }
         } else {
-            // 1. Le chiffre du jour, posé sur le fond : la seule chose en très grand.
+            // 1. Le chiffre, posé sur le fond : la seule chose en très grand. Par défaut ce qui reste
+            // à dépenser d'ici la fin du mois ; « Jour » le ramène à aujourd'hui.
             item(key = "hero") {
+                val monthLeft = dashboard.dailyBudget - dashboard.dailySpent
+                val shown = if (showsDay) allowance.remainingToday else monthLeft
                 Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
-                    Text("Reste du jour", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            if (showsDay) "Reste du jour" else "Reste du mois",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                        )
+                        PeriodPills(showsDay, onShowsDayChange)
+                    }
                     Text(
-                        allowance.remainingToday.formatted(),
+                        shown.formatted(),
                         style = MaterialTheme.typography.displayLarge,
-                        color = if (allowance.remainingToday.isNegative) BankTheme.status.over else MaterialTheme.colorScheme.onSurface,
+                        color = if (shown.isNegative) BankTheme.status.over else MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
-                        "sur ${allowance.allowance.formatted()} aujourd'hui · ${daysLabel(dashboard.daysRemaining)}",
+                        if (showsDay) {
+                            "sur ${allowance.allowance.formatted()} aujourd'hui · ${daysLabel(dashboard.daysRemaining)}"
+                        } else {
+                            val perDay = if (dashboard.daysRemaining > 0 && monthLeft.isPositive) {
+                                " · ${monthLeft.divideFloor(dashboard.daysRemaining.toLong()).formatted()} par jour"
+                            } else {
+                                ""
+                            }
+                            "sur ${dashboard.dailyBudget.formatted()} · ${daysLabel(dashboard.daysRemaining)}$perDay"
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    if (accountBalance != null) {
+                        Text(
+                            "Compte courant : ${accountBalance.formatted()}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 2.dp),
+                        )
+                    }
                     GlassPillButton(
                         text = "Ajouter une dépense",
                         onClick = onAddExpense,
@@ -244,5 +280,30 @@ private fun TodoEnvelopeRow(line: EnvelopeLine, onOpen: () -> Unit, onCover: () 
             }
         }
         RowActionButton("Couvrir", onClick = onCover)
+    }
+}
+
+/** « Mois | Jour » en petit, à côté du libellé du chiffre. */
+@Composable
+private fun PeriodPills(showsDay: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        Modifier
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+            .padding(2.dp),
+    ) {
+        listOf(false to "Mois", true to "Jour").forEach { (day, label) ->
+            val selected = day == showsDay
+            Text(
+                label,
+                style = MaterialTheme.typography.labelMedium,
+                color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .then(if (selected) Modifier.background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f)) else Modifier)
+                    .clickable(role = androidx.compose.ui.semantics.Role.Tab) { onChange(day) }
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+            )
+        }
     }
 }

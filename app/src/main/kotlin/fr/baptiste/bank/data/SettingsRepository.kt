@@ -58,4 +58,13 @@ class SettingsRepository(context: Context, storeName: String = "settings") {
     suspend fun setGlassTuning(encoded: String?) {
         settingsStore.edit { if (encoded == null) it.remove(glassTuningKey) else it[glassTuningKey] = encoded }
     }
+
+    private val homeDailyKey = stringPreferencesKey("home_period")
+
+    /** Accueil : vrai pour afficher le reste du jour, faux (par défaut) pour le reste du mois. */
+    val homeShowsDay: Flow<Boolean> = settingsStore.data.map { it[homeDailyKey] == "DAY" }
+
+    suspend fun setHomeShowsDay(day: Boolean) {
+        settingsStore.edit { it[homeDailyKey] = if (day) "DAY" else "MONTH" }
+    }
 }

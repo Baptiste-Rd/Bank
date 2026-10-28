@@ -74,6 +74,10 @@ class BudgetRepository(
 
     val glassTuning: Flow<String?> = settings.glassTuning
 
+    val homeShowsDay: Flow<Boolean> = settings.homeShowsDay
+
+    suspend fun setHomeShowsDay(day: Boolean) = settings.setHomeShowsDay(day)
+
     suspend fun setGlassTuning(encoded: String?) = settings.setGlassTuning(encoded)
 
     /** Tableau de bord recalculé à chaque changement d'enveloppe, de dépense, d'allocation ou de salaire. */
@@ -373,8 +377,12 @@ class BudgetRepository(
 
     suspend fun deleteRule(id: Long) = database.ruleDao().delete(listOf(id))
 
-    /** Supprime un alias ; les opérations déjà renommées gardent leur nom. */
-    suspend fun deleteAlias(id: Long) = database.aliasDao().delete(listOf(id))
+    /** Supprime un alias ; avec [restoreLabels], les opérations qui portent son nom reprennent celui de la banque. */
+    suspend fun deleteAlias(id: Long, restoreLabels: Boolean) = database.withTransaction {
+        val alias = database.aliasDao().all().firstOrNull { it.id == id } ?: return@withTransaction
+        database.aliasDao().delete(listOf(id))
+        if (restoreLabels) transactionDao.clearAlias(alias.alias)
+    }
 
     /** Historique du tri, pour proposer une enveloppe aux opérations à trier. */
     val sortedHistory: Flow<List<SortedLabel<Long>>> = transactionDao.observeSortedHistory()

@@ -34,6 +34,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import fr.baptiste.bank.R
+import fr.baptiste.bank.banking.BankViewModel
+import fr.baptiste.bank.domain.money.Money
 import fr.baptiste.bank.data.UiStyle
 import fr.baptiste.bank.domain.budget.EnvelopeLine
 import fr.baptiste.bank.ui.AppDialogs
@@ -88,6 +90,10 @@ fun GlassMainScreen(
     val selectedYear by viewModel.selectedYear.collectAsStateWithLifecycle()
     val rules by viewModel.rules.collectAsStateWithLifecycle()
     val holdings by viewModel.holdings.collectAsStateWithLifecycle()
+    val homeShowsDay by viewModel.homeShowsDay.collectAsStateWithLifecycle()
+    // Même instance que celle des fenêtres (portée de l'activité) : le solde lu à la banque.
+    val bankViewModel: BankViewModel = androidx.lifecycle.viewmodel.compose.viewModel(factory = BankViewModel.Factory)
+    val bankConnection by bankViewModel.connection.collectAsStateWithLifecycle()
     val aliases by viewModel.aliases.collectAsStateWithLifecycle()
     // Lu pour que les propositions suivent l'historique du tri.
     val sortedHistory by viewModel.sortedHistory.collectAsStateWithLifecycle()
@@ -124,6 +130,9 @@ fun GlassMainScreen(
                         savingsHistory = savingsHistory,
                         unsortedCount = unsortedCount,
                         onAddExpense = { controller.dialog = OpenDialog.Expense },
+                        showsDay = homeShowsDay,
+                        onShowsDayChange = viewModel::setHomeShowsDay,
+                        accountBalance = bankConnection?.balanceCents?.let(::Money),
                         onOpenReview = {
                             if (selectedMonth == YearMonth.now()) viewModel.previousMonth()
                             controller.tab = Tab.BUDGET

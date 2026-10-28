@@ -21,6 +21,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -186,9 +187,59 @@ fun RulesDialog(
     rules: List<RuleRow>,
     aliases: List<LabelAlias>,
     onDeleteRule: (Long) -> Unit,
-    onDeleteAlias: (Long) -> Unit,
+    onDeleteAlias: (id: Long, restoreLabels: Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    // Retirer se confirme : une règle ou un alias effacé par erreur se recrée à la main.
+    var pendingRule by remember { mutableStateOf<RuleRow?>(null) }
+    var pendingAlias by remember { mutableStateOf<LabelAlias?>(null) }
+    pendingRule?.let { rule ->
+        AlertDialog(
+            onDismissRequest = { pendingRule = null },
+            title = { Text("Retirer cette règle ?") },
+            text = {
+                Text(
+                    "« ${rule.pattern} » n'ira plus seul dans ${rule.envelopeName}. " +
+                        "Les opérations déjà rangées restent où elles sont.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDeleteRule(rule.id)
+                    pendingRule = null
+                }) { Text("Retirer") }
+            },
+            dismissButton = { TextButton(onClick = { pendingRule = null }) { Text("Annuler") } },
+        )
+        return
+    }
+    pendingAlias?.let { alias ->
+        var restore by remember { mutableStateOf(false) }
+        AlertDialog(
+            onDismissRequest = { pendingAlias = null },
+            title = { Text("Retirer cet alias ?") },
+            text = {
+                Column {
+                    Text("Les prochaines opérations « ${alias.pattern} » garderont le libellé de la banque.")
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+                        Checkbox(checked = restore, onCheckedChange = { restore = it })
+                        Text(
+                            "Rendre aussi le libellé de la banque à celles déjà nommées « ${alias.alias} »",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDeleteAlias(alias.id, restore)
+                    pendingAlias = null
+                }) { Text("Retirer") }
+            },
+            dismissButton = { TextButton(onClick = { pendingAlias = null }) { Text("Annuler") } },
+        )
+        return
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Règles et alias") },
@@ -201,7 +252,7 @@ fun RulesDialog(
                 }
                 rules.forEachIndexed { index, rule ->
                     if (index > 0) RowDivider(0.dp)
-                    RuleLine("« ${rule.pattern} »", "va dans ${rule.envelopeName}") { onDeleteRule(rule.id) }
+                    RuleLine("« ${rule.pattern} »", "va dans ${rule.envelopeName}") { pendingRule = rule }
                 }
                 Text("Noms", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 16.dp))
                 if (aliases.isEmpty()) {
@@ -209,7 +260,7 @@ fun RulesDialog(
                 }
                 aliases.forEachIndexed { index, alias ->
                     if (index > 0) RowDivider(0.dp)
-                    RuleLine("« ${alias.pattern} »", "s'affiche ${alias.alias}") { onDeleteAlias(alias.id) }
+                    RuleLine("« ${alias.pattern} »", "s'affiche ${alias.alias}") { pendingAlias = alias }
                 }
             }
         },

@@ -170,6 +170,11 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
 
     fun saveGlassTuning(encoded: String?) = perform { repository.setGlassTuning(encoded) }
 
+    /** Accueil : reste du mois (par défaut) ou reste du jour. */
+    val homeShowsDay: StateFlow<Boolean> = repository.homeShowsDay.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun setHomeShowsDay(day: Boolean) = perform { repository.setHomeShowsDay(day) }
+
     /** Applique le tri validé après la proposition de Claude. */
     fun applyAssistedSort(choices: List<AssistedSortChoice>, onDone: (AssistedSortResult) -> Unit) {
         viewModelScope.launch { onDone(repository.applyAssistedSort(choices)) }
@@ -195,7 +200,7 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
     val aliases: StateFlow<List<LabelAlias>> = repository.aliases.asState(emptyList())
 
     fun deleteRule(id: Long) = perform { repository.deleteRule(id) }
-    fun deleteAlias(id: Long) = perform { repository.deleteAlias(id) }
+    fun deleteAlias(id: Long, restoreLabels: Boolean) = perform { repository.deleteAlias(id, restoreLabels) }
 
     private fun perform(block: suspend () -> Unit) {
         viewModelScope.launch { block() }
