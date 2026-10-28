@@ -25,6 +25,12 @@ import fr.baptiste.bank.domain.budget.Dashboard
 import fr.baptiste.bank.domain.budget.HoldingLine
 import fr.baptiste.bank.domain.budget.Holdings
 import fr.baptiste.bank.ui.accounts.detail
+import fr.baptiste.bank.ui.accounts.isStale
+import fr.baptiste.bank.domain.budget.GoalsProgress
+import fr.baptiste.bank.domain.budget.SavingsGoals
+import fr.baptiste.bank.domain.budget.progress
+import fr.baptiste.bank.domain.model.AccountType
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyListScope
 import fr.baptiste.bank.domain.budget.EnvelopeLine
@@ -70,6 +76,8 @@ fun GlassSavingsContent(
     holdings: Holdings? = null,
     onManageAccounts: () -> Unit = {},
     onOpenAccount: (HoldingLine) -> Unit = {},
+    goals: SavingsGoals = SavingsGoals(Money.euros(10_000), Money.euros(20_000)),
+    onEditGoals: () -> Unit = {},
 ) {
     var showInfo by remember { mutableStateOf(false) }
     // Un mois passé se consulte : ses chiffres sont définitifs, on n'y range plus rien.
@@ -159,7 +167,7 @@ fun GlassSavingsContent(
         }
 
         // 4. Sur les autres comptes : ce qui est déjà de côté (le mois en cours seulement).
-        if (!readOnly && holdings != null) holdingsSection(holdings, onManageAccounts, onOpenAccount)
+        if (!readOnly && holdings != null) holdingsSection(holdings, goals, onManageAccounts, onOpenAccount, onEditGoals)
 
         // 5. Ce qui est mis de côté.
         if (savingsLines.isNotEmpty()) {
@@ -248,20 +256,23 @@ private fun GapTile(label: String, delta: Money, reference: String, modifier: Mo
 }
 
 /**
- * « Sur tes comptes » : le total des livrets et investissements, l'écart à la fin du mois dernier,
- * ce qui y a été versé ce mois-ci, puis un compte par ligne.
+ * « Sur tes comptes » : le total, puis l'avancement vers les objectifs (la précaution sur les
+ * livrets, le total visé sur tous les comptes), puis les comptes groupés par disponibilité :
+ * disponibles tout de suite (livrets), placés (valeur qui fluctue).
  */
 private fun LazyListScope.holdingsSection(
     holdings: Holdings,
+    goals: SavingsGoals,
     onManage: () -> Unit,
     onOpen: (HoldingLine) -> Unit,
+    onEditGoals: () -> Unit,
 ) {
     sectionHeader("holdings-label", "Sur tes comptes", action = if (holdings.lines.isEmpty()) null else "Gérer", onAction = onManage)
     item(key = "holdings") {
         if (holdings.lines.isEmpty()) {
             GlassCard(contentPadding = 16.dp) {
                 Text(
-                    "Ajoute tes livrets et ton compte d'investissement pour voir tout ce que tu as de côté.",
+                    "Ajoute tes livrets et tes placements pour voir tout ce que tu as de côté.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -269,6 +280,7 @@ private fun LazyListScope.holdingsSection(
             }
             return@item
         }
+        val progress = holdings.progress(goals)
         GlassCard(contentPadding = 16.dp, verticalPadding = 4.dp) {
             Column(Modifier.padding(vertical = 12.dp)) {
                 Text(holdings.total.formatted(), style = MaterialTheme.typography.titleLarge)
@@ -278,26 +290,81 @@ private fun LazyListScope.holdingsSection(
                     holdings.transferredThisMonth.takeIf { it.isPositive }?.let { "${it.formatted()} versés ce mois" },
                 )
                 if (parts.isNotEmpty()) {
-                    Text(
-                        parts.joinToString(" · "),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Text(parts.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                GoalsBar(progress, Modifier.padding(top = 12.dp).clickable(onClick = onEditGoals))
             }
-            holdings.lines.forEach { line ->
-                fr.baptiste.bank.ui.components.RowDivider(0.dp)
-                Row(
-                    modifier = Modifier.fillMaxWidth().clickable { onOpen(line) }.padding(vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(line.account.name, style = MaterialTheme.typography.bodyLarge)
-                        Text(line.detail(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Text(line.balance?.formatted() ?: "–", style = MaterialTheme.typography.titleMedium)
-                }
+            HoldingGroup("Disponible tout de suite", progress.available, holdings.lines.filter { it.account.type == AccountType.SAVINGS }, onOpen)
+            HoldingGroup("Placé, valeur qui fluctue", progress.invested, holdings.lines.filter { it.account.type != AccountType.SAVINGS }, onOpen)
+        }
+    }
+}
+
+/**
+ * Deux paliers sur une barre : la précaution (livrets) et le total visé. La barre suit le total ;
+ * un repère marque la précaution. Toucher la barre règle les objectifs.
+ */
+@Composable
+private fun GoalsBar(progress: GoalsProgress, modifier: Modifier = Modifier) {
+    val status = BankTheme.status
+    val accent = envelopeTypeColor(EnvelopeType.SAVINGS)
+    val target = progress.goals.total
+    val ratio = if (target.isPositive) (progress.total.cents.toFloat() / target.cents).coerceIn(0f, 1f) else 1f
+    val mark = if (target.isPositive) (progress.goals.precaution.cents.toFloat() / target.cents).coerceIn(0f, 1f) else 0f
+    val track = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+    val ink = MaterialTheme.colorScheme.onSurface
+    Column(modifier) {
+        androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(10.dp)) {
+            val r = androidx.compose.ui.geometry.CornerRadius(size.height / 2)
+            drawRoundRect(track, cornerRadius = r)
+            drawRoundRect(accent, size = size.copy(width = size.width * ratio), cornerRadius = r)
+            val x = size.width * mark
+            drawLine(ink, androidx.compose.ui.geometry.Offset(x, -3f), androidx.compose.ui.geometry.Offset(x, size.height + 3f), strokeWidth = 3f)
+        }
+        Text(
+            if (progress.precautionReached) {
+                "Précaution atteinte : ${progress.available.formatted()} sur les livrets (objectif ${progress.goals.precaution.formatted()})"
+            } else {
+                "Précaution : il manque ${progress.precautionMissing.formatted()} sur les livrets (objectif ${progress.goals.precaution.formatted()})"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = if (progress.precautionReached) status.good else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 6.dp),
+        )
+        Text(
+            when {
+                progress.beyond.isPositive -> "Total visé atteint, ${progress.beyond.formatted()} au-delà pour tes projets"
+                progress.totalReached -> "Total visé atteint (${progress.goals.total.formatted()})"
+                else -> "Total : ${progress.total.formatted()} sur ${progress.goals.total.formatted()}, il manque ${progress.totalMissing.formatted()}"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun HoldingGroup(title: String, subtotal: Money, lines: List<HoldingLine>, onOpen: (HoldingLine) -> Unit) {
+    if (lines.isEmpty()) return
+    fr.baptiste.bank.ui.components.RowDivider(0.dp)
+    Row(Modifier.padding(top = 10.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(title, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+        Text(subtotal.formatted(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    lines.forEach { line ->
+        Row(
+            modifier = Modifier.fillMaxWidth().clickable { onOpen(line) }.padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(line.account.name, style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    line.detail(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (line.isStale()) BankTheme.status.warning else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
+            Text(line.balance?.formatted() ?: "–", style = MaterialTheme.typography.titleMedium)
         }
     }
 }

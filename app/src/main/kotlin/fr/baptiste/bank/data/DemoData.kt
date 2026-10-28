@@ -133,6 +133,9 @@ object DemoData {
         }
         val trading = repository.addManualAccount("Trade Republic", AccountType.INVESTMENT, Money.euros(3120))
         repository.updateBalance(trading, Money.euros(3000), today.minusMonths(1).withDayOfMonth(15))
+        repository.addManualAccount("PEA", AccountType.INVESTMENT, Money.euros(2400))
+        // Le solde du compte courant, tel que la banque l'afficherait : l'app le décompose.
+        repository.setCurrentAccountBalance(Money.euros(1450))
         // Le virement du mois vers le livret : reconnu, il n'est pas une dépense.
         repository.importBankOperations(
             accountUid = "demo",

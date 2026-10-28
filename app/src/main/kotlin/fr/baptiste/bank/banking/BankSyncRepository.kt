@@ -249,6 +249,16 @@ class BankSyncRepository(
             it[Keys.lastSync] = System.currentTimeMillis()
             if (balance != null) it[Keys.balance] = balance
         }
+        // Le solde du compte courant, gardé daté : l'app le décompose (onglet Budget).
+        if (balance != null) {
+            budget.recordLinkedBalance(
+                uid = uid,
+                name = preferences[Keys.accountLabel] ?: "Compte courant",
+                ibanSuffix = preferences[Keys.accountIbanSuffix],
+                type = AccountType.CURRENT,
+                balance = Money(balance),
+            )
+        }
         // Soldes des comptes suivis : un échec sur l'un n'empêche pas les autres.
         for (tracked in decodeAccounts(preferences[Keys.trackedAccounts])) {
             val cents = runCatching { client.balanceCents(tracked.uid) }.getOrNull() ?: continue

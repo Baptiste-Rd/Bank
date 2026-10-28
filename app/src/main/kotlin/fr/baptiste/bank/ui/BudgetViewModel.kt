@@ -18,7 +18,10 @@ import fr.baptiste.bank.domain.bank.LabelAlias
 import fr.baptiste.bank.domain.bank.SortedLabel
 import fr.baptiste.bank.domain.bank.suggestEnvelope
 import fr.baptiste.bank.data.local.TransferRow
+import fr.baptiste.bank.domain.budget.BalanceSnapshot
+import fr.baptiste.bank.domain.budget.CurrentAccountExplained
 import fr.baptiste.bank.domain.budget.Dashboard
+import fr.baptiste.bank.domain.budget.SavingsGoals
 import fr.baptiste.bank.domain.budget.HoldingAccount
 import fr.baptiste.bank.domain.budget.Holdings
 import fr.baptiste.bank.domain.model.AccountType
@@ -183,6 +186,20 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
     /** Livrets et investissements : ce qui est de côté, et les virements du mois vers eux. */
     val holdings: StateFlow<Holdings?> = repository.holdings().asState(null)
     val holdingAccounts: StateFlow<List<HoldingAccount>> = repository.holdingAccounts.asState(emptyList())
+
+    /** Compte courant décomposé (null tant qu'aucun solde n'est connu). */
+    val currentAccount: StateFlow<CurrentAccountExplained?> = repository.currentAccountExplained().asState(null)
+    val currentAccountBalance: StateFlow<BalanceSnapshot?> = repository.currentAccountBalance.asState(null)
+
+    fun setCurrentAccountBalance(balance: Money) = perform { repository.setCurrentAccountBalance(balance) }
+
+    val savingsGoals: StateFlow<SavingsGoals> =
+        repository.savingsGoals.asState(SavingsGoals(Money.euros(10_000), Money.euros(20_000)))
+
+    fun setSavingsGoals(goals: SavingsGoals) = perform { repository.setSavingsGoals(goals) }
+
+    /** Virements vers mes comptes, mois par mois, pour le bilan. */
+    fun transfersToAccounts(month: YearMonth): Flow<Money> = repository.transfersToAccounts(month)
 
     fun addManualAccount(name: String, type: AccountType, balance: Money) = perform { repository.addManualAccount(name, type, balance) }
 

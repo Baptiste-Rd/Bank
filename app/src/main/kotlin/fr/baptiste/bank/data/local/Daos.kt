@@ -53,6 +53,16 @@ interface BalanceDao {
 
     @Query("SELECT * FROM account_balance ORDER BY date")
     fun observeAll(): Flow<List<BalanceEntity>>
+
+    /** Dernier solde du compte courant principal (le premier créé : celui des saisies et de la banque). */
+    @Query(
+        """
+        SELECT * FROM account_balance
+        WHERE account_id = (SELECT id FROM account WHERE type = 'CURRENT' ORDER BY id LIMIT 1)
+        ORDER BY date DESC, id DESC LIMIT 1
+        """,
+    )
+    fun observeCurrentAccountBalance(): Flow<BalanceEntity?>
 }
 
 @Dao
@@ -246,6 +256,16 @@ interface TransactionDao {
     /** Virement vers un de mes comptes (null : ce n'en est pas un). */
     @Query("UPDATE transaction_record SET transfer_account_id = :accountId WHERE id = :id")
     suspend fun setTransferAccount(id: Long, accountId: Long?)
+
+    /** Dépenses de la banque à trier sur une plage de dates (total positif, en centimes). */
+    @Query(
+        """
+        SELECT COALESCE(SUM(-amount_cents), 0) FROM transaction_record t
+        WHERE t.ignored = 0 AND t.amount_cents < 0 AND t.source != 'MANUAL' AND t.date BETWEEN :from AND :to
+          AND NOT EXISTS (SELECT 1 FROM imputation i WHERE i.transaction_id = t.id)
+        """,
+    )
+    fun observeUnsortedOut(from: LocalDate, to: LocalDate): Flow<Long>
 
     /** Montants des virements vers mes comptes sur une plage de dates. */
     @Query("SELECT amount_cents FROM transaction_record WHERE transfer_account_id IS NOT NULL AND date BETWEEN :from AND :to")

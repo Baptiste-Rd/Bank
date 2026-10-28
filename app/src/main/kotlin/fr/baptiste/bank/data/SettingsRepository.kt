@@ -67,4 +67,19 @@ class SettingsRepository(context: Context, storeName: String = "settings") {
     suspend fun setHomeShowsDay(day: Boolean) {
         settingsStore.edit { it[homeDailyKey] = if (day) "DAY" else "MONTH" }
     }
+
+    private val precautionGoalKey = longPreferencesKey("goal_precaution_cents")
+    private val totalGoalKey = longPreferencesKey("goal_total_cents")
+
+    /** Objectifs d'épargne : précaution (livrets) puis total (tous comptes). 10 000 € et 20 000 € par défaut. */
+    val savingsGoals: Flow<Pair<Money, Money>> = settingsStore.data.map {
+        Money(it[precautionGoalKey] ?: 1_000_000L) to Money(it[totalGoalKey] ?: 2_000_000L)
+    }
+
+    suspend fun setSavingsGoals(precaution: Money, total: Money) {
+        settingsStore.edit {
+            it[precautionGoalKey] = precaution.cents
+            it[totalGoalKey] = total.cents
+        }
+    }
 }

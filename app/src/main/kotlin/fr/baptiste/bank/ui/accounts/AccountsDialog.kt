@@ -45,7 +45,7 @@ import fr.baptiste.bank.ui.components.toFieldText
 val AccountType.label: String
     get() = when (this) {
         AccountType.SAVINGS -> "Livret"
-        AccountType.INVESTMENT -> "Investissement"
+        AccountType.INVESTMENT -> "Placement"
         AccountType.CURRENT -> "Compte courant"
     }
 
@@ -94,11 +94,15 @@ fun AccountsDialog(
     )
 }
 
-/** « Livret · relié à la banque », « Investissement · au 3 oct. 2026 ». */
-fun HoldingLine.detail(): String {
+/** « Livret · relié à la banque », « Placement · au 3 oct. 2026 · à mettre à jour ». */
+fun HoldingLine.detail(today: java.time.LocalDate = java.time.LocalDate.now()): String {
     val origin = if (account.linked) "relié à la banque" else asOf?.let { "au ${it.formatted()}" } ?: "solde à renseigner"
-    return "${account.type.label} · $origin"
+    return "${account.type.label} · $origin" + if (isStale(today)) " · à mettre à jour" else ""
 }
+
+/** Un solde saisi à la main il y a plus de 30 jours : à mettre à jour (un compte relié se met à jour seul). */
+fun HoldingLine.isStale(today: java.time.LocalDate = java.time.LocalDate.now()): Boolean =
+    !account.linked && asOf != null && asOf.isBefore(today.minusDays(30))
 
 /**
  * Créer ou modifier un compte. Pour un compte relié, seuls le nom et le type se modifient : le
@@ -146,7 +150,7 @@ fun AccountEditDialog(
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(AccountType.SAVINGS, AccountType.INVESTMENT).forEach { option ->
-                        FilterChip(selected = type == option, onClick = { type = option }, label = { Text(option.label) })
+                        FilterChip(selected = type == option, onClick = { type = option }, label = { Text(if (option == AccountType.SAVINGS) "Livret (disponible)" else "Placement (PEA, titres)") })
                     }
                 }
                 if (linked) {
@@ -183,6 +187,88 @@ fun AccountEditDialog(
             TextButton(onClick = { onSave(name, type, if (linked) null else balance) }, enabled = canSave) {
                 Text("Enregistrer")
             }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } },
+    )
+}
+
+/** Saisir le solde du compte courant (sans banque connectée, ou pour corriger la dernière lecture). */
+@Composable
+fun CurrentBalanceDialog(initial: Money?, onSave: (Money) -> Unit, onDismiss: () -> Unit) {
+    var text by rememberSaveable { mutableStateOf(initial?.takeIf { !it.isNegative }?.toFieldText().orEmpty()) }
+    val amount = if (text.isBlank()) null else parseMoney(text)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Solde du compte courant") },
+        text = {
+            BlurBehindWindow()
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Celui que ta banque affiche aujourd'hui. Avec la banque connectée, il est relu à chaque synchronisation.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    label = { Text("Solde aujourd'hui") },
+                    suffix = { Text("€") },
+                    isError = text.isNotBlank() && amount == null,
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = { amount?.let(onSave) }, enabled = amount != null) { Text("Enregistrer") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } },
+    )
+}
+
+/** Objectifs d'épargne : la précaution (sur les livrets), puis le total visé (tous comptes). */
+@Composable
+fun SavingsGoalsDialog(
+    precaution: Money,
+    total: Money,
+    onSave: (precaution: Money, total: Money) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var precautionText by rememberSaveable { mutableStateOf(precaution.toFieldText()) }
+    var totalText by rememberSaveable { mutableStateOf(total.toFieldText()) }
+    val p = parseMoney(precautionText)
+    val t = parseMoney(totalText)
+    val valid = p != null && t != null && t >= p
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Objectifs d'épargne") },
+        text = {
+            BlurBehindWindow()
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = precautionText,
+                    onValueChange = { precautionText = it },
+                    label = { Text("Précaution (sur les livrets)") },
+                    supportingText = { Text("Repère courant : 2 à 6 mois de revenus, disponibles tout de suite.") },
+                    suffix = { Text("€") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = totalText,
+                    onValueChange = { totalText = it },
+                    label = { Text("Total visé (tous comptes)") },
+                    supportingText = { Text("Pour les projets de vie ; au-delà, c'est pour tes projets personnels.") },
+                    suffix = { Text("€") },
+                    isError = p != null && t != null && t < p,
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { if (p != null && t != null) onSave(p, t) }, enabled = valid) { Text("Enregistrer") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } },
     )

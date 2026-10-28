@@ -31,6 +31,9 @@ import fr.baptiste.bank.domain.budget.Dashboard
 import fr.baptiste.bank.domain.budget.HoldingAccount
 import fr.baptiste.bank.domain.budget.Holdings
 import fr.baptiste.bank.domain.budget.computeHoldings
+import fr.baptiste.bank.domain.budget.CurrentAccountExplained
+import fr.baptiste.bank.domain.budget.SavingsGoals
+import fr.baptiste.bank.domain.budget.explainCurrentAccount
 import fr.baptiste.bank.domain.budget.SavingsOutlook
 import fr.baptiste.bank.domain.budget.Spending
 import fr.baptiste.bank.domain.budget.Transfer
@@ -535,6 +538,41 @@ class BudgetRepository(
             )
         }
     }
+
+    /** Dernier solde du compte courant : lu à la banque ou saisi à la main. */
+    val currentAccountBalance: Flow<BalanceSnapshot?> = balanceDao.observeCurrentAccountBalance()
+        .map { it?.let { row -> BalanceSnapshot(row.accountId, row.date, Money(row.balanceCents)) } }
+
+    /** Saisit le solde du compte courant (sans banque connectée, ou pour corriger). */
+    suspend fun setCurrentAccountBalance(balance: Money) {
+        balanceDao.upsert(BalanceEntity(accountId = currentAccountId(), date = LocalDate.now(), balanceCents = balance.cents))
+    }
+
+    /** Virements vers mes livrets et placements sur un mois (total positif). */
+    fun transfersToAccounts(month: YearMonth): Flow<Money> =
+        transactionDao.observeTransfersToAccounts(month.atDay(1), month.atEndOfMonth())
+            .map { amounts -> Money(amounts.sumOf { kotlin.math.abs(it) }) }
+
+    /**
+     * Le solde du compte courant décomposé : reste du mois, charges à payer, épargne à virer,
+     * provisions mises de côté, et ce qui reste libre. Null tant qu'aucun solde n'est connu.
+     */
+    fun currentAccountExplained(today: LocalDate = LocalDate.now()): Flow<CurrentAccountExplained?> {
+        val month = YearMonth.from(today)
+        return combine(
+            dashboard(today),
+            currentAccountBalance,
+            transfersToAccounts(month),
+            transactionDao.observeUnsortedOut(month.atDay(1), month.atEndOfMonth()),
+            transactionDao.observeFirstDate(),
+        ) { board, balance, transferred, unsorted, first ->
+            balance?.let { board.explainCurrentAccount(it.balance, it.date, transferred, Money(unsorted), since = first) }
+        }
+    }
+
+    val savingsGoals: Flow<SavingsGoals> = settings.savingsGoals.map { (precaution, total) -> SavingsGoals(precaution, total) }
+
+    suspend fun setSavingsGoals(goals: SavingsGoals) = settings.setSavingsGoals(goals.precaution, goals.total)
 
     /** Ajoute un compte saisi à la main, avec son solde du jour. */
     suspend fun addManualAccount(name: String, type: AccountType, balance: Money): Long = database.withTransaction {

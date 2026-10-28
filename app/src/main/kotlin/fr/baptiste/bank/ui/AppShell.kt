@@ -36,6 +36,8 @@ import fr.baptiste.bank.domain.model.TransactionSource
 import fr.baptiste.bank.ui.assistant.AssistedSortDialog
 import fr.baptiste.bank.ui.accounts.AccountEditDialog
 import fr.baptiste.bank.ui.accounts.AccountsDialog
+import fr.baptiste.bank.ui.accounts.CurrentBalanceDialog
+import fr.baptiste.bank.ui.accounts.SavingsGoalsDialog
 import fr.baptiste.bank.domain.budget.HoldingLine
 import fr.baptiste.bank.ui.operations.RenameOperationDialog
 import fr.baptiste.bank.ui.operations.RulesDialog
@@ -88,6 +90,8 @@ sealed interface OpenDialog {
 
     /** Livrets et investissements : la liste, puis un compte (null : nouveau). */
     data object Accounts : OpenDialog
+    data object CurrentBalance : OpenDialog
+    data object SavingsGoals : OpenDialog
     data class AccountEdit(val line: HoldingLine?) : OpenDialog
 
     /** Tri assisté par Claude ; [demoReply] ouvre directement la validation (captures). */
@@ -354,6 +358,30 @@ fun AppDialogs(
                             },
                         )
                     }
+                    close()
+                },
+                onDismiss = ::close,
+            )
+        }
+        OpenDialog.CurrentBalance -> {
+            val balance by viewModel.currentAccountBalance.collectAsStateWithLifecycle()
+            CurrentBalanceDialog(
+                initial = balance?.balance,
+                onSave = {
+                    viewModel.setCurrentAccountBalance(it)
+                    controller.notify("Solde enregistré.")
+                    close()
+                },
+                onDismiss = ::close,
+            )
+        }
+        OpenDialog.SavingsGoals -> {
+            val goals by viewModel.savingsGoals.collectAsStateWithLifecycle()
+            SavingsGoalsDialog(
+                precaution = goals.precaution,
+                total = goals.total,
+                onSave = { precaution, total ->
+                    viewModel.setSavingsGoals(fr.baptiste.bank.domain.budget.SavingsGoals(precaution, total))
                     close()
                 },
                 onDismiss = ::close,

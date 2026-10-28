@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import fr.baptiste.bank.data.YearOverview
+import fr.baptiste.bank.domain.budget.CurrentAccountExplained
 import fr.baptiste.bank.domain.budget.Dashboard
 import fr.baptiste.bank.domain.budget.closings
 import fr.baptiste.bank.domain.budget.EnvelopeLine
@@ -128,6 +129,11 @@ fun GlassBudgetContent(
     onEdit: (Envelope) -> Unit,
     onRestore: (Envelope) -> Unit,
     initialView: BudgetView = BudgetView.MONTH,
+    /** Compte courant décomposé (mois en cours) ; null sans solde connu. */
+    currentAccount: CurrentAccountExplained? = null,
+    onSetBalance: () -> Unit = {},
+    /** Viré vers mes livrets et placements le mois affiché (bilan). */
+    monthTransfers: Money? = null,
 ) {
     var view by rememberSaveable { mutableStateOf(initialView) }
     var showInfo by remember { mutableStateOf(false) }
@@ -168,6 +174,10 @@ fun GlassBudgetContent(
                         onCover = onCover,
                         onEdit = onEdit,
                         onRestore = onRestore,
+                        currentAccount = if (isCurrentMonth) currentAccount else null,
+                        showAccountCard = isCurrentMonth,
+                        onSetBalance = onSetBalance,
+                        monthTransfers = monthTransfers,
                     )
                 }
             }
@@ -216,13 +226,17 @@ private fun LazyListScope.monthContent(
     onCover: (EnvelopeLine) -> Unit,
     onEdit: (Envelope) -> Unit,
     onRestore: (Envelope) -> Unit,
+    currentAccount: CurrentAccountExplained?,
+    showAccountCard: Boolean,
+    onSetBalance: () -> Unit,
+    monthTransfers: Money?,
 ) {
     val byFamily = dashboard.envelopes.groupBy { it.envelope.type.family }
     val usedNames = dashboard.envelopes.map { it.envelope.name.lowercase() }.toSet()
     val suggestions = envelopeTemplates.filter { (name, _) -> name.lowercase() !in usedNames }
 
     // Un mois terminé commence par son bilan : où est allé ce qui restait, d'où vient ce qui manquait.
-    if (readOnly && dashboard.savings.isFinal) item(key = "review") { MonthReview(dashboard, onEdit) }
+    if (readOnly && dashboard.savings.isFinal) item(key = "review") { MonthReview(dashboard, onEdit, monthTransfers) }
 
     item(key = "plan") {
         GlassCard(contentPadding = 16.dp) {
@@ -256,6 +270,12 @@ private fun LazyListScope.monthContent(
                 }
             }
         }
+    }
+
+    // Le compte courant, expliqué : du solde de la banque au reste du mois.
+    if (showAccountCard) {
+        sectionHeader("account-label", "Compte courant", action = "Solde", onAction = onSetBalance)
+        item(key = "account") { CurrentAccountCard(currentAccount, onSetBalance) }
     }
 
     EnvelopeFamily.entries.forEach { family ->
@@ -475,7 +495,7 @@ private fun PlanBar(parts: List<PlanPart>, modifier: Modifier = Modifier) {
  * remettre de l'argent quelque part, on le prend sur l'épargne (« Ajouter » sur l'enveloppe).
  */
 @Composable
-private fun MonthReview(dashboard: Dashboard, onEdit: (Envelope) -> Unit) {
+private fun MonthReview(dashboard: Dashboard, onEdit: (Envelope) -> Unit, transfers: Money?) {
     val savings = dashboard.savings
     val closings = dashboard.closings()
     val status = BankTheme.status
@@ -497,6 +517,14 @@ private fun MonthReview(dashboard: Dashboard, onEdit: (Envelope) -> Unit) {
                 .fold(Money.ZERO) { sum, line -> sum - line.remaining }
             if (savingsSpent.isPositive) ReviewLine("Dépenses sur l'épargne", Money(-savingsSpent.cents))
         }
+        // Ce qui a vraiment quitté le compte courant pour un livret ou un placement.
+        if (transfers != null && savings.forecast.isPositive) {
+            val left = savings.forecast - transfers
+            Column(Modifier.padding(top = 8.dp)) {
+                ReviewLine("Viré vers tes comptes", transfers)
+                if (left.isPositive) ReviewLine("Resté sur le compte courant", left)
+            }
+        }
         Text(
             "Ce qui reste dans une enveloppe à la fin de sa période va à l'épargne ; un dépassement y est pris.",
             style = MaterialTheme.typography.bodySmall,
@@ -515,6 +543,76 @@ private fun ReviewLine(label: String, amount: Money) {
         Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
         Text(
             amount.signed(),
+            style = MaterialTheme.typography.titleSmall,
+            color = if (amount.isNegative) BankTheme.status.warning else MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
+/**
+ * Le solde du compte courant, décomposé. Règle de lecture : solde = reste du mois + charges à
+ * payer + épargne à virer + provisions mises de côté + libre. Un « libre » négatif dit qu'il
+ * manque de l'argent sur le compte par rapport au budget.
+ */
+@Composable
+private fun CurrentAccountCard(explained: CurrentAccountExplained?, onSetBalance: () -> Unit) {
+    GlassCard(contentPadding = 16.dp) {
+        if (explained == null) {
+            Text(
+                "Indique le solde de ton compte courant (ou connecte ta banque) pour voir comment il se répartit.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            RowActionButton("Indiquer le solde", onClick = onSetBalance, modifier = Modifier.padding(top = 8.dp))
+            return@GlassCard
+        }
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(explained.balance.formatted(), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+            Text(
+                "au ${explained.asOf.formatted()}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Column(Modifier.padding(top = 8.dp)) {
+            AccountLine("Reste du mois", explained.monthLeft)
+            if (explained.chargesDue.isPositive) AccountLine("Charges à payer ce mois", explained.chargesDue)
+            if (explained.savingsPending.isPositive) AccountLine("Épargne du mois à virer", explained.savingsPending)
+            if (explained.provisionsHeld.isPositive) AccountLine("Provisions mises de côté", explained.provisionsHeld)
+            fr.baptiste.bank.ui.components.RowDivider(0.dp)
+            val free = explained.free
+            AccountLine(if (free.isNegative) "Il manque" else "Libre sur le compte", free, strong = true)
+        }
+        val note = when {
+            explained.free.isNegative -> buildString {
+                append("Le budget prévoit plus que ce que contient le compte : salaire pas encore arrivé")
+                if (explained.unsortedOut.isPositive) append(", ${explained.unsortedOut.formatted()} de dépenses à trier")
+                append(" ou dépenses faites hors de l'app.")
+            }
+            explained.free.isPositive -> "Hors budget du mois : à virer vers un livret, ou à garder pour plus tard."
+            else -> null
+        }
+        if (note != null) {
+            Text(
+                note,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun AccountLine(label: String, amount: Money, strong: Boolean = false) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 3.dp)) {
+        Text(
+            label,
+            style = if (strong) MaterialTheme.typography.titleSmall else MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            amount.formatted(),
             style = MaterialTheme.typography.titleSmall,
             color = if (amount.isNegative) BankTheme.status.warning else MaterialTheme.colorScheme.onSurface,
         )
