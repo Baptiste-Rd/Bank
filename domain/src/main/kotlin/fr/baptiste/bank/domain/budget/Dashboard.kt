@@ -141,7 +141,17 @@ fun computeDashboard(
             available = available,
             spent = spent,
             remaining = available - spent,
-            projection = project(spent, available, period, today, alertThresholdPercent, lumpSum),
+            // Seul le quotidien se dépense au fil des jours : on prolonge son rythme. Une charge, une
+            // provision ou un achat se paie en une fois ; prolonger son rythme annoncerait à tort un
+            // dépassement (un prêt payé le 5 « prévu » à 442 € pour 400). Tout y compte comme ponctuel.
+            projection = project(
+                spent,
+                available,
+                period,
+                today,
+                alertThresholdPercent,
+                if (envelope.type == EnvelopeType.DAILY) lumpSum else spent,
+            ),
         )
     }
 

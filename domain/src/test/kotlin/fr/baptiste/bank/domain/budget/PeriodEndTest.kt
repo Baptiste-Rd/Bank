@@ -46,4 +46,13 @@ class PeriodEndTest {
         assertEquals(Money.ZERO, final.surpluses)
         assertEquals(Money.euros(15), final.overruns)
     }
+
+    @Test
+    fun `a fixed charge paid at the start of the month is not projected as an overrun`() {
+        val spendings = listOf(Spending(1, LocalDate.of(2026, 10, 5), Money.euros(30)))
+        val line = computeDashboard(all, emptyMap(), spendings, income, LocalDate.of(2026, 10, 6))
+            .envelopes.first { it.envelope.id == 1L }
+        assertEquals(Money.euros(30), line.projection.projected)
+        assertEquals(false, line.needsCover)
+    }
 }
