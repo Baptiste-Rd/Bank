@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import fr.baptiste.bank.domain.bank.isNameTaken
 import fr.baptiste.bank.domain.budget.convert
 import fr.baptiste.bank.domain.budget.monthsUntil
 import fr.baptiste.bank.domain.budget.purchaseMonth
@@ -58,6 +59,8 @@ fun EnvelopeDialog(
     onArchive: (Envelope) -> Unit,
     /** Groupes déjà utilisés, proposés en un geste. */
     groups: List<String> = emptyList(),
+    /** Noms des autres enveloppes (actives et archivées) : un nom ne sert qu'une fois. */
+    takenNames: List<String> = emptyList(),
 ) {
     val today = LocalDate.now()
     var name by rememberSaveable { mutableStateOf(initial?.name.orEmpty()) }
@@ -81,7 +84,8 @@ fun EnvelopeDialog(
     } else {
         every?.let { Frequency(it, scale) }
     }
-    val canSave = name.isNotBlank() && amount != null && !amount.isNegative && frequency != null
+    val nameTaken = isNameTaken(name, takenNames)
+    val canSave = name.isNotBlank() && !nameTaken && amount != null && !amount.isNegative && frequency != null
     // Un modèle (id 0) pré-remplit le formulaire mais reste une création.
     val isExisting = initial != null && initial.id != 0L
     var confirmArchive by remember { mutableStateOf(false) }
@@ -116,6 +120,12 @@ fun EnvelopeDialog(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text("Nom") },
+                    isError = nameTaken,
+                    supportingText = if (nameTaken) {
+                        { Text("Une enveloppe porte déjà ce nom.") }
+                    } else {
+                        null
+                    },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )

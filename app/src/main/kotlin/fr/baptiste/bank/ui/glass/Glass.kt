@@ -42,7 +42,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
@@ -113,24 +112,14 @@ object Glass {
         Color(0xFF6366F1).copy(alpha = 0.18f),
     )
 
-    /** Cartes : un voile blanc léger sur le fond flouté. */
-    val Surface = Color.White.copy(alpha = 0.075f)
-    val SurfaceStrong = Color.White.copy(alpha = 0.11f)
-
-    /** Boutons flottants, un cran plus clairs que les cartes. */
-    val Floating = Color.White.copy(alpha = 0.10f)
-
-    /**
-     * Ombre portée des icônes et libellés posés sur du verre clair : elle les garde lisibles quand
-     * un contenu clair passe dessous, sans assombrir le verre (c'est ce que fait iOS).
+    /*
+     * Voiles des cartes (0,075 et 0,11), des éléments flottants (0,10), de l'indicateur (0,12),
+     * arrondi (18 dp) et ombre des libellés (0,55, qui les garde lisibles quand un contenu clair
+     * passe dessous) : dans GlassTuning, réglables depuis le menu développeur.
      */
-    val LabelShadow = Shadow(color = Color.Black.copy(alpha = 0.55f), offset = Offset(0f, 1f), blurRadius = 6f)
-    val Indicator = Color.White.copy(alpha = 0.12f)
 
     /** Bouton principal : verre teinté de bleu, texte blanc (contraste 5,2:1 sur le bleu pur). */
     val Accent = Color(0xFF2563EB)
-
-    val CornerRadius: Dp = 18.dp
 }
 
 private data class Glow(
@@ -165,11 +154,13 @@ fun LiquidBackground(modifier: Modifier = Modifier) {
         animationSpec = infiniteRepeatable(tween(60_000, easing = LinearEasing)),
         label = "dérive",
     )
+    val strength = LocalGlassTuning.current.glowStrength
     Canvas(modifier.fillMaxSize()) {
         drawRect(Brush.verticalGradient(listOf(Glass.BaseTop, Glass.BaseBottom)))
         val unit = size.maxDimension
         glows.forEachIndexed { index, glow ->
-            val color = Glass.Glows[index % Glass.Glows.size]
+            val base = Glass.Glows[index % Glass.Glows.size]
+            val color = base.copy(alpha = (base.alpha * strength).coerceIn(0f, 1f))
             val center = Offset(
                 x = size.width * (glow.x + glow.driftX * sin(time + glow.phase)),
                 y = size.height * (glow.y + glow.driftY * cos(time + glow.phase)),
@@ -198,12 +189,13 @@ private class GlassOptics(
  * l'aberration chromatique doit irriser. Les cartes ne courbent que le fond, déjà lisse, et
  * peuvent flouter fort. Les éléments flottants courbent le contenu qui défile dessous : un flou
  * léger y garde des contours nets, et l'irisation suit alors le contenu en mouvement.
+ * La barre reprend le verre du bouton ⋮ : même flou, même déviation, et une bande de réfraction
+ * au même tiers de la hauteur (16 dp pour 48 dp, 21 dp pour 64 dp). Les valeurs sont dans
+ * GlassTuning, réglables depuis le menu développeur.
  */
-private val CardOptics = GlassOptics(blur = 12.dp, refractionHeight = 14.dp, refractionAmount = 28.dp)
-// La barre reprend exactement le verre du bouton ⋮ : même flou, même déviation, et une bande
-// de réfraction au même tiers de la hauteur (16 dp pour 48 dp, 21 dp pour 64 dp).
-private val BarOptics = GlassOptics(blur = 2.dp, refractionHeight = 21.dp, refractionAmount = 28.dp)
-private val ButtonOptics = GlassOptics(blur = 2.dp, refractionHeight = 16.dp, refractionAmount = 28.dp)
+private val GlassTuning.cardOptics get() = GlassOptics(cardBlur.dp, cardLensHeight.dp, cardLensAmount.dp)
+private val GlassTuning.barOptics get() = GlassOptics(barBlur.dp, barLensHeight.dp, barLensAmount.dp)
+private val GlassTuning.buttonOptics get() = GlassOptics(buttonBlur.dp, buttonLensHeight.dp, buttonLensAmount.dp)
 
 /**
  * Surface de verre : flou, saturation, lentille et aberration chromatique de ce qui est derrière,
@@ -215,6 +207,7 @@ private fun Modifier.glass(
     backdrop: Backdrop,
     tint: Color,
     optics: GlassOptics,
+    tuning: GlassTuning,
     cornerRadius: Dp? = null,
     accent: Color? = null,
 ): Modifier =
@@ -222,20 +215,22 @@ private fun Modifier.glass(
         backdrop = backdrop,
         shape = { if (cornerRadius == null) Capsule() else RoundedRectangle(cornerRadius) },
         effects = {
-            vibrancy()
-            blur(optics.blur.toPx())
-            lens(
-                refractionHeight = optics.refractionHeight.toPx(),
-                refractionAmount = optics.refractionAmount.toPx(),
-                chromaticAberration = true,
-            )
+            if (tuning.vibrancy) vibrancy()
+            if (optics.blur > 0.dp) blur(optics.blur.toPx())
+            if (optics.refractionHeight > 0.dp && optics.refractionAmount > 0.dp) {
+                lens(
+                    refractionHeight = optics.refractionHeight.toPx(),
+                    refractionAmount = optics.refractionAmount.toPx(),
+                    chromaticAberration = tuning.chromaticAberration,
+                )
+            }
         },
         highlight = null,
         shadow = null,
         onDrawSurface = {
             if (accent != null) {
                 drawRect(accent, blendMode = BlendMode.Hue)
-                drawRect(accent.copy(alpha = 0.72f))
+                drawRect(accent.copy(alpha = tuning.accentAlpha))
             } else {
                 drawRect(tint)
             }
@@ -256,16 +251,18 @@ fun GlassCard(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val backdrop = LocalBackgroundBackdrop.current
+    val tuning = LocalGlassTuning.current
     Column(
         modifier = modifier
             .fillMaxWidth()
             .glass(
                 backdrop = backdrop,
-                tint = tint ?: if (strong) Glass.SurfaceStrong else Glass.Surface,
-                optics = CardOptics,
-                cornerRadius = Glass.CornerRadius,
+                tint = tint ?: tuning.surface(strong),
+                optics = tuning.cardOptics,
+                tuning = tuning,
+                cornerRadius = tuning.corner,
             )
-            .clip(RoundedCornerShape(Glass.CornerRadius))
+            .clip(RoundedCornerShape(tuning.corner))
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = contentPadding, vertical = verticalPadding),
     ) {
@@ -286,10 +283,11 @@ fun GlassIconButton(
     badge: Boolean = false,
 ) {
     val backdrop = LocalScreenBackdrop.current
+    val tuning = LocalGlassTuning.current
     Box(
         modifier = modifier
             .size(48.dp)
-            .glass(backdrop, Glass.Floating, ButtonOptics, accent = if (accent) Glass.Accent else null)
+            .glass(backdrop, tuning.floating, tuning.buttonOptics, tuning, accent = if (accent) Glass.Accent else null)
             .clip(CircleShape)
             .clickable(onClick = onClick, role = Role.Button),
         contentAlignment = Alignment.Center,
@@ -317,10 +315,11 @@ fun GlassPillButton(
     icon: Painter? = null,
 ) {
     val backdrop = LocalBackgroundBackdrop.current
+    val tuning = LocalGlassTuning.current
     Row(
         modifier = modifier
             .height(48.dp)
-            .glass(backdrop, Glass.Floating, ButtonOptics, accent = Glass.Accent)
+            .glass(backdrop, tuning.floating, tuning.buttonOptics, tuning, accent = Glass.Accent)
             .clip(CircleShape)
             .clickable(onClick = onClick, role = Role.Button)
             .padding(horizontal = 20.dp),
@@ -351,6 +350,7 @@ fun GlassTabBar(
     modifier: Modifier = Modifier,
 ) {
     val backdrop = LocalScreenBackdrop.current
+    val tuning = LocalGlassTuning.current
     val barBackdrop = rememberLayerBackdrop()
     val position by animateFloatAsState(
         targetValue = selectedIndex.toFloat(),
@@ -363,7 +363,7 @@ fun GlassTabBar(
             Modifier
                 .matchParentSize()
                 .layerBackdrop(barBackdrop)
-                .glass(backdrop, Glass.Floating, BarOptics),
+                .glass(backdrop, tuning.floating, tuning.barOptics, tuning),
         )
         // 2. Indicateur.
         BoxWithConstraints(Modifier.matchParentSize().padding(4.dp)) {
@@ -377,15 +377,17 @@ fun GlassTabBar(
                         backdrop = barBackdrop,
                         shape = { Capsule() },
                         effects = {
-                            lens(
-                                refractionHeight = 14.dp.toPx(),
-                                refractionAmount = 24.dp.toPx(),
-                                chromaticAberration = true,
-                            )
+                            if (tuning.indicatorLensHeight > 0f && tuning.indicatorLensAmount > 0f) {
+                                lens(
+                                    refractionHeight = tuning.indicatorLensHeight.dp.toPx(),
+                                    refractionAmount = tuning.indicatorLensAmount.dp.toPx(),
+                                    chromaticAberration = tuning.chromaticAberration,
+                                )
+                            }
                         },
                         highlight = null,
                         shadow = null,
-                        onDrawSurface = { drawRect(Glass.Indicator) },
+                        onDrawSurface = { drawRect(tuning.indicator) },
                     ),
             )
         }
@@ -401,6 +403,7 @@ fun GlassTabBar(
 @Composable
 private fun RowScope.GlassTab(item: GlassTabItem, selected: Boolean, onClick: () -> Unit) {
     val color = if (selected) Color.White else Color.White.copy(alpha = 0.72f)
+    val shadow = LocalGlassTuning.current.labelShadow
     Column(
         modifier = Modifier
             .weight(1f)
@@ -419,12 +422,12 @@ private fun RowScope.GlassTab(item: GlassTabItem, selected: Boolean, onClick: ()
             Icon(
                 item.icon,
                 contentDescription = null,
-                tint = Glass.LabelShadow.color,
+                tint = shadow.color,
                 modifier = Modifier.size(24.dp).offset(y = 1.dp).blur(3.dp, BlurredEdgeTreatment.Unbounded),
             )
             Icon(item.icon, contentDescription = null, tint = color, modifier = Modifier.size(24.dp))
         }
-        Text(item.title, color = color, style = MaterialTheme.typography.labelSmall.copy(shadow = Glass.LabelShadow))
+        Text(item.title, color = color, style = MaterialTheme.typography.labelSmall.copy(shadow = shadow))
     }
 }
 
@@ -432,10 +435,11 @@ private fun RowScope.GlassTab(item: GlassTabItem, selected: Boolean, onClick: ()
 @Composable
 fun GlassBanner(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
     val backdrop = LocalScreenBackdrop.current
+    val tuning = LocalGlassTuning.current
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .glass(backdrop, Glass.SurfaceStrong, BarOptics)
+            .glass(backdrop, tuning.bannerSurface, tuning.barOptics, tuning)
             .padding(start = 20.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         content = content,

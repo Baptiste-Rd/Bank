@@ -60,6 +60,8 @@ data class TransactionEntity(
     @ColumnInfo(name = "reconciled_with_id") val reconciledWithId: Long? = null,
     /** Hors budget : l'opération est vue mais rangée nulle part (salaire, virement entre comptes...). */
     @ColumnInfo(defaultValue = "0") val ignored: Boolean = false,
+    /** Nom choisi par l'utilisateur, affiché à la place du libellé de la banque. */
+    val alias: String? = null,
 )
 
 @Entity(tableName = "envelope")
@@ -178,4 +180,12 @@ data class RuleEntity(
     val pattern: String,
     @ColumnInfo(name = "envelope_id") val envelopeId: Long,
     val priority: Int = 0,
+)
+
+/** Alias : les opérations dont le libellé contient [pattern] s'affichent sous le nom [alias]. */
+@Entity(tableName = "label_alias")
+data class LabelAliasEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val pattern: String,
+    val alias: String,
 )

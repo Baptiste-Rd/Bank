@@ -32,7 +32,10 @@ import fr.baptiste.bank.ui.components.ExpenseSheet
 import fr.baptiste.bank.ui.components.IncomeDialog
 import fr.baptiste.bank.ui.bank.BankDialog
 import fr.baptiste.bank.ui.format.formatted
+import fr.baptiste.bank.ui.operations.RenameOperationDialog
+import fr.baptiste.bank.ui.operations.RulesDialog
 import fr.baptiste.bank.ui.operations.SortOperationDialog
+import fr.baptiste.bank.ui.operations.UnsortDialog
 import fr.baptiste.bank.ui.transfers.CoverDialog
 import fr.baptiste.bank.ui.transfers.EnvelopeSheet
 import fr.baptiste.bank.ui.transfers.JournalDialog
@@ -75,6 +78,9 @@ sealed interface OpenDialog {
     data class EnvelopeEditor(val envelope: Envelope?, val returnToSort: OperationRow? = null) : OpenDialog
     data object Bank : OpenDialog
     data class SortOperation(val operation: OperationRow, val preselectedEnvelopeId: Long? = null) : OpenDialog
+    data class RenameOperation(val operation: OperationRow) : OpenDialog
+    data object Unsort : OpenDialog
+    data object Rules : OpenDialog
 
     /** Les fenêtres liées à une enveloppe gardent son identifiant, pas sa ligne : elles suivent ainsi
      *  les derniers chiffres du tableau de bord pendant qu'elles sont ouvertes. */
@@ -136,6 +142,8 @@ fun AppMenuItems(
     style: UiStyle,
     onStyleChange: (UiStyle) -> Unit,
     onClose: () -> Unit,
+    /** Menu développeur : réglages du verre (style Liquid Glass seulement). */
+    onOpenTuning: (() -> Unit)? = null,
 ) {
     val income by viewModel.monthlyIncome.collectAsStateWithLifecycle()
     DropdownMenuItem(
@@ -168,6 +176,15 @@ fun AppMenuItems(
             onStyleChange(if (style == UiStyle.GLASS) UiStyle.CLASSIC else UiStyle.GLASS)
         },
     )
+    if (onOpenTuning != null) {
+        DropdownMenuItem(
+            text = { Text("Réglages du verre (développeur)") },
+            onClick = {
+                onClose()
+                onOpenTuning()
+            },
+        )
+    }
     DropdownMenuItem(
         text = { Text(if (updateAvailable) "Nouvelle version disponible" else "Mises à jour") },
         trailingIcon = if (updateAvailable) {
@@ -193,6 +210,7 @@ fun AppDialogs(
     val envelopes by viewModel.envelopes.collectAsStateWithLifecycle()
     val income by viewModel.monthlyIncome.collectAsStateWithLifecycle()
     val journal by viewModel.transferJournal.collectAsStateWithLifecycle()
+    val archivedEnvelopes by viewModel.archivedEnvelopes.collectAsStateWithLifecycle()
 
     // Connexion bancaire : synchronisation discrète à l'ouverture, et son compte rendu en bas de l'écran.
     val bankViewModel: BankViewModel = viewModel(factory = BankViewModel.Factory)
@@ -258,7 +276,54 @@ fun AppDialogs(
             onDismiss = ::close,
             onCreateEnvelope = { controller.dialog = OpenDialog.EnvelopeEditor(null, returnToSort = current.operation) },
             preselectedId = current.preselectedEnvelopeId,
+            suggestedId = remember(current.operation.id) { viewModel.suggestedEnvelopeId(current.operation) }
+                ?.takeIf { id -> envelopes.any { it.id == id } },
+            onRename = { controller.dialog = OpenDialog.RenameOperation(current.operation) },
         )
+        is OpenDialog.RenameOperation -> RenameOperationDialog(
+            operation = current.operation,
+            onRename = { alias, pattern ->
+                viewModel.renameOperation(current.operation.id, alias, pattern) { others ->
+                    controller.notify(
+                        buildString {
+                            append(if (alias.isBlank()) "Libellé de la banque repris." else "Renommée « ${alias.trim()} ».")
+                            if (others > 0) append(" $others autre(s) opération(s) renommée(s).")
+                        },
+                    )
+                }
+                // Retour au tri, avec le nouveau nom.
+                val renamed = current.operation.copy(label = alias.trim().ifEmpty { current.operation.bankLabel })
+                controller.dialog = OpenDialog.SortOperation(renamed)
+            },
+            onDismiss = { controller.dialog = OpenDialog.SortOperation(current.operation) },
+        )
+        OpenDialog.Unsort -> UnsortDialog(
+            envelopes = envelopes,
+            onUnsort = { scope ->
+                viewModel.unsortMonth(scope) { count ->
+                    if (count == 0) {
+                        controller.notify("Aucune opération de la banque à déclasser.")
+                    } else {
+                        controller.notify("$count opération(s) à trier.", action = "Appliquer les règles") {
+                            viewModel.applyRules { sorted -> controller.notify("$sorted opération(s) rangée(s) par les règles.") }
+                        }
+                    }
+                }
+                close()
+            },
+            onDismiss = ::close,
+        )
+        OpenDialog.Rules -> {
+            val rules by viewModel.rules.collectAsStateWithLifecycle()
+            val aliases by viewModel.aliases.collectAsStateWithLifecycle()
+            RulesDialog(
+                rules = rules,
+                aliases = aliases,
+                onDeleteRule = viewModel::deleteRule,
+                onDeleteAlias = viewModel::deleteAlias,
+                onDismiss = ::close,
+            )
+        }
         OpenDialog.Journal -> JournalDialog(
             transfers = journal,
             onDismiss = ::close,
@@ -270,9 +335,14 @@ fun AppDialogs(
                 // L'enveloppe a disparu (archivée) : on ferme la fenêtre, hors de la composition.
                 LaunchedEffect(current) { close() }
             } else {
+                val periodOperations by remember(line.envelope.id, line.period.key) {
+                    viewModel.envelopeOperations(line.envelope.id, line.period.key)
+                }.collectAsStateWithLifecycle(emptyList())
                 EnvelopeSheet(
                     line = line,
                     transfers = journal,
+                    operations = periodOperations,
+                    onMoveOperation = { controller.dialog = OpenDialog.SortOperation(it) },
                     onDismiss = ::close,
                     onAdd = { controller.dialog = OpenDialog.Move(line.envelope.id, incoming = true) },
                     onWithdraw = { controller.dialog = OpenDialog.Move(line.envelope.id, incoming = false) },
@@ -336,6 +406,9 @@ fun AppDialogs(
         is OpenDialog.EnvelopeEditor -> EnvelopeDialog(
             initial = current.envelope,
             groups = envelopes.mapNotNull { it.group }.distinct().sorted(),
+            takenNames = (envelopes + archivedEnvelopes)
+                .filter { it.id != current.envelope?.id }
+                .map { it.name },
             onDismiss = {
                 val operation = current.returnToSort
                 controller.dialog = if (operation != null) OpenDialog.SortOperation(operation) else null

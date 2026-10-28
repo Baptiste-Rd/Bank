@@ -1,5 +1,13 @@
 package fr.baptiste.bank.ui.transfers
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.Alignment
+import fr.baptiste.bank.data.local.OperationRow
+import fr.baptiste.bank.ui.components.RowDivider
+
 import fr.baptiste.bank.ui.components.BlurBehindWindow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -198,6 +206,10 @@ fun EnvelopeSheet(
     onWithdraw: () -> Unit,
     onCover: (() -> Unit)?,
     onEdit: () -> Unit,
+    /** Dépenses rangées dans l'enveloppe sur sa période en cours. */
+    operations: List<OperationRow> = emptyList(),
+    /** Toucher une dépense : la déplacer vers une autre enveloppe. */
+    onMoveOperation: (OperationRow) -> Unit = {},
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -227,16 +239,43 @@ fun EnvelopeSheet(
             if (onCover != null) {
                 Button(onClick = onCover, modifier = Modifier.fillMaxWidth()) { Text("Couvrir le dépassement") }
             }
-            Text(
-                "Déplacer de l'argent : Ajouter le prend sur le portefeuille ou une autre enveloppe, " +
-                    "Retirer le rend au portefeuille ou le passe à une autre enveloppe. " +
-                    "Ça compte pour ${line.period.label}, à partir d'aujourd'hui.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                OutlinedButton(onClick = onAdd, modifier = Modifier.weight(1f)) { Text("Ajouter") }
+                OutlinedButton(onClick = onAdd, modifier = Modifier.weight(1f)) { Text("Ajouter de l'argent") }
                 OutlinedButton(onClick = onWithdraw, modifier = Modifier.weight(1f)) { Text("Retirer") }
+            }
+            // Les dépenses de la période : on voit d'où vient le chiffre, et on corrige un mauvais rangement.
+            if (operations.isNotEmpty()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Dépenses de la période", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                    Text("${operations.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Column(Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState())) {
+                    operations.forEachIndexed { index, operation ->
+                        if (index > 0) RowDivider(inset = 0.dp)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(onClickLabel = "Déplacer") { onMoveOperation(operation) }
+                                .padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(operation.label, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                                Text(
+                                    operation.date.formatted(),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Text(Money(operation.amountCents).formatted(), style = MaterialTheme.typography.titleSmall)
+                        }
+                    }
+                }
+                Text(
+                    "Touche une dépense pour la déplacer vers une autre enveloppe.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             val mine = transfers.filter {
                 !it.cancelled && it.date in line.period &&

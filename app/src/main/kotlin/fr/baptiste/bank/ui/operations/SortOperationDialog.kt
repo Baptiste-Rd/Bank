@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import fr.baptiste.bank.data.local.OperationRow
 import fr.baptiste.bank.domain.bank.suggestedRuleKeyword
 import fr.baptiste.bank.domain.model.Envelope
+import fr.baptiste.bank.domain.model.TransactionSource
 import fr.baptiste.bank.domain.money.Money
 import fr.baptiste.bank.ui.components.BlurBehindWindow
 import fr.baptiste.bank.ui.format.formatted
@@ -51,13 +52,17 @@ fun SortOperationDialog(
     /** Ouvre la création d'une enveloppe ; on revient ici ensuite, avec elle déjà choisie. */
     onCreateEnvelope: () -> Unit = {},
     preselectedId: Long? = null,
+    /** Enveloppe proposée d'après les opérations déjà rangées qui se ressemblent. */
+    suggestedId: Long? = null,
+    onRename: () -> Unit = {},
 ) {
     val currentName = operation.envelopeNames?.split(", ")?.firstOrNull()
-    var selectedId by rememberSaveable {
-        mutableStateOf(preselectedId ?: envelopes.firstOrNull { it.name == currentName }?.id)
-    }
-    var createRule by rememberSaveable { mutableStateOf(true) }
-    var keyword by rememberSaveable { mutableStateOf(suggestedRuleKeyword(operation.label)) }
+    val currentId = envelopes.firstOrNull { it.name == currentName }?.id
+    var selectedId by rememberSaveable { mutableStateOf(preselectedId ?: currentId ?: suggestedId) }
+    val isSuggestion = preselectedId == null && currentId == null && suggestedId != null && selectedId == suggestedId
+    // Une saisie manuelle n'a pas de libellé de banque à reconnaître : pas de règle proposée d'office.
+    var createRule by rememberSaveable { mutableStateOf(operation.source != TransactionSource.MANUAL) }
+    var keyword by rememberSaveable { mutableStateOf(suggestedRuleKeyword(operation.bankLabel)) }
     val selected = envelopes.firstOrNull { it.id == selectedId }
 
     AlertDialog(
@@ -74,7 +79,24 @@ fun SortOperationDialog(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (operation.label != operation.bankLabel) {
+                    Text(
+                        "Banque : ${operation.bankLabel}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (operation.source != TransactionSource.MANUAL) {
+                    TextButton(onClick = onRename) { Text("Renommer") }
+                }
                 Text("Ranger dans", style = MaterialTheme.typography.titleSmall)
+                if (isSuggestion) {
+                    Text(
+                        "Proposé d'après tes opérations précédentes.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     envelopes.forEach { envelope ->
                         FilterChip(

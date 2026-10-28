@@ -17,8 +17,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ImputationEntity::class,
         TransferEntity::class,
         RuleEntity::class,
+        LabelAliasEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -30,12 +31,13 @@ abstract class BankDatabase : RoomDatabase() {
     abstract fun transactionDao(): TransactionDao
     abstract fun transferDao(): TransferDao
     abstract fun ruleDao(): RuleDao
+    abstract fun aliasDao(): AliasDao
 
     companion object {
         /** [name] permet au mode démo d'utiliser une base séparée, sans toucher aux vraies données. */
         fun create(context: Context, name: String = "bank.db"): BankDatabase =
             Room.databaseBuilder(context, BankDatabase::class.java, name)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                 .build()
     }
 }
@@ -70,5 +72,16 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
 val MIGRATION_4_5 = object : Migration(4, 5) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE envelope ADD COLUMN group_name TEXT")
+    }
+}
+
+/** Version 6 : alias des libellés (« PRLV SEPA FREE MOBILE » affiché « Forfait mobile »). */
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE transaction_record ADD COLUMN alias TEXT")
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS label_alias (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, pattern TEXT NOT NULL, alias TEXT NOT NULL)",
+        )
     }
 }

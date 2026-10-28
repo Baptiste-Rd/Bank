@@ -49,4 +49,13 @@ class SettingsRepository(context: Context, storeName: String = "settings") {
     suspend fun setUiStyle(style: UiStyle) {
         settingsStore.edit { it[uiStyleKey] = style.name }
     }
+
+    private val glassTuningKey = stringPreferencesKey("glass_tuning")
+
+    /** Réglages du verre choisis dans le menu développeur (« clé=valeur;... »), ou null. */
+    val glassTuning: Flow<String?> = settingsStore.data.map { it[glassTuningKey] }
+
+    suspend fun setGlassTuning(encoded: String?) {
+        settingsStore.edit { if (encoded == null) it.remove(glassTuningKey) else it[glassTuningKey] = encoded }
+    }
 }

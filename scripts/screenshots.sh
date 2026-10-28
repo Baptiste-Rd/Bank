@@ -118,6 +118,14 @@ shot_budget() {
 shot_budget glass-budget-mois-precedent --es tab BUDGET --ei monthsBack 1
 shot_budget glass-epargne-mois-precedent --es tab SAVINGS --ei monthsBack 1
 shot_budget glass-budget-annee --es tab BUDGET --es budgetView YEAR
+# Tri : fiche d'enveloppe avec ses dépenses, opérations (proposition, alias, outils), déclasser,
+# règles, nom en double, menu développeur du verre.
+shot_budget glass-fiche-enveloppe --es tab BUDGET --es dialog ENVELOPE
+shot_budget glass-operations-tri --es tab OPERATIONS
+shot_budget glass-declasser --es tab OPERATIONS --es dialog UNSORT
+shot_budget glass-regles --es tab OPERATIONS --es dialog RULES
+shot_budget glass-nom-en-double --es tab BUDGET --es dialog DUPLICATE
+shot_budget glass-reglages-verre --es tab HOME --ez tuning true
 adb shell input swipe 540 1900 540 800 900
 sleep 2
 adb exec-out screencap -p > "$OUT/glass-budget-annee-suite.png"

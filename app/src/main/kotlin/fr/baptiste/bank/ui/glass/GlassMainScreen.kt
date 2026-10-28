@@ -2,6 +2,8 @@ package fr.baptiste.bank.ui.glass
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -69,6 +71,8 @@ fun GlassMainScreen(
     initialTab: Tab = Tab.HOME,
     initialDialog: OpenDialog? = null,
     initialBudgetView: BudgetView = BudgetView.MONTH,
+    /** Ouvre directement le menu développeur (captures d'écran). */
+    initialTuningOpen: Boolean = false,
 ) {
     val controller = rememberAppController(initialTab, initialDialog)
     val dashboard by viewModel.dashboard.collectAsStateWithLifecycle()
@@ -82,8 +86,19 @@ fun GlassMainScreen(
     val monthHistory by viewModel.monthSavingsHistory.collectAsStateWithLifecycle()
     val selectedMonth by viewModel.selectedMonth.collectAsStateWithLifecycle()
     val selectedYear by viewModel.selectedYear.collectAsStateWithLifecycle()
+    val rules by viewModel.rules.collectAsStateWithLifecycle()
+    val aliases by viewModel.aliases.collectAsStateWithLifecycle()
+    // Lu pour que les propositions suivent l'historique du tri.
+    val sortedHistory by viewModel.sortedHistory.collectAsStateWithLifecycle()
     val updateAvailable = rememberUpdateAvailable(updateViewModel)
     var menuOpen by remember { mutableStateOf(false) }
+
+    // Réglages du verre : ceux enregistrés, ou l'essai en cours quand le menu développeur est ouvert.
+    val savedTuningText by viewModel.glassTuning.collectAsStateWithLifecycle()
+    val savedTuning = remember(savedTuningText) { GlassTuning.decode(savedTuningText) }
+    var tuningOpen by remember { mutableStateOf(initialTuningOpen) }
+    var draftTuning by remember { mutableStateOf<GlassTuning?>(null) }
+    val tuning = if (tuningOpen) draftTuning ?: savedTuning else savedTuning
 
     val backgroundBackdrop = rememberLayerBackdrop()
     val screenBackdrop = rememberLayerBackdrop()
@@ -91,9 +106,12 @@ fun GlassMainScreen(
     CompositionLocalProvider(
         LocalBackgroundBackdrop provides backgroundBackdrop,
         LocalScreenBackdrop provides screenBackdrop,
+        LocalGlassTuning provides tuning,
     ) {
         GlassSurfaceColors(onBackground = true) {
-        Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize()) {
+        // Avec le menu développeur ouvert, l'app occupe le haut de l'écran et suit les réglages en direct.
+        Box(Modifier.fillMaxWidth().weight(1f)) {
             // Couche enregistrée pour les éléments flottants : le fond liquide et le contenu.
             Box(Modifier.fillMaxSize().layerBackdrop(screenBackdrop)) {
                 LiquidBackground(Modifier.layerBackdrop(backgroundBackdrop))
@@ -154,6 +172,19 @@ fun GlassMainScreen(
                         onDelete = viewModel::deleteExpense,
                         onSort = { controller.dialog = OpenDialog.SortOperation(it) },
                         onOpenBank = { controller.dialog = OpenDialog.Bank },
+                        suggestion = { operation ->
+                            viewModel.suggestedEnvelopeId(operation, sortedHistory)?.let { id -> envelopes.firstOrNull { it.id == id }?.name }
+                        },
+                        onApplyRules = {
+                            viewModel.applyRules { sorted ->
+                                controller.notify(
+                                    if (sorted == 0) "Aucune règle ne reconnaît ces opérations." else "$sorted opération(s) rangée(s) par les règles.",
+                                )
+                            }
+                        },
+                        onUnsort = { controller.dialog = OpenDialog.Unsort },
+                        onOpenRules = { controller.dialog = OpenDialog.Rules },
+                        rulesSummary = "${rules.size} règle(s) · ${aliases.size} alias",
                     )
                 }
             }
@@ -196,6 +227,10 @@ fun GlassMainScreen(
                                 style = UiStyle.GLASS,
                                 onStyleChange = onStyleChange,
                                 onClose = { menuOpen = false },
+                                onOpenTuning = {
+                                    draftTuning = savedTuning
+                                    tuningOpen = true
+                                },
                             )
                         }
                     }
@@ -223,6 +258,26 @@ fun GlassMainScreen(
                     .widthIn(max = 380.dp)
                     .fillMaxWidth(0.92f),
             )
+        }
+        if (tuningOpen) {
+            GlassTuningPanel(
+                tuning = tuning,
+                onChange = { draftTuning = it },
+                onSave = {
+                    val chosen = draftTuning ?: savedTuning
+                    viewModel.saveGlassTuning(if (chosen == GlassTuning.Default) null else chosen.encode())
+                    tuningOpen = false
+                    draftTuning = null
+                    controller.notify("Réglages du verre enregistrés.")
+                },
+                onCancel = {
+                    tuningOpen = false
+                    draftTuning = null
+                },
+                onNotify = { controller.notify(it) },
+                modifier = Modifier.fillMaxHeight(0.5f),
+            )
+        }
         }
         }
 

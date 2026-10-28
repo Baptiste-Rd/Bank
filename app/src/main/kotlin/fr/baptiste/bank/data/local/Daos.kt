@@ -36,7 +36,55 @@ interface RuleDao {
 
     @Insert
     suspend fun insert(rule: RuleEntity): Long
+
+    @Query("DELETE FROM rule WHERE id IN (:ids)")
+    suspend fun delete(ids: List<Long>)
+
+    @Query(
+        """
+        SELECT r.id AS id, r.pattern AS pattern, e.name AS envelope_name
+        FROM rule r INNER JOIN envelope e ON e.id = r.envelope_id
+        ORDER BY r.pattern COLLATE NOCASE
+        """,
+    )
+    fun observeAll(): Flow<List<RuleRow>>
 }
+
+/** Une règle de tri, avec le nom de son enveloppe. */
+data class RuleRow(
+    val id: Long,
+    val pattern: String,
+    @ColumnInfo(name = "envelope_name") val envelopeName: String,
+)
+
+@Dao
+interface AliasDao {
+    @Query("SELECT * FROM label_alias ORDER BY id")
+    suspend fun all(): List<LabelAliasEntity>
+
+    @Query("SELECT * FROM label_alias ORDER BY alias COLLATE NOCASE")
+    fun observeAll(): Flow<List<LabelAliasEntity>>
+
+    @Insert
+    suspend fun insert(alias: LabelAliasEntity): Long
+
+    @Query("DELETE FROM label_alias WHERE id IN (:ids)")
+    suspend fun delete(ids: List<Long>)
+}
+
+/** Une opération déjà rangée : de quoi proposer la même enveloppe aux suivantes. */
+data class SortedLabelRow(
+    @ColumnInfo(name = "clean_label") val label: String,
+    @ColumnInfo(name = "envelope_id") val envelopeId: Long,
+)
+
+/** Une opération bancaire rangée, candidate au déclassement. */
+data class SortedBankRow(
+    val id: Long,
+    @ColumnInfo(name = "clean_label") val label: String,
+    val alias: String?,
+    @ColumnInfo(name = "envelope_id") val envelopeId: Long,
+)
 
 @Dao
 interface EnvelopeDao {
@@ -78,7 +126,10 @@ data class OperationRow(
     val id: Long,
     val date: LocalDate,
     @ColumnInfo(name = "amount_cents") val amountCents: Long,
-    @ColumnInfo(name = "clean_label") val label: String,
+    /** Nom affiché : l'alias s'il y en a un, sinon le libellé nettoyé de la banque. */
+    @ColumnInfo(name = "display_label") val label: String,
+    /** Libellé nettoyé de la banque, conservé sous l'alias. */
+    @ColumnInfo(name = "clean_label") val bankLabel: String,
     val source: TransactionSource,
     /** Mise hors budget par l'utilisateur. */
     val ignored: Boolean,
@@ -127,6 +178,22 @@ interface TransactionDao {
     @Query("DELETE FROM transaction_record WHERE id = :id AND source = 'MANUAL'")
     suspend fun deleteManual(id: Long)
 
+    /** Opérations rangées dans une enveloppe sur une période, les plus récentes d'abord. */
+    @Query(
+        """
+        SELECT t.id AS id, t.date AS date, t.amount_cents AS amount_cents,
+               COALESCE(t.alias, t.clean_label) AS display_label, t.clean_label AS clean_label,
+               t.source AS source, t.ignored AS ignored, e.name AS envelope_names,
+               i.whole_period AS whole_period, i.period_key AS period_key
+        FROM imputation i
+        INNER JOIN transaction_record t ON t.id = i.transaction_id
+        INNER JOIN envelope e ON e.id = i.envelope_id
+        WHERE i.envelope_id = :envelopeId AND i.period_key = :periodKey
+        ORDER BY t.date DESC, t.id DESC
+        """,
+    )
+    fun observeEnvelopeOperations(envelopeId: Long, periodKey: String): Flow<List<OperationRow>>
+
     /** Date de la première opération enregistrée : l'historique commence là. */
     @Query("SELECT MIN(date) FROM transaction_record")
     fun observeFirstDate(): Flow<LocalDate?>
@@ -147,6 +214,34 @@ interface TransactionDao {
     @Query("UPDATE transaction_record SET ignored = :ignored WHERE id = :id")
     suspend fun setIgnored(id: Long, ignored: Boolean)
 
+    @Query("UPDATE transaction_record SET alias = :alias WHERE id = :id")
+    suspend fun setAlias(id: Long, alias: String?)
+
+    /** Opérations bancaires sans alias : celles qu'un nouvel alias peut renommer. */
+    @Query("SELECT * FROM transaction_record WHERE alias IS NULL AND source != 'MANUAL'")
+    suspend fun withoutAlias(): List<TransactionEntity>
+
+    /** Historique du tri : libellé et enveloppe des opérations rangées, les plus récentes d'abord. */
+    @Query(
+        """
+        SELECT t.clean_label AS clean_label, i.envelope_id AS envelope_id
+        FROM imputation i INNER JOIN transaction_record t ON t.id = i.transaction_id
+        ORDER BY t.date DESC, t.id DESC
+        LIMIT 600
+        """,
+    )
+    fun observeSortedHistory(): Flow<List<SortedLabelRow>>
+
+    /** Opérations bancaires rangées sur une plage de dates (les saisies manuelles gardent leur enveloppe). */
+    @Query(
+        """
+        SELECT t.id AS id, t.clean_label AS clean_label, t.alias AS alias, i.envelope_id AS envelope_id
+        FROM imputation i INNER JOIN transaction_record t ON t.id = i.transaction_id
+        WHERE t.source != 'MANUAL' AND t.date BETWEEN :from AND :to
+        """,
+    )
+    suspend fun sortedBankBetween(from: LocalDate, to: LocalDate): List<SortedBankRow>
+
     /** Opérations à trier : ni rangées dans une enveloppe, ni mises hors budget. */
     @Query(
         """
@@ -166,7 +261,8 @@ interface TransactionDao {
 
     @Query(
         """
-        SELECT t.id AS id, t.date AS date, t.amount_cents AS amount_cents, t.clean_label AS clean_label,
+        SELECT t.id AS id, t.date AS date, t.amount_cents AS amount_cents,
+               COALESCE(t.alias, t.clean_label) AS display_label, t.clean_label AS clean_label,
                t.source AS source, t.ignored AS ignored, group_concat(e.name, ', ') AS envelope_names,
                COALESCE(MAX(i.whole_period), 0) AS whole_period, MAX(i.period_key) AS period_key
         FROM transaction_record t

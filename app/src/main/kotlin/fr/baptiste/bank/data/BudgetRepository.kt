@@ -5,18 +5,24 @@ import fr.baptiste.bank.data.local.AccountEntity
 import fr.baptiste.bank.data.local.BankDatabase
 import fr.baptiste.bank.data.local.EnvelopeEntity
 import fr.baptiste.bank.data.local.ImputationEntity
+import fr.baptiste.bank.data.local.LabelAliasEntity
 import fr.baptiste.bank.data.local.OperationRow
 import fr.baptiste.bank.data.local.RuleEntity
+import fr.baptiste.bank.data.local.RuleRow
 import fr.baptiste.bank.data.local.TransactionEntity
 import fr.baptiste.bank.data.local.TransferEntity
 import fr.baptiste.bank.data.local.TransferRow
 import fr.baptiste.bank.domain.bank.BankOperation
+import fr.baptiste.bank.domain.bank.LabelAlias
 import fr.baptiste.bank.domain.bank.LabelRule
+import fr.baptiste.bank.domain.bank.SortedLabel
+import fr.baptiste.bank.domain.bank.aliasFor
 import fr.baptiste.bank.domain.bank.ManualEntry
 import fr.baptiste.bank.domain.bank.cleanBankLabel
 import fr.baptiste.bank.domain.bank.findManualMatch
 import fr.baptiste.bank.domain.bank.importKeys
 import fr.baptiste.bank.domain.bank.matching
+import fr.baptiste.bank.domain.bank.normalizeLabel
 import fr.baptiste.bank.domain.budget.Dashboard
 import fr.baptiste.bank.domain.budget.SavingsOutlook
 import fr.baptiste.bank.domain.budget.Spending
@@ -56,6 +62,10 @@ class BudgetRepository(
         .map { entities -> entities.map { it.toDomain() } }
 
     val monthlyIncome: Flow<Money?> = settings.monthlyIncome
+
+    val glassTuning: Flow<String?> = settings.glassTuning
+
+    suspend fun setGlassTuning(encoded: String?) = settings.setGlassTuning(encoded)
 
     /** Tableau de bord recalculé à chaque changement d'enveloppe, de dépense, d'allocation ou de salaire. */
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -159,6 +169,9 @@ class BudgetRepository(
     suspend fun cancelTransfer(id: Long) {
         transferDao.cancel(id)
     }
+
+    fun envelopeOperations(envelopeId: Long, periodKey: String): Flow<List<OperationRow>> =
+        transactionDao.observeEnvelopeOperations(envelopeId, periodKey)
 
     fun recentOperations(limit: Int = 200): Flow<List<OperationRow>> =
         transactionDao.observeRecentOperations(limit)
@@ -269,6 +282,7 @@ class BudgetRepository(
         val accountId = linkBankAccount(accountUid, accountName, ibanSuffix)
         val keys = operations.importKeys(accountUid)
         return database.withTransaction {
+            val aliases = database.aliasDao().all().map { it.toDomain() }
             val ids = transactionDao.insertAll(
                 operations.zip(keys) { operation, key ->
                     TransactionEntity(
@@ -279,6 +293,7 @@ class BudgetRepository(
                         cleanLabel = cleanBankLabel(operation.rawLabel),
                         importHash = key,
                         source = TransactionSource.API,
+                        alias = aliases.aliasFor(cleanBankLabel(operation.rawLabel))?.alias,
                     )
                 },
             )
@@ -308,7 +323,7 @@ class BudgetRepository(
                     reconciled++
                     continue
                 }
-                val envelope = rules.matching(transaction.cleanLabel)?.let { envelopes[it.envelopeId] } ?: continue
+                val envelope = rules.matchingFor(transaction)?.let { envelopes[it.envelopeId] } ?: continue
                 imputationDao.insert(transaction.imputationIn(envelope, ImputationMode.RULE))
                 sorted++
             }
@@ -329,14 +344,86 @@ class BudgetRepository(
             imputationDao.insert(transaction.imputationIn(envelope, ImputationMode.MANUAL))
             val keyword = ruleKeyword?.trim().orEmpty()
             if (keyword.isEmpty()) return@withTransaction 0
+            val ruleDao = database.ruleDao()
+            // Un même motif ne mène qu'à une enveloppe : la nouvelle règle remplace l'ancienne.
+            val key = normalizeLabel(keyword)
+            ruleDao.delete(ruleDao.all().filter { normalizeLabel(it.pattern) == key }.map { it.id })
             val rule = RuleEntity(matchType = RuleMatchType.CONTAINS, pattern = keyword, envelopeId = envelope.id)
-            database.ruleDao().insert(rule)
+            ruleDao.insert(rule)
             val single = listOf(rule.toDomain())
             transactionDao.unsorted()
-                .filter { single.matching(it.cleanLabel) != null }
+                .filter { single.matchingFor(it) != null }
                 .onEach { imputationDao.insert(it.imputationIn(envelope, ImputationMode.RULE)) }
                 .size
         }
+
+    /** Règles de tri et alias, pour l'écran qui les liste. */
+    val rules: Flow<List<RuleRow>> = database.ruleDao().observeAll()
+    val aliases: Flow<List<LabelAlias>> = database.aliasDao().observeAll().map { rows -> rows.map { it.toDomain() } }
+
+    suspend fun deleteRule(id: Long) = database.ruleDao().delete(listOf(id))
+
+    /** Supprime un alias ; les opérations déjà renommées gardent leur nom. */
+    suspend fun deleteAlias(id: Long) = database.aliasDao().delete(listOf(id))
+
+    /** Historique du tri, pour proposer une enveloppe aux opérations à trier. */
+    val sortedHistory: Flow<List<SortedLabel<Long>>> = transactionDao.observeSortedHistory()
+        .map { rows -> rows.map { SortedLabel(it.label, it.envelopeId) } }
+
+    /**
+     * Renomme une opération. Un nom vide rend le libellé de la banque. Avec [pattern], crée aussi
+     * un alias : les opérations sans alias dont le libellé contient ce texte prennent ce nom, et
+     * les suivantes le prendront à l'import. Rend le nombre d'autres opérations renommées.
+     */
+    suspend fun renameOperation(transactionId: Long, alias: String, pattern: String?): Int =
+        database.withTransaction {
+            val name = alias.trim().ifEmpty { null }
+            transactionDao.setAlias(transactionId, name)
+            val text = pattern?.trim().orEmpty()
+            if (name == null || text.isEmpty()) return@withTransaction 0
+            val aliasDao = database.aliasDao()
+            val key = normalizeLabel(text)
+            aliasDao.delete(aliasDao.all().filter { normalizeLabel(it.pattern) == key }.map { it.id })
+            aliasDao.insert(LabelAliasEntity(pattern = text, alias = name))
+            val single = listOf(LabelAlias(0, text, name))
+            transactionDao.withoutAlias()
+                .filter { it.id != transactionId && single.aliasFor(it.cleanLabel) != null }
+                .onEach { transactionDao.setAlias(it.id, name) }
+                .size
+        }
+
+    /**
+     * Déclasse les opérations bancaires du mois [month] : toutes, celles d'une enveloppe, ou celles
+     * dont le libellé (ou l'alias) contient un texte. Elles repassent « à trier » ; les saisies
+     * manuelles gardent leur enveloppe. Rend le nombre d'opérations déclassées.
+     */
+    suspend fun unsortMonth(month: YearMonth, scope: UnsortScope): Int = database.withTransaction {
+        val rows = transactionDao.sortedBankBetween(month.atDay(1), month.atEndOfMonth())
+        val selected = when (scope) {
+            UnsortScope.All -> rows
+            is UnsortScope.Envelope -> rows.filter { it.envelopeId == scope.envelopeId }
+            is UnsortScope.Containing -> {
+                val text = normalizeLabel(scope.text)
+                if (text.isEmpty()) emptyList()
+                else rows.filter { normalizeLabel(it.label).contains(text) || normalizeLabel(it.alias.orEmpty()).contains(text) }
+            }
+        }.map { it.id }.distinct()
+        selected.forEach { imputationDao.deleteForTransaction(it) }
+        selected.size
+    }
+
+    /** Range les opérations à trier avec les règles existantes. Rend le nombre d'opérations rangées. */
+    suspend fun applyRules(): Int = database.withTransaction {
+        val envelopes = envelopeDao.active().map { it.toDomain() }.associateBy { it.id }
+        val rules = database.ruleDao().all().map { it.toDomain() }
+        transactionDao.unsorted()
+            .filter { it.source != TransactionSource.MANUAL }
+            .mapNotNull { transaction ->
+                val envelope = rules.matchingFor(transaction)?.let { envelopes[it.envelopeId] } ?: return@mapNotNull null
+                imputationDao.insert(transaction.imputationIn(envelope, ImputationMode.RULE))
+            }
+            .size
+    }
 
     /** Met une opération hors budget : elle reste visible mais n'est comptée dans aucune enveloppe. */
     suspend fun ignoreOperation(transactionId: Long) {
@@ -392,6 +479,19 @@ private fun TransactionEntity.imputationIn(envelope: Envelope, mode: ImputationM
 )
 
 private fun RuleEntity.toDomain() = LabelRule(id, matchType, pattern, envelopeId, priority)
+
+private fun LabelAliasEntity.toDomain() = LabelAlias(id, pattern, alias)
+
+/** Une règle s'applique au libellé de la banque, ou à défaut au nom choisi par l'utilisateur. */
+private fun List<LabelRule>.matchingFor(transaction: TransactionEntity): LabelRule? =
+    matching(transaction.cleanLabel) ?: transaction.alias?.let { matching(it) }
+
+/** Ce qu'on déclasse dans un mois. */
+sealed interface UnsortScope {
+    data object All : UnsortScope
+    data class Envelope(val envelopeId: Long) : UnsortScope
+    data class Containing(val text: String) : UnsortScope
+}
 
 private fun TransferEntity.toDomain() = Transfer(
     id = id,

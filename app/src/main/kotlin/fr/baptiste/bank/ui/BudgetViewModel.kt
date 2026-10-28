@@ -8,8 +8,13 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import fr.baptiste.bank.BankApplication
 import fr.baptiste.bank.data.BudgetRepository
 import fr.baptiste.bank.data.MonthSavings
+import fr.baptiste.bank.data.UnsortScope
 import fr.baptiste.bank.data.YearOverview
 import fr.baptiste.bank.data.local.OperationRow
+import fr.baptiste.bank.data.local.RuleRow
+import fr.baptiste.bank.domain.bank.LabelAlias
+import fr.baptiste.bank.domain.bank.SortedLabel
+import fr.baptiste.bank.domain.bank.suggestEnvelope
 import fr.baptiste.bank.data.local.TransferRow
 import fr.baptiste.bank.domain.budget.Dashboard
 import fr.baptiste.bank.domain.budget.TransferLeg
@@ -91,6 +96,10 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
 
     val operations: StateFlow<List<OperationRow>> = repository.recentOperations().asState(emptyList())
 
+    /** Opérations d'une enveloppe sur une période (fiche d'enveloppe). */
+    fun envelopeOperations(envelopeId: Long, periodKey: String): Flow<List<OperationRow>> =
+        repository.envelopeOperations(envelopeId, periodKey)
+
     val monthlyIncome: StateFlow<Money?> = repository.monthlyIncome.asState(null)
 
     val transferJournal: StateFlow<List<TransferRow>> = repository.transferJournal().asState(emptyList())
@@ -127,6 +136,40 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
     }
 
     fun ignoreOperation(transactionId: Long) = perform { repository.ignoreOperation(transactionId) }
+
+    val sortedHistory: StateFlow<List<SortedLabel<Long>>> = repository.sortedHistory
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList()) // lu hors composition
+
+    /** Enveloppe proposée pour une opération à trier, d'après les opérations déjà rangées. */
+    fun suggestedEnvelopeId(operation: OperationRow, history: List<SortedLabel<Long>> = sortedHistory.value): Long? =
+        suggestEnvelope(operation.bankLabel, history)
+
+    /** Renomme une opération ; [onDone] reçoit le nombre d'autres opérations renommées par l'alias. */
+    fun renameOperation(transactionId: Long, alias: String, pattern: String?, onDone: (Int) -> Unit) {
+        viewModelScope.launch { onDone(repository.renameOperation(transactionId, alias, pattern)) }
+    }
+
+    /** Déclasse des opérations du mois en cours ; [onDone] reçoit leur nombre. */
+    fun unsortMonth(scope: UnsortScope, onDone: (Int) -> Unit) {
+        viewModelScope.launch { onDone(repository.unsortMonth(YearMonth.now(), scope)) }
+    }
+
+    /** Range les opérations à trier avec les règles ; [onDone] reçoit le nombre d'opérations rangées. */
+    fun applyRules(onDone: (Int) -> Unit) {
+        viewModelScope.launch { onDone(repository.applyRules()) }
+    }
+
+    /** Réglages du verre enregistrés (texte « clé=valeur;... »), lus dès le démarrage. */
+    val glassTuning: StateFlow<String?> = repository.glassTuning
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    fun saveGlassTuning(encoded: String?) = perform { repository.setGlassTuning(encoded) }
+
+    val rules: StateFlow<List<RuleRow>> = repository.rules.asState(emptyList())
+    val aliases: StateFlow<List<LabelAlias>> = repository.aliases.asState(emptyList())
+
+    fun deleteRule(id: Long) = perform { repository.deleteRule(id) }
+    fun deleteAlias(id: Long) = perform { repository.deleteAlias(id) }
 
     private fun perform(block: suspend () -> Unit) {
         viewModelScope.launch { block() }

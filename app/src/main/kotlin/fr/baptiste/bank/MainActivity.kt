@@ -55,8 +55,25 @@ class MainActivity : ComponentActivity() {
             "PLANNED" -> OpenDialog.EnvelopeEditor(
                 plannedPurchase("Vélo", Money.euros(600), YearMonth.now().plusMonths(5), LocalDate.now()),
             )
+            // Fiche de la première enveloppe de la démo (Courses), avec ses dépenses.
+            "ENVELOPE" -> OpenDialog.EnvelopeDetail(1)
+            "UNSORT" -> OpenDialog.Unsort
+            "RULES" -> OpenDialog.Rules
+            // Un nom déjà pris (« courses » existe) : le formulaire le signale.
+            "DUPLICATE" -> OpenDialog.EnvelopeEditor(
+                fr.baptiste.bank.domain.model.Envelope(
+                    id = 0,
+                    name = "courses",
+                    type = fr.baptiste.bank.domain.model.EnvelopeType.DAILY,
+                    frequency = fr.baptiste.bank.domain.model.EnvelopeType.DAILY.defaultFrequency,
+                    amount = Money.euros(50),
+                    status = fr.baptiste.bank.domain.model.EnvelopeType.DAILY.defaultStatus,
+                    anchor = null,
+                ),
+            )
             else -> null
         }
+        val initialTuningOpen = intent.getBooleanExtra(EXTRA_TUNING, false)
         val settings = container.settingsRepository
 
         setContent {
@@ -83,7 +100,15 @@ class MainActivity : ComponentActivity() {
                 // Premier instant, avant la lecture du réglage : rien à afficher.
                 null -> Unit
                 UiStyle.GLASS -> GlassTheme {
-                    GlassMainScreen(budgetViewModel, updateViewModel, onStyleChange, initialTab, initialDialog, initialBudgetView)
+                    GlassMainScreen(
+                        budgetViewModel,
+                        updateViewModel,
+                        onStyleChange,
+                        initialTab,
+                        initialDialog,
+                        initialBudgetView,
+                        initialTuningOpen,
+                    )
                 }
                 UiStyle.CLASSIC -> BankTheme {
                     ClassicMainScreen(budgetViewModel, updateViewModel, onStyleChange, initialTab, initialDialog)
@@ -99,5 +124,6 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_DIALOG = "dialog"
         const val EXTRA_MONTHS_BACK = "monthsBack"
         const val EXTRA_BUDGET_VIEW = "budgetView"
+        const val EXTRA_TUNING = "tuning"
     }
 }

@@ -96,6 +96,19 @@ object DemoData {
         // et reprend son enveloppe ; les trois autres attendent d'être triées.
         val short = today.format(java.time.format.DateTimeFormatter.ofPattern("ddMM"))
         val yesterday = today.withDayOfMonth(maxOf(1, today.dayOfMonth - 1))
+        // Le mois dernier, le même supermarché a été rangé dans Courses : l'app le propose pour celui d'hier.
+        val lastMonth = today.minusMonths(1)
+        repository.importBankOperations(
+            accountUid = "demo",
+            accountName = "Compte courant ••1234",
+            ibanSuffix = "1234",
+            operations = listOf(
+                BankOperation("demo-0", lastMonth, -3870, "PAIEMENT CB 1209 PARIS CARREFOUR CITY CARTE 4970XXXXXXXX1234"),
+            ),
+        )
+        repository.recentOperations().first()
+            .firstOrNull { it.bankLabel.contains("Carrefour", ignoreCase = true) }
+            ?.let { repository.sortOperation(it.id, byName.getValue("Courses"), ruleKeyword = null) }
         repository.importBankOperations(
             accountUid = "demo",
             accountName = "Compte courant ••1234",
@@ -107,5 +120,9 @@ object DemoData {
                 BankOperation("demo-4", today.withDayOfMonth(1), 240000, "VIR SEPA RECU DE SOCIETE EXEMPLE SALAIRE"),
             ),
         )
+        // Un alias : le prélèvement s'affiche sous un nom lisible.
+        repository.recentOperations().first()
+            .firstOrNull { it.bankLabel.contains("Free Mobile", ignoreCase = true) }
+            ?.let { repository.renameOperation(it.id, "Forfait mobile", pattern = "Free Mobile") }
     }
 }

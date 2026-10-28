@@ -29,6 +29,7 @@ import fr.baptiste.bank.domain.model.TransactionSource
 import fr.baptiste.bank.domain.money.Money
 import fr.baptiste.bank.domain.period.Period
 import fr.baptiste.bank.ui.components.BlurBehindWindow
+import fr.baptiste.bank.ui.components.RowDivider
 import fr.baptiste.bank.ui.envelopes.CategoryAvatar
 import fr.baptiste.bank.ui.format.formatted
 import fr.baptiste.bank.ui.format.label
@@ -52,6 +53,13 @@ fun GlassOperationsContent(
     onDelete: (Long) -> Unit,
     onSort: (OperationRow) -> Unit,
     onOpenBank: () -> Unit,
+    /** Enveloppe proposée d'après l'historique, pour une opération à trier. */
+    suggestion: (OperationRow) -> String? = { null },
+    /** Range ce qui est à trier avec les règles existantes. */
+    onApplyRules: () -> Unit = {},
+    onUnsort: () -> Unit = {},
+    onOpenRules: () -> Unit = {},
+    rulesSummary: String? = null,
 ) {
     var pendingDelete by remember { mutableStateOf<OperationRow?>(null) }
     val toSortColor = BankTheme.status.warning
@@ -92,10 +100,32 @@ fun GlassOperationsContent(
             }
         }
         if (toSort.isNotEmpty()) {
-            sectionHeader("to-sort-label", "À trier", trailing = "${toSort.size}", dot = toSortColor)
+            sectionHeader(
+                "to-sort-label",
+                "À trier · ${toSort.size}",
+                dot = toSortColor,
+                action = "Appliquer les règles",
+                onAction = onApplyRules,
+            )
             item(key = "to-sort") {
                 GlassRowsCard(toSort) { operation ->
-                    GlassOperationRow(operation, toSortColor, onClick = clickOf(operation), showDate = true)
+                    GlassOperationRow(
+                        operation,
+                        toSortColor,
+                        onClick = clickOf(operation),
+                        showDate = true,
+                        suggestion = suggestion(operation),
+                    )
+                }
+            }
+        }
+        // Le tri se règle ici : ce que l'app range seule (règles, alias) et le retour en arrière.
+        if (operations.any { it.source != TransactionSource.MANUAL }) {
+            item(key = "sort-tools") {
+                GlassCard(contentPadding = 16.dp, verticalPadding = 4.dp) {
+                    ToolRow("Règles et alias", rulesSummary, onOpenRules)
+                    RowDivider(0.dp)
+                    ToolRow("Déclasser ce mois-ci", "Tout, une enveloppe ou un libellé", onUnsort)
                 }
             }
         }
@@ -128,12 +158,38 @@ fun GlassOperationsContent(
     }
 }
 
+/** Ligne d'outil : titre, détail, chevron. */
+@Composable
+private fun ToolRow(title: String, detail: String?, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            if (detail != null) {
+                Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        Chevron()
+    }
+}
+
 /** Une opération : pastille, libellé et une ligne de détail, montant à droite. */
 @Composable
-private fun GlassOperationRow(operation: OperationRow, color: Color, onClick: () -> Unit, showDate: Boolean = false) {
+private fun GlassOperationRow(
+    operation: OperationRow,
+    color: Color,
+    onClick: () -> Unit,
+    showDate: Boolean = false,
+    suggestion: String? = null,
+) {
     val manual = operation.source == TransactionSource.MANUAL
     val detail = buildList {
-        add(operation.envelopeNames ?: if (operation.ignored) "Hors budget" else "À trier")
+        add(
+            operation.envelopeNames
+                ?: if (operation.ignored) "Hors budget" else suggestion?.let { "Proposé : $it" } ?: "À trier",
+        )
         if (showDate) add(dayTitle(operation.date, LocalDate.now()).lowercase())
         if (operation.wholePeriod) {
             val period = operation.periodKey?.let { runCatching { Period.parse(it) }.getOrNull() }
