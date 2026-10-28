@@ -127,6 +127,10 @@ interface TransactionDao {
     @Query("DELETE FROM transaction_record WHERE id = :id AND source = 'MANUAL'")
     suspend fun deleteManual(id: Long)
 
+    /** Date de la première opération enregistrée : l'historique commence là. */
+    @Query("SELECT MIN(date) FROM transaction_record")
+    fun observeFirstDate(): Flow<LocalDate?>
+
     @Query("SELECT * FROM transaction_record WHERE id = :id")
     suspend fun byId(id: Long): TransactionEntity?
 

@@ -363,6 +363,14 @@ private fun GroupBlock(
 
 /** Vue de l'année : épargne cumulée, dépenses par famille face au prévu, provisions. */
 private fun LazyListScope.yearContent(overview: YearOverview) {
+    if (overview.monthsCounted == 0) {
+        item(key = "year-empty") {
+            GlassCard(contentPadding = 16.dp) {
+                Text("Aucune opération enregistrée en ${overview.year}.", style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+        return
+    }
     val board = overview.dashboard
     val accent = envelopeTypeColor(EnvelopeType.SAVINGS)
     val target = board.savings.target * overview.monthsCounted

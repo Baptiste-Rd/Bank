@@ -95,8 +95,17 @@ class BudgetRepository(
             val spendings = imputationDao.observeSpendings(from, to)
                 .map { rows -> rows.map { Spending(it.envelopeId, it.date, Money(it.amountCents), it.wholePeriod) } }
             val transfers = transferDao.observeActive(from, to).map { rows -> rows.map { it.toDomain() } }
-            combine(allocations, spendings, transfers, settings.monthlyIncome) { allocs, spent, moves, income ->
-                dates.map { date ->
+            combine(
+                allocations,
+                spendings,
+                transfers,
+                settings.monthlyIncome,
+                transactionDao.observeFirstDate(),
+            ) { allocs, spent, moves, income, firstDate ->
+                // Un mois sans aucune donnée (avant la première opération) n'est pas « tout
+                // épargné » : il est simplement absent. Le mois consulté reste toujours.
+                val firstMonth = YearMonth.from(firstDate ?: today)
+                dates.filter { it == today || YearMonth.from(it) >= firstMonth }.map { date ->
                     MonthSavings(
                         month = YearMonth.from(date),
                         outlook = computeDashboard(active, allocs, spent, income, date, transfers = moves).savings,
@@ -118,7 +127,7 @@ class BudgetRepository(
                 rows.groupBy { it.envelopeId }.mapValues { (_, list) -> Money(list.sumOf { it.amountCents }) }
             }
         return combine(savingsHistory(end, end.monthValue), dashboard(end), spent) { months, board, byEnvelope ->
-            YearOverview(year, months, byEnvelope, board, end.monthValue)
+            YearOverview(year, months, byEnvelope, board, months.size)
         }
     }
 
@@ -350,7 +359,8 @@ data class MonthSavings(val month: YearMonth, val outlook: SavingsOutlook)
 
 /**
  * Bilan d'une année.
- * @property monthsCounted mois écoulés pris en compte (le mois en cours compris).
+ * @property monthsCounted mois pris en compte : écoulés (le mois en cours compris) et postérieurs à la
+ *   première opération enregistrée.
  */
 data class YearOverview(
     val year: Int,
