@@ -34,6 +34,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import fr.baptiste.bank.R
+import fr.baptiste.bank.banking.BankViewModel
 import fr.baptiste.bank.data.UiStyle
 import fr.baptiste.bank.domain.budget.EnvelopeLine
 import fr.baptiste.bank.ui.AppDialogs
@@ -90,6 +91,9 @@ fun GlassMainScreen(
     val holdings by viewModel.holdings.collectAsStateWithLifecycle()
     val homeShowsDay by viewModel.homeShowsDay.collectAsStateWithLifecycle()
     val currentBalance by viewModel.currentAccountBalance.collectAsStateWithLifecycle()
+    // Même instance que celle des fenêtres (portée de l'activité) : les opérations en attente.
+    val bankViewModel: BankViewModel = androidx.lifecycle.viewmodel.compose.viewModel(factory = BankViewModel.Factory)
+    val bankConnection by bankViewModel.connection.collectAsStateWithLifecycle()
     val currentAccount by viewModel.currentAccount.collectAsStateWithLifecycle()
     val savingsGoals by viewModel.savingsGoals.collectAsStateWithLifecycle()
     val monthTransfers by remember(selectedMonth) { viewModel.transfersToAccounts(selectedMonth) }
@@ -207,6 +211,7 @@ fun GlassMainScreen(
                         onUnsort = { controller.dialog = OpenDialog.Unsort },
                         onOpenRules = { controller.dialog = OpenDialog.Rules },
                         onAssistedSort = { controller.dialog = OpenDialog.AssistedSort() },
+                        pending = bankConnection?.pending.orEmpty(),
                         rulesSummary = "${rules.size} règle(s) · ${aliases.size} alias",
                     )
                 }

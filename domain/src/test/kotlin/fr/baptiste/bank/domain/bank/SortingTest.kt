@@ -77,4 +77,24 @@ class SortingTest {
             operations.importKeys("acc"),
         )
     }
+
+    @Test
+    fun `operation date comes from the bank, else from the label, else the booking date`() {
+        val booked = LocalDate.of(2026, 10, 27)
+        assertEquals(LocalDate.of(2026, 10, 25), operationDate("RETRAIT DAB 25/10 PARIS", booked))
+        assertEquals(LocalDate.of(2026, 10, 25), operationDate("PAIEMENT CB 2510 PARIS DECATHLON", booked))
+        assertEquals(LocalDate.of(2026, 10, 24), operationDate("RETRAIT DAB 25/10", booked, transactionDate = LocalDate.of(2026, 10, 24)))
+        // Une date trop ancienne dans le libellé n'est pas celle du paiement.
+        assertEquals(booked, operationDate("ECHEANCE PRET 0105", booked))
+        // Fin d'année : « CB 3112 » comptabilisé le 2 janvier.
+        assertEquals(LocalDate.of(2026, 12, 31), operationDate("CB 3112 CADEAU", LocalDate.of(2027, 1, 2)))
+        assertEquals(booked, operationDate("PRLV SEPA FREE MOBILE", booked))
+    }
+
+    @Test
+    fun `dedup key keeps the booking date`() {
+        val booked = LocalDate.of(2026, 10, 27)
+        val keys = listOf(BankOperation(null, LocalDate.of(2026, 10, 25), -5000, "RETRAIT DAB", bookingDate = booked)).importKeys("a")
+        assertEquals(listOf("eb:a:2026-10-27|-5000|RETRAIT DAB"), keys)
+    }
 }

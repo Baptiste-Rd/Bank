@@ -12,6 +12,7 @@ import androidx.datastore.preferences.preferencesDataStoreFile
 import fr.baptiste.bank.data.BudgetRepository
 import fr.baptiste.bank.data.ImportResult
 import fr.baptiste.bank.domain.bank.chooseBalance
+import fr.baptiste.bank.domain.bank.cleanBankLabel
 import fr.baptiste.bank.domain.model.AccountType
 import fr.baptiste.bank.domain.money.Money
 import kotlinx.coroutines.Dispatchers
@@ -25,6 +26,9 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.UUID
+
+/** Opération en attente à la banque : montrée, jamais importée ni rangée. */
+data class PendingOperation(val date: LocalDate, val amountCents: Long, val label: String)
 
 /** Adresse de retour proposée : à déclarer telle quelle dans l'application Enable Banking. */
 const val DEFAULT_REDIRECT_URL = "https://localhost/bank-callback"
@@ -47,6 +51,8 @@ data class BankConnection(
     val balanceType: String? = null,
     /** Opérations en attente retirées du solde comptabilisé (0 si aucune ou déjà comprises). */
     val pendingApplied: Long = 0,
+    /** Opérations en attente à la banque (paiements, retraits pas encore comptabilisés). */
+    val pending: List<PendingOperation> = emptyList(),
 ) {
     /** Identifiant et clé fournis : on peut parler à l'API. */
     val isConfigured: Boolean get() = !applicationId.isNullOrBlank() && hasKey
@@ -91,6 +97,7 @@ class BankSyncRepository(
         val balanceTypes = stringPreferencesKey("balance_types")
         val balanceType = stringPreferencesKey("balance_type")
         val pendingApplied = longPreferencesKey("pending_applied")
+        val pendingOperations = stringPreferencesKey("pending_operations")
 
         /** Comptes autorisés lors de la connexion, une ligne par compte (uid, libellé, fin d'IBAN, type). */
         val sessionAccounts = stringPreferencesKey("session_accounts")
@@ -139,6 +146,12 @@ class BankSyncRepository(
         }.toMap(),
         balanceType = this[Keys.balanceType],
         pendingApplied = this[Keys.pendingApplied] ?: 0,
+        pending = this[Keys.pendingOperations].orEmpty().lines().mapNotNull { line ->
+            val parts = line.split('\t')
+            if (parts.size < 3) return@mapNotNull null
+            val date = runCatching { LocalDate.parse(parts[0]) }.getOrNull() ?: return@mapNotNull null
+            PendingOperation(date, parts[1].toLongOrNull() ?: return@mapNotNull null, parts[2])
+        },
     )
 
     suspend fun saveApplication(applicationId: String, redirectUrl: String) {
@@ -273,6 +286,9 @@ class BankSyncRepository(
             chosen?.let { c ->
                 it[Keys.balanceType] = c.type
                 it[Keys.pendingApplied] = c.pendingApplied
+            }
+            it[Keys.pendingOperations] = fetched.pending.joinToString("\n") { op ->
+                "${op.date}\t${op.amountCents}\t${cleanBankLabel(op.rawLabel).replace('\t', ' ').replace('\n', ' ')}"
             }
         }
         // Le solde du compte courant, gardé daté : l'app le décompose (onglet Budget).

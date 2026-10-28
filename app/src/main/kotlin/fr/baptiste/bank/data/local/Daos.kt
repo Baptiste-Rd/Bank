@@ -271,6 +271,10 @@ interface TransactionDao {
     @Query("SELECT amount_cents FROM transaction_record WHERE transfer_account_id IS NOT NULL AND date BETWEEN :from AND :to")
     fun observeTransfersToAccounts(from: LocalDate, to: LocalDate): Flow<List<Long>>
 
+    /** Corrige le jour d'une opération déjà importée (jour du paiement plutôt que de comptabilisation). */
+    @Query("UPDATE transaction_record SET date = :date WHERE import_hash = :importHash AND date != :date")
+    suspend fun updateDateByImportHash(importHash: String, date: LocalDate)
+
     /** Rend le libellé de la banque aux opérations nommées [alias]. */
     @Query("UPDATE transaction_record SET alias = NULL WHERE alias = :alias")
     suspend fun clearAlias(alias: String)

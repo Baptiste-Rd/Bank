@@ -313,6 +313,11 @@ class BudgetRepository(
                     )
                 },
             )
+            // Déjà importées : seul leur jour peut changer (jour du paiement plutôt que de
+            // comptabilisation, depuis la build-71). Le reste (enveloppe, nom) ne bouge pas.
+            ids.forEachIndexed { index, id ->
+                if (id <= 0) transactionDao.updateDateByImportHash(keys[index], operations[index].date)
+            }
             val added = transactionDao.byIds(ids.filter { it > 0 })
             if (added.isEmpty()) return@withTransaction ImportResult(0, 0, 0)
 
@@ -332,6 +337,9 @@ class BudgetRepository(
                     null
                 }
                 if (match != null) {
+                    // Le nom que tu avais donné à ta saisie (« Vélo ») reste, au lieu de « Retrait Paris ».
+                    transactionDao.byId(match.id)?.cleanLabel?.takeIf { it.isNotBlank() }
+                        ?.let { if (transaction.alias == null) transactionDao.setAlias(transaction.id, it) }
                     imputationDao.moveToTransaction(match.id, transaction.id)
                     transactionDao.markReconciled(transaction.id, match.id)
                     transactionDao.deleteManual(match.id)

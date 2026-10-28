@@ -3,6 +3,7 @@ package fr.baptiste.bank.banking
 import fr.baptiste.bank.domain.bank.BankOperation
 import fr.baptiste.bank.domain.bank.chooseBalance
 import fr.baptiste.bank.domain.bank.decimalToCents
+import fr.baptiste.bank.domain.bank.operationDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -144,7 +145,7 @@ class EnableBankingClient(
      */
     suspend fun transactions(accountUid: String, from: LocalDate): BankTransactions {
         val operations = mutableListOf<BankOperation>()
-        var pendingNet = 0L
+        val pending = mutableListOf<BankOperation>()
         var continuation: String? = null
         var pages = 0
         do {
@@ -157,7 +158,7 @@ class EnableBankingClient(
             for (index in 0 until transactions.length()) {
                 val item = transactions.getJSONObject(index)
                 if (item.optString("status") == "PDNG") {
-                    item.signedCents()?.let { pendingNet += it }
+                    item.toOperation(acceptPending = true)?.let(pending::add)
                 } else {
                     item.toOperation()?.let(operations::add)
                 }
@@ -165,29 +166,22 @@ class EnableBankingClient(
             continuation = json.optString("continuation_key").takeIf { it.isNotBlank() && it != "null" }
             pages++
         } while (continuation != null && pages < MAX_PAGES)
-        return BankTransactions(operations, pendingNet)
+        return BankTransactions(operations, pending)
     }
 
-    private fun JSONObject.signedCents(): Long? {
-        val amountObject = optJSONObject("transaction_amount") ?: return null
-        val rawAmount = amountObject.optString("amount")
-        val cents = decimalToCents(rawAmount) ?: return null
-        val debit = optString("credit_debit_indicator") == "DBIT"
-        return if (rawAmount.trim().startsWith("-")) cents else if (debit) -cents else cents
-    }
-
-    private fun JSONObject.toOperation(): BankOperation? {
+    private fun JSONObject.toOperation(acceptPending: Boolean = false): BankOperation? {
         val status = optString("status")
-        if (status.isNotEmpty() && status != "BOOK") return null
+        if (!acceptPending && status.isNotEmpty() && status != "BOOK") return null
         val amountObject = optJSONObject("transaction_amount") ?: return null
         val rawAmount = amountObject.optString("amount")
         val cents = decimalToCents(rawAmount) ?: return null
         val debit = optString("credit_debit_indicator") == "DBIT"
         val signed = if (rawAmount.trim().startsWith("-")) cents else if (debit) -cents else cents
-        val date = listOf("booking_date", "value_date", "transaction_date")
-            .firstNotNullOfOrNull { key -> optString(key).takeIf { it.isNotBlank() && it != "null" } }
+        fun dateOf(key: String) = optString(key).takeIf { it.isNotBlank() && it != "null" }
             ?.let { runCatching { LocalDate.parse(it.take(10)) }.getOrNull() }
-            ?: return null
+        // Comptabilisation : pour la clé de dédoublonnage (inchangée). Opération : le jour du paiement,
+        // que la banque donne parfois, sinon celui écrit dans le libellé (« CB 2510 », « DAB 25/10 »).
+        val bookingDate = dateOf("booking_date") ?: dateOf("value_date") ?: dateOf("transaction_date") ?: return null
         val remittance = optJSONArray("remittance_information")
             ?.let { array -> (0 until array.length()).map { array.optString(it) } }
             ?.filter { it.isNotBlank() }
@@ -197,7 +191,13 @@ class EnableBankingClient(
         val label = remittance.ifBlank { counterpart }.ifBlank { optString("note") }.ifBlank { "Opération bancaire" }
         val reference = listOf("entry_reference", "transaction_id")
             .firstNotNullOfOrNull { key -> optString(key).takeIf { it.isNotBlank() && it != "null" } }
-        return BankOperation(reference = reference, date = date, amountCents = signed, rawLabel = label)
+        return BankOperation(
+            reference = reference,
+            date = operationDate(label, bookingDate, dateOf("transaction_date")),
+            amountCents = signed,
+            rawLabel = label,
+            bookingDate = bookingDate,
+        )
     }
 
     private suspend fun request(method: String, path: String, body: JSONObject? = null): JSONObject =
@@ -274,5 +274,8 @@ class EnableBankingClient(
     }
 }
 
-/** Opérations comptabilisées, et total signé de celles en attente (négatif : paiements à venir). */
-data class BankTransactions(val booked: List<BankOperation>, val pendingNet: Long)
+/** Opérations comptabilisées (à importer) et en attente (à montrer seulement). */
+data class BankTransactions(val booked: List<BankOperation>, val pending: List<BankOperation>) {
+    /** Total signé des opérations en attente (négatif : paiements à venir). */
+    val pendingNet: Long get() = pending.sumOf { it.amountCents }
+}

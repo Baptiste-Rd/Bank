@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import fr.baptiste.bank.banking.PendingOperation
 import fr.baptiste.bank.data.local.OperationRow
 import fr.baptiste.bank.domain.model.Envelope
 import fr.baptiste.bank.domain.model.TransactionSource
@@ -62,6 +63,8 @@ fun GlassOperationsContent(
     rulesSummary: String? = null,
     /** Tri assisté par Claude des opérations à trier. */
     onAssistedSort: () -> Unit = {},
+    /** Opérations en attente à la banque : montrées, pas encore importées. */
+    pending: List<PendingOperation> = emptyList(),
 ) {
     var pendingDelete by remember { mutableStateOf<OperationRow?>(null) }
     val toSortColor = BankTheme.status.warning
@@ -132,6 +135,27 @@ fun GlassOperationsContent(
                     ToolRow("Règles et alias", rulesSummary, onOpenRules)
                     RowDivider(0.dp)
                     ToolRow("Déclasser ce mois-ci", "Tout, une enveloppe ou un libellé", onUnsort)
+                }
+            }
+        }
+        // Pas encore comptabilisées (un retrait du dimanche, un paiement d'hier) : visibles tout de
+        // suite, elles seront importées et à trier quand la banque les aura passées.
+        if (pending.isNotEmpty()) {
+            sectionHeader("pending-label", "En attente à la banque · ${pending.size}", trailing = Money(pending.sumOf { it.amountCents }).formatted())
+            item(key = "pending") {
+                GlassRowsCard(pending.sortedByDescending { it.date }) { operation ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        CategoryAvatar("…", quiet)
+                        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                            Text(operation.label, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(
+                                "${dayTitle(operation.date, today).lowercase()} · pas encore comptabilisée",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = quiet,
+                            )
+                        }
+                        Text(Money(operation.amountCents).formatted(), style = MaterialTheme.typography.titleMedium, color = quiet)
+                    }
                 }
             }
         }
