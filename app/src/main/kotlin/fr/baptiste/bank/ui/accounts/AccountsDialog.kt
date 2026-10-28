@@ -102,7 +102,7 @@ fun HoldingLine.detail(today: java.time.LocalDate = java.time.LocalDate.now()): 
 
 /** Un solde saisi à la main il y a plus de 30 jours : à mettre à jour (un compte relié se met à jour seul). */
 fun HoldingLine.isStale(today: java.time.LocalDate = java.time.LocalDate.now()): Boolean =
-    !account.linked && asOf != null && asOf.isBefore(today.minusDays(30))
+    !account.linked && asOf?.isBefore(today.minusDays(30)) == true
 
 /**
  * Créer ou modifier un compte. Pour un compte relié, seuls le nom et le type se modifient : le
