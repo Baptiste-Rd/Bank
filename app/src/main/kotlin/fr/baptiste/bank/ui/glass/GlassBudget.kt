@@ -585,9 +585,10 @@ private fun CurrentAccountCard(explained: CurrentAccountExplained?, onSetBalance
         }
         val note = when {
             explained.free.isNegative -> buildString {
-                append("Le budget prévoit plus que ce que contient le compte : salaire pas encore arrivé")
+                append("Le compte contient moins que ce que le budget réserve. Causes possibles : salaire pas encore arrivé, ")
+                append("provisions gardées sur un livret")
                 if (explained.unsortedOut.isPositive) append(", ${explained.unsortedOut.formatted()} de dépenses à trier")
-                append(" ou dépenses faites hors de l'app.")
+                append(", ou dépenses faites hors de l'app.")
             }
             explained.free.isPositive -> "Hors budget du mois : à virer vers un livret, ou à garder pour plus tard."
             else -> null
