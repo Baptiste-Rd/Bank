@@ -236,7 +236,7 @@ fun EnvelopeSheet(
                 Button(onClick = onCover, modifier = Modifier.fillMaxWidth()) { Text("Couvrir le dépassement") }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                OutlinedButton(onClick = onAdd, modifier = Modifier.weight(1f)) { Text("Ajouter de l'argent") }
+                OutlinedButton(onClick = onAdd, modifier = Modifier.weight(1f)) { Text("Ajouter") }
                 OutlinedButton(onClick = onWithdraw, modifier = Modifier.weight(1f)) { Text("Retirer") }
             }
             // Les dépenses de la période : on voit d'où vient le chiffre, et on corrige un mauvais rangement.

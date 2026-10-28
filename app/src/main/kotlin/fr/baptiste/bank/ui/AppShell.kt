@@ -338,11 +338,14 @@ fun AppDialogs(
             } else {
                 val periodOperations by remember(line.envelope.id, line.period.key) {
                     viewModel.envelopeOperations(line.envelope.id, line.period.key)
-                }.collectAsStateWithLifecycle(emptyList())
-                EnvelopeSheet(
+                }.collectAsStateWithLifecycle(null)
+                // La fiche s'ouvre une fois ses dépenses chargées : sa hauteur est alors la bonne
+                // (un panneau ouvert ne remonte pas quand son contenu grandit après coup).
+                val loadedOperations = periodOperations
+                if (loadedOperations != null) EnvelopeSheet(
                     line = line,
                     transfers = journal,
-                    operations = periodOperations,
+                    operations = loadedOperations,
                     onMoveOperation = { controller.dialog = OpenDialog.SortOperation(it) },
                     onDismiss = ::close,
                     onAdd = { controller.dialog = OpenDialog.Move(line.envelope.id, incoming = true) },
