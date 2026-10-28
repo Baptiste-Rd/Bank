@@ -10,9 +10,12 @@ carte mentale, autocritique) est dans le document de refonte partagé avec Bapti
 | Aujourd'hui | Puis-je dépenser aujourd'hui ? | Reste du jour · Le mois (dépensé sur budget, bande de rythme) · À faire (couvrir, trier ; absent s'il n'y a rien) · Épargne prévue en une ligne | Ajouter une dépense |
 | Budget | Où va mon salaire ? | Plan du mois (barre : charges fixes, provisions, épargne, quotidien) · une carte par famille | Nouvelle enveloppe (+) |
 | Épargne | Combien vais-je mettre de côté ? | Épargne prévue + conseil · écarts à l'objectif et au mois précédent · six mois · mis de côté · achats prévus | Mettre de côté ; + = achat prévu |
-| Opérations | Que s'est-il passé ? | À trier (si non vide) · historique par jour | Ajouter une dépense |
+| Opérations | Que s'est-il passé ? | À trier (si non vide, avec l'enveloppe proposée) · outils du tri (règles et alias, déclasser) · historique par jour | Ajouter une dépense |
 
-Le menu ⋮ garde les réglages : salaire, banque, journal des transferts, style, mises à jour.
+Le menu ⋮ garde les réglages : salaire, banque, journal des transferts, style, réglages du verre
+(développeur : panneau en bas, app en direct au-dessus), mises à jour.
+
+La fiche d'une enveloppe liste les dépenses de sa période ; toucher une dépense la déplace.
 
 ## Vocabulaire (une notion, un mot)
 
@@ -40,7 +43,8 @@ regroupe en quatre familles (`ui/envelopes/Families.kt`).
 - Lignes : `GlassRowsCard` + `RowDivider` (filet fin décalé après la pastille).
 - Statuts : `StatusChip` (point + mot + couleur), jamais la couleur seule.
 - Explications : `InfoButton` ⓘ + `InfoSheet` ; jamais plus d'une ligne d'aide dans une carte.
-- Verre et couleurs : inchangés (voir `ui/glass/Glass.kt`, `ui/theme/Theme.kt`).
+- Verre et couleurs : inchangés (voir `ui/glass/Glass.kt`, `ui/theme/Theme.kt`). Les valeurs du verre
+  sont dans `ui/glass/GlassTuning.kt` ; le menu développeur les modifie sans toucher au code.
 
 ## Règles de rédaction
 
