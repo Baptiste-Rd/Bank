@@ -56,4 +56,14 @@ class AssistantTest {
         assertEquals("−19,99 €", assistantAmount(-1999))
         assertEquals("+2400,00 €", assistantAmount(240000))
     }
+
+    @Test
+    fun `a transfer to one of my accounts is recognized by name`() {
+        val accounts = listOf("Livret A", "Trade Republic")
+        assertEquals(ProposalTarget.Account("Livret A"), proposal("COMPTE: livret a").target(emptyList(), accounts))
+        assertEquals(ProposalTarget.OutOfBudget, proposal("COMPTE: PEA").target(emptyList(), accounts))
+        val prompt = sortingPrompt(emptyList(), emptyList(), accounts)
+        assertTrue(prompt.contains("Mes comptes d'épargne : Livret A, Trade Republic."))
+        assertTrue(prompt.contains("COMPTE: <nom du compte>"))
+    }
 }

@@ -60,6 +60,7 @@ class MainActivity : ComponentActivity() {
             "UNSORT" -> OpenDialog.Unsort
             "RULES" -> OpenDialog.Rules
             "ASSISTED" -> OpenDialog.AssistedSort()
+            "ACCOUNTS" -> OpenDialog.Accounts
             // Validation du tri assisté, avec une réponse type de Claude pour les trois opérations de la démo.
             "ASSISTED_REVIEW" -> OpenDialog.AssistedSort(demoReply = DEMO_ASSISTANT_REPLY)
             // Un nom déjà pris (« courses » existe) : le formulaire le signale.

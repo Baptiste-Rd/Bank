@@ -18,8 +18,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TransferEntity::class,
         RuleEntity::class,
         LabelAliasEntity::class,
+        BalanceEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -32,12 +33,13 @@ abstract class BankDatabase : RoomDatabase() {
     abstract fun transferDao(): TransferDao
     abstract fun ruleDao(): RuleDao
     abstract fun aliasDao(): AliasDao
+    abstract fun balanceDao(): BalanceDao
 
     companion object {
         /** [name] permet au mode démo d'utiliser une base séparée, sans toucher aux vraies données. */
         fun create(context: Context, name: String = "bank.db"): BankDatabase =
             Room.databaseBuilder(context, BankDatabase::class.java, name)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                 .build()
     }
 }
@@ -82,6 +84,23 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
         db.execSQL(
             "CREATE TABLE IF NOT EXISTS label_alias (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, pattern TEXT NOT NULL, alias TEXT NOT NULL)",
+        )
+    }
+}
+
+/** Version 7 : autres comptes (livrets, investissement), relevés de solde, virements vers ces comptes. */
+val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE account ADD COLUMN archived INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE transaction_record ADD COLUMN transfer_account_id INTEGER")
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS account_balance (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, account_id INTEGER NOT NULL, " +
+                "date INTEGER NOT NULL, balance_cents INTEGER NOT NULL, " +
+                "FOREIGN KEY(account_id) REFERENCES account(id) ON UPDATE NO ACTION ON DELETE CASCADE)",
+        )
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS index_account_balance_account_id_date ON account_balance (account_id, date)",
         )
     }
 }

@@ -3,6 +3,7 @@ package fr.baptiste.bank.data
 import fr.baptiste.bank.domain.bank.BankOperation
 import fr.baptiste.bank.domain.budget.plannedPurchase
 import fr.baptiste.bank.domain.model.Envelope
+import fr.baptiste.bank.domain.model.AccountType
 import fr.baptiste.bank.domain.model.EnvelopeType
 import fr.baptiste.bank.domain.money.Money
 import fr.baptiste.bank.domain.period.Frequency
@@ -120,6 +121,26 @@ object DemoData {
                 BankOperation("demo-4", today.withDayOfMonth(1), 240000, "VIR SEPA RECU DE SOCIETE EXEMPLE SALAIRE"),
             ),
         )
+        // Autres comptes : un livret alimenté chaque mois, et un compte d'investissement saisi à la main.
+        val livret = repository.addManualAccount("Livret A", AccountType.SAVINGS, Money.euros(5600))
+        listOf(5L to 4850L, 4L to 5000L, 3L to 5150L, 2L to 5300L, 1L to 5450L).forEach { (back, euros) ->
+            repository.updateBalance(livret, Money.euros(euros), today.minusMonths(back).withDayOfMonth(3))
+        }
+        val trading = repository.addManualAccount("Trade Republic", AccountType.INVESTMENT, Money.euros(3120))
+        repository.updateBalance(trading, Money.euros(3000), today.minusMonths(1).withDayOfMonth(15))
+        // Le virement du mois vers le livret : reconnu, il n'est pas une dépense.
+        repository.importBankOperations(
+            accountUid = "demo",
+            accountName = "Compte courant ••1234",
+            ibanSuffix = "1234",
+            operations = listOf(
+                BankOperation("demo-5", today.withDayOfMonth(minOf(3, today.dayOfMonth)), -15000, "VIR SEPA VERS LIVRET A"),
+            ),
+        )
+        repository.recentOperations().first()
+            .firstOrNull { it.bankLabel.contains("Livret", ignoreCase = true) }
+            ?.let { repository.markTransferToAccount(it.id, livret) }
+
         // Un alias : le prélèvement s'affiche sous un nom lisible.
         repository.recentOperations().first()
             .firstOrNull { it.bankLabel.contains("Free Mobile", ignoreCase = true) }

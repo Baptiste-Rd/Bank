@@ -128,6 +128,11 @@ shot_budget glass-nom-en-double --es tab BUDGET --es dialog DUPLICATE
 shot_budget glass-reglages-verre --es tab HOME --ez tuning true
 shot_budget glass-claude-envoi --es tab OPERATIONS --es dialog ASSISTED
 shot_budget glass-claude-validation --es tab OPERATIONS --es dialog ASSISTED_REVIEW
+shot_budget glass-comptes --es tab SAVINGS --es dialog ACCOUNTS
+shot_budget glass-epargne-comptes --es tab SAVINGS
+adb shell input swipe 540 1900 540 700 900
+sleep 2
+adb exec-out screencap -p > "$OUT/glass-epargne-comptes-suite.png"
 adb shell input swipe 540 1900 540 800 900
 sleep 2
 adb exec-out screencap -p > "$OUT/glass-budget-annee-suite.png"

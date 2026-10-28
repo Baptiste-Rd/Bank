@@ -6,6 +6,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Upsert
+import fr.baptiste.bank.domain.model.AccountType
 import fr.baptiste.bank.domain.model.TransactionSource
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
@@ -27,6 +28,31 @@ interface AccountDao {
 
     @Query("UPDATE account SET external_uid = :uid, name = :name, iban_suffix = :ibanSuffix WHERE id = :id")
     suspend fun link(id: Long, uid: String, name: String, ibanSuffix: String?)
+
+    @Query("SELECT * FROM account WHERE archived = 0 ORDER BY type, name")
+    fun observeActive(): Flow<List<AccountEntity>>
+
+    @Query("SELECT * FROM account WHERE archived = 0 ORDER BY type, name")
+    suspend fun active(): List<AccountEntity>
+
+    @Query("SELECT * FROM account WHERE id = :id")
+    suspend fun byId(id: Long): AccountEntity?
+
+    @Query("UPDATE account SET name = :name, type = :type WHERE id = :id")
+    suspend fun rename(id: Long, name: String, type: AccountType)
+
+    @Query("UPDATE account SET archived = 1 WHERE id = :id")
+    suspend fun archive(id: Long)
+}
+
+@Dao
+interface BalanceDao {
+    /** Un relevé par compte et par jour : un nouveau relevé du même jour remplace l'ancien. */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(balance: BalanceEntity): Long
+
+    @Query("SELECT * FROM account_balance ORDER BY date")
+    fun observeAll(): Flow<List<BalanceEntity>>
 }
 
 @Dao
@@ -137,6 +163,8 @@ data class OperationRow(
     /** Vrai pour un rattrapage : [periodKey] indique alors la période concernée. */
     @ColumnInfo(name = "whole_period") val wholePeriod: Boolean,
     @ColumnInfo(name = "period_key") val periodKey: String?,
+    /** Virement vers un de mes comptes (livret...) : le nom de ce compte. */
+    @ColumnInfo(name = "transfer_account") val transferAccount: String? = null,
 )
 
 @Dao
@@ -184,10 +212,11 @@ interface TransactionDao {
         SELECT t.id AS id, t.date AS date, t.amount_cents AS amount_cents,
                COALESCE(t.alias, t.clean_label) AS display_label, t.clean_label AS clean_label,
                t.source AS source, t.ignored AS ignored, e.name AS envelope_names,
-               i.whole_period AS whole_period, i.period_key AS period_key
+               i.whole_period AS whole_period, i.period_key AS period_key, ta.name AS transfer_account
         FROM imputation i
         INNER JOIN transaction_record t ON t.id = i.transaction_id
         INNER JOIN envelope e ON e.id = i.envelope_id
+        LEFT JOIN account ta ON ta.id = t.transfer_account_id
         WHERE i.envelope_id = :envelopeId AND i.period_key = :periodKey
         ORDER BY t.date DESC, t.id DESC
         """,
@@ -213,6 +242,14 @@ interface TransactionDao {
 
     @Query("UPDATE transaction_record SET ignored = :ignored WHERE id = :id")
     suspend fun setIgnored(id: Long, ignored: Boolean)
+
+    /** Virement vers un de mes comptes (null : ce n'en est pas un). */
+    @Query("UPDATE transaction_record SET transfer_account_id = :accountId WHERE id = :id")
+    suspend fun setTransferAccount(id: Long, accountId: Long?)
+
+    /** Montants des virements vers mes comptes sur une plage de dates. */
+    @Query("SELECT amount_cents FROM transaction_record WHERE transfer_account_id IS NOT NULL AND date BETWEEN :from AND :to")
+    fun observeTransfersToAccounts(from: LocalDate, to: LocalDate): Flow<List<Long>>
 
     @Query("UPDATE transaction_record SET alias = :alias WHERE id = :id")
     suspend fun setAlias(id: Long, alias: String?)
@@ -264,10 +301,12 @@ interface TransactionDao {
         SELECT t.id AS id, t.date AS date, t.amount_cents AS amount_cents,
                COALESCE(t.alias, t.clean_label) AS display_label, t.clean_label AS clean_label,
                t.source AS source, t.ignored AS ignored, group_concat(e.name, ', ') AS envelope_names,
-               COALESCE(MAX(i.whole_period), 0) AS whole_period, MAX(i.period_key) AS period_key
+               COALESCE(MAX(i.whole_period), 0) AS whole_period, MAX(i.period_key) AS period_key,
+               ta.name AS transfer_account
         FROM transaction_record t
         LEFT JOIN imputation i ON i.transaction_id = t.id
         LEFT JOIN envelope e ON e.id = i.envelope_id
+        LEFT JOIN account ta ON ta.id = t.transfer_account_id
         GROUP BY t.id
         ORDER BY t.date DESC, t.id DESC
         LIMIT :limit

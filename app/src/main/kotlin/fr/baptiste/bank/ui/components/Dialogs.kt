@@ -43,7 +43,7 @@ import java.time.LocalDate
 import java.time.YearMonth
 
 /** Montant de départ d'un champ : vide pour zéro, sinon « 12,50 ». */
-private fun Money.toFieldText(): String =
+internal fun Money.toFieldText(): String =
     if (cents == 0L) "" else "${cents / 100},${(cents % 100).toString().padStart(2, '0')}"
 
 /**

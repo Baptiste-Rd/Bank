@@ -26,6 +26,9 @@ data class AssistantEnvelope(val name: String, val family: String, val group: St
 /** Enveloppe spéciale : l'opération ne compte dans aucune enveloppe (salaire, virement interne). */
 const val OUT_OF_BUDGET = "HORS BUDGET"
 
+/** Préfixe d'un virement vers un de mes comptes : « COMPTE: Livret A ». */
+const val ACCOUNT_PREFIX = "COMPTE: "
+
 /** Familles qu'une nouvelle enveloppe peut prendre, dans le vocabulaire de l'app. */
 val assistantFamilies = listOf("quotidien", "charges fixes", "provisions", "épargne")
 
@@ -69,7 +72,12 @@ fun labelQuestion(label: String, amountCents: Long, date: LocalDate): String =
         "Nom lisible / Nature / Lieu. Si tu n'es pas sûr, dis-le."
 
 /** Message complet du tri assisté : les trois phases, mes enveloppes, les opérations, le format attendu. */
-fun sortingPrompt(operations: List<AssistantOperation>, envelopes: List<AssistantEnvelope>): String = buildString {
+fun sortingPrompt(
+    operations: List<AssistantOperation>,
+    envelopes: List<AssistantEnvelope>,
+    /** Mes livrets et investissements : un virement vers l'un d'eux n'est pas une dépense. */
+    accounts: List<String> = emptyList(),
+): String = buildString {
     appendLine("Tu m'aides à trier les opérations de mon budget personnel (compte en France). Procède en trois phases.")
     appendLine()
     appendLine(
@@ -82,7 +90,8 @@ fun sortingPrompt(operations: List<AssistantOperation>, envelopes: List<Assistan
         "Phase 2 — Proposition. Range chaque opération dans une de mes enveloppes, en reprenant son nom exact. " +
             "Si aucune ne convient vraiment, propose une nouvelle enveloppe : nom court, et une famille parmi " +
             assistantFamilies.joinToString(", ") + ". Une rentrée d'argent (salaire, remboursement) ou un virement " +
-            "entre mes propres comptes va dans \"$OUT_OF_BUDGET\".",
+            "entre mes propres comptes va dans \"$OUT_OF_BUDGET\"." +
+            if (accounts.isEmpty()) "" else " Un virement vers (ou depuis) un de mes comptes d'épargne va dans \"$ACCOUNT_PREFIX<nom du compte>\".",
     )
     appendLine()
     appendLine(
@@ -99,6 +108,10 @@ fun sortingPrompt(operations: List<AssistantOperation>, envelopes: List<Assistan
         append("- ${envelope.name} (${envelope.family}")
         if (envelope.group != null) append(", groupe ${envelope.group}")
         appendLine(")")
+    }
+    if (accounts.isNotEmpty()) {
+        appendLine()
+        appendLine("Mes comptes d'épargne : ${accounts.joinToString(", ")}.")
     }
     appendLine()
     appendLine("Opérations (n | date | montant | libellé) :")
@@ -144,6 +157,9 @@ sealed interface ProposalTarget {
 
     /** Hors budget. */
     data object OutOfBudget : ProposalTarget
+
+    /** Virement vers (ou depuis) un de mes comptes d'épargne (son nom exact chez moi). */
+    data class Account(val name: String) : ProposalTarget
 }
 
 /**
@@ -151,9 +167,15 @@ sealed interface ProposalTarget {
  * désigne l'enveloppe existante, même si Claude la croyait nouvelle ; un nom inconnu devient une
  * nouvelle enveloppe, de famille « quotidien » si la famille proposée n'est pas reconnue.
  */
-fun AssistantProposal.target(existing: Collection<String>): ProposalTarget {
+fun AssistantProposal.target(existing: Collection<String>, accounts: Collection<String> = emptyList()): ProposalTarget {
     val key = envelopeNameKey(envelope)
     if (key.isEmpty() || key == envelopeNameKey(OUT_OF_BUDGET)) return ProposalTarget.OutOfBudget
+    val prefix = envelopeNameKey(ACCOUNT_PREFIX.trim())
+    if (key.startsWith(prefix)) {
+        val accountKey = key.removePrefix(prefix).trim()
+        return accounts.firstOrNull { envelopeNameKey(it) == accountKey }?.let { ProposalTarget.Account(it) }
+            ?: ProposalTarget.OutOfBudget
+    }
     existing.firstOrNull { envelopeNameKey(it) == key }?.let { return ProposalTarget.Existing(it) }
     val knownFamily = assistantFamilies.firstOrNull { envelopeNameKey(it) == envelopeNameKey(family.orEmpty()) }
     return ProposalTarget.New(envelope.trim(), knownFamily ?: assistantFamilies.first())

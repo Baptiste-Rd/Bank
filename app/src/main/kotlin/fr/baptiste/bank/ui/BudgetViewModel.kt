@@ -19,6 +19,9 @@ import fr.baptiste.bank.domain.bank.SortedLabel
 import fr.baptiste.bank.domain.bank.suggestEnvelope
 import fr.baptiste.bank.data.local.TransferRow
 import fr.baptiste.bank.domain.budget.Dashboard
+import fr.baptiste.bank.domain.budget.HoldingAccount
+import fr.baptiste.bank.domain.budget.Holdings
+import fr.baptiste.bank.domain.model.AccountType
 import fr.baptiste.bank.domain.budget.TransferLeg
 import fr.baptiste.bank.domain.model.Envelope
 import fr.baptiste.bank.domain.money.Money
@@ -171,6 +174,22 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
     fun applyAssistedSort(choices: List<AssistedSortChoice>, onDone: (AssistedSortResult) -> Unit) {
         viewModelScope.launch { onDone(repository.applyAssistedSort(choices)) }
     }
+
+    /** Livrets et investissements : ce qui est de côté, et les virements du mois vers eux. */
+    val holdings: StateFlow<Holdings?> = repository.holdings().asState(null)
+    val holdingAccounts: StateFlow<List<HoldingAccount>> = repository.holdingAccounts.asState(emptyList())
+
+    fun addManualAccount(name: String, type: AccountType, balance: Money) = perform { repository.addManualAccount(name, type, balance) }
+
+    fun saveAccount(accountId: Long, name: String, type: AccountType, balance: Money?) = perform {
+        repository.renameAccount(accountId, name, type)
+        if (balance != null) repository.updateBalance(accountId, balance)
+    }
+
+    fun archiveAccount(accountId: Long) = perform { repository.archiveAccount(accountId) }
+
+    fun markTransferToAccount(transactionId: Long, accountId: Long) =
+        perform { repository.markTransferToAccount(transactionId, accountId) }
 
     val rules: StateFlow<List<RuleRow>> = repository.rules.asState(emptyList())
     val aliases: StateFlow<List<LabelAlias>> = repository.aliases.asState(emptyList())

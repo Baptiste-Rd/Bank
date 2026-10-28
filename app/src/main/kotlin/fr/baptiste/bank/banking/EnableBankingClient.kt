@@ -46,6 +46,8 @@ data class LinkedAccount(
     val iban: String?,
     val name: String?,
     val currency: String?,
+    /** Type ISO 20022 : CACC compte courant, SVGS épargne... (null si la banque ne le dit pas). */
+    val cashType: String? = null,
 ) {
     /** « Compte courant ••1234 » : de quoi le reconnaître sans afficher tout l'IBAN. */
     val label: String
@@ -105,6 +107,7 @@ class EnableBankingClient(
                     iban = account.optJSONObject("account_id")?.optString("iban")?.takeIf { it.isNotBlank() },
                     name = account.optString("name").takeIf { it.isNotBlank() },
                     currency = account.optString("currency").takeIf { it.isNotBlank() },
+                    cashType = account.optString("cash_account_type").takeIf { it.isNotBlank() },
                 )
             },
         )

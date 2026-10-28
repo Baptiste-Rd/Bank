@@ -3,6 +3,7 @@ package fr.baptiste.bank.data
 import androidx.room.withTransaction
 import fr.baptiste.bank.data.local.AccountEntity
 import fr.baptiste.bank.data.local.BankDatabase
+import fr.baptiste.bank.data.local.BalanceEntity
 import fr.baptiste.bank.data.local.EnvelopeEntity
 import fr.baptiste.bank.data.local.ImputationEntity
 import fr.baptiste.bank.data.local.LabelAliasEntity
@@ -25,7 +26,11 @@ import fr.baptiste.bank.domain.bank.findManualMatch
 import fr.baptiste.bank.domain.bank.importKeys
 import fr.baptiste.bank.domain.bank.matching
 import fr.baptiste.bank.domain.bank.normalizeLabel
+import fr.baptiste.bank.domain.budget.BalanceSnapshot
 import fr.baptiste.bank.domain.budget.Dashboard
+import fr.baptiste.bank.domain.budget.HoldingAccount
+import fr.baptiste.bank.domain.budget.Holdings
+import fr.baptiste.bank.domain.budget.computeHoldings
 import fr.baptiste.bank.domain.budget.SavingsOutlook
 import fr.baptiste.bank.domain.budget.Spending
 import fr.baptiste.bank.domain.budget.Transfer
@@ -43,6 +48,7 @@ import fr.baptiste.bank.domain.period.Frequency
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
@@ -344,6 +350,7 @@ class BudgetRepository(
             val transaction = transactionDao.byId(transactionId) ?: return@withTransaction 0
             imputationDao.deleteForTransaction(transactionId)
             transactionDao.setIgnored(transactionId, false)
+            transactionDao.setTransferAccount(transactionId, null)
             imputationDao.insert(transaction.imputationIn(envelope, ImputationMode.MANUAL))
             val keyword = ruleKeyword?.trim().orEmpty()
             if (keyword.isEmpty()) return@withTransaction 0
@@ -441,6 +448,10 @@ class BudgetRepository(
             if (choice.alias != null) renameOperation(choice.transactionId, choice.alias, pattern = choice.keyword)
             when (val target = choice.target) {
                 ProposalTarget.OutOfBudget -> ignoreOperation(choice.transactionId)
+                is ProposalTarget.Account -> {
+                    val account = accountDao.active().firstOrNull { envelopeNameKey(it.name) == envelopeNameKey(target.name) }
+                    if (account != null) markTransferToAccount(choice.transactionId, account.id) else ignoreOperation(choice.transactionId)
+                }
                 is ProposalTarget.Existing, is ProposalTarget.New -> {
                     val name = if (target is ProposalTarget.Existing) target.name else (target as ProposalTarget.New).name
                     val envelope = byKey[envelopeNameKey(name)] ?: run {
@@ -473,6 +484,73 @@ class BudgetRepository(
         database.withTransaction {
             imputationDao.deleteForTransaction(transactionId)
             transactionDao.setIgnored(transactionId, true)
+            transactionDao.setTransferAccount(transactionId, null)
+        }
+    }
+
+    /**
+     * Virement vers un de mes comptes (livret, investissement) : hors budget, mais compté comme
+     * versé sur ce compte. L'argent ne quitte pas mes poches, ce n'est pas une dépense.
+     */
+    suspend fun markTransferToAccount(transactionId: Long, accountId: Long) {
+        database.withTransaction {
+            imputationDao.deleteForTransaction(transactionId)
+            transactionDao.setIgnored(transactionId, true)
+            transactionDao.setTransferAccount(transactionId, accountId)
+        }
+    }
+
+    // --- Autres comptes : livrets, investissement ---
+
+    private val accountDao = database.accountDao()
+    private val balanceDao = database.balanceDao()
+
+    /** Comptes d'épargne et d'investissement (pas le compte courant). */
+    val holdingAccounts: Flow<List<HoldingAccount>> = accountDao.observeActive().map { rows ->
+        rows.filter { it.type != AccountType.CURRENT }
+            .map { HoldingAccount(it.id, it.name, it.type, linked = it.externalUid != null) }
+    }
+
+    /** Ce qui est de côté sur ces comptes, six mois d'historique, et les virements du mois vers eux. */
+    fun holdings(today: LocalDate = LocalDate.now()): Flow<Holdings> {
+        val month = YearMonth.from(today)
+        return combine(
+            holdingAccounts,
+            balanceDao.observeAll(),
+            transactionDao.observeTransfersToAccounts(month.atDay(1), month.atEndOfMonth()),
+        ) { accounts, balances, transfers ->
+            computeHoldings(
+                accounts = accounts,
+                snapshots = balances.map { BalanceSnapshot(it.accountId, it.date, Money(it.balanceCents)) },
+                today = today,
+                transfersThisMonth = transfers.map(::Money),
+            )
+        }
+    }
+
+    /** Ajoute un compte saisi à la main, avec son solde du jour. */
+    suspend fun addManualAccount(name: String, type: AccountType, balance: Money): Long = database.withTransaction {
+        val id = accountDao.insert(AccountEntity(name = name.trim(), type = type))
+        balanceDao.upsert(BalanceEntity(accountId = id, date = LocalDate.now(), balanceCents = balance.cents))
+        id
+    }
+
+    /** Nouveau solde d'un compte saisi à la main, à la date du jour. */
+    suspend fun updateBalance(accountId: Long, balance: Money, date: LocalDate = LocalDate.now()) {
+        balanceDao.upsert(BalanceEntity(accountId = accountId, date = date, balanceCents = balance.cents))
+    }
+
+    suspend fun renameAccount(accountId: Long, name: String, type: AccountType) =
+        accountDao.rename(accountId, name.trim(), type)
+
+    suspend fun archiveAccount(accountId: Long) = accountDao.archive(accountId)
+
+    /** Solde lu à la banque pour un compte suivi (livret relié) : crée le compte au premier relevé. */
+    suspend fun recordLinkedBalance(uid: String, name: String, ibanSuffix: String?, type: AccountType, balance: Money) {
+        database.withTransaction {
+            val id = accountDao.findByExternalUid(uid)?.id
+                ?: accountDao.insert(AccountEntity(name = name, type = type, ibanSuffix = ibanSuffix, externalUid = uid))
+            balanceDao.upsert(BalanceEntity(accountId = id, date = LocalDate.now(), balanceCents = balance.cents))
         }
     }
 

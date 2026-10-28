@@ -11,6 +11,8 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStoreFile
 import fr.baptiste.bank.data.BudgetRepository
 import fr.baptiste.bank.data.ImportResult
+import fr.baptiste.bank.domain.model.AccountType
+import fr.baptiste.bank.domain.money.Money
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -79,6 +81,28 @@ class BankSyncRepository(
         val accountIbanSuffix = stringPreferencesKey("account_iban_suffix")
         val lastSync = longPreferencesKey("last_sync")
         val balance = longPreferencesKey("balance_cents")
+
+        /** Comptes autorisés lors de la connexion, une ligne par compte (uid, libellé, fin d'IBAN, type). */
+        val sessionAccounts = stringPreferencesKey("session_accounts")
+
+        /** Comptes dont on suit seulement le solde (livrets) : les autres comptes autorisés. */
+        val trackedAccounts = stringPreferencesKey("tracked_accounts")
+    }
+
+    private fun encodeAccounts(accounts: List<LinkedAccount>): String = accounts.joinToString("\n") { account ->
+        listOf(account.uid, account.label, account.iban?.takeLast(4).orEmpty(), account.cashType.orEmpty())
+            .joinToString("\t") { it.replace("\t", " ").replace("\n", " ") }
+    }
+
+    private fun decodeAccounts(text: String?): List<LinkedAccount> = text.orEmpty().lines().filter { it.isNotBlank() }.map { line ->
+        val parts = line.split('\t')
+        LinkedAccount(
+            uid = parts[0],
+            iban = parts.getOrNull(2)?.takeIf { it.isNotEmpty() },
+            name = parts.getOrNull(1),
+            currency = null,
+            cashType = parts.getOrNull(3)?.takeIf { it.isNotEmpty() },
+        )
     }
 
     /** La clé vit hors du DataStore : sa présence est suivie à part pour mettre l'écran à jour. */
@@ -175,6 +199,7 @@ class BankSyncRepository(
             it.remove(Keys.pendingState)
             it.remove(Keys.accountUid)
             it.remove(Keys.accountLabel)
+            it[Keys.sessionAccounts] = encodeAccounts(session.accounts)
         }
         if (session.accounts.isEmpty()) {
             throw IllegalStateException(
@@ -192,6 +217,8 @@ class BankSyncRepository(
             it[Keys.accountLabel] = account.label
             account.iban?.takeLast(4)?.let { suffix -> it[Keys.accountIbanSuffix] = suffix }
             it.remove(Keys.lastSync)
+            // Les autres comptes autorisés (livrets...) : on suivra leur solde, sans importer leurs opérations.
+            it[Keys.trackedAccounts] = encodeAccounts(decodeAccounts(it[Keys.sessionAccounts]).filter { other -> other.uid != account.uid })
         }
         budget.linkBankAccount(account.uid, account.label, account.iban?.takeLast(4))
         return sync()
@@ -222,6 +249,17 @@ class BankSyncRepository(
             it[Keys.lastSync] = System.currentTimeMillis()
             if (balance != null) it[Keys.balance] = balance
         }
+        // Soldes des comptes suivis : un échec sur l'un n'empêche pas les autres.
+        for (tracked in decodeAccounts(preferences[Keys.trackedAccounts])) {
+            val cents = runCatching { client.balanceCents(tracked.uid) }.getOrNull() ?: continue
+            budget.recordLinkedBalance(
+                uid = tracked.uid,
+                name = tracked.name ?: tracked.label,
+                ibanSuffix = tracked.iban,
+                type = if (tracked.cashType == "CACC") AccountType.CURRENT else AccountType.SAVINGS,
+                balance = Money(cents),
+            )
+        }
         return result
     }
 
@@ -244,6 +282,8 @@ class BankSyncRepository(
             it.remove(Keys.accountLabel)
             it.remove(Keys.pendingState)
             it.remove(Keys.balance)
+            it.remove(Keys.sessionAccounts)
+            it.remove(Keys.trackedAccounts)
         }
     }
 

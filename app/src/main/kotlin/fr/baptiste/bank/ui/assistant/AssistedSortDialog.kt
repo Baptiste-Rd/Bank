@@ -88,6 +88,8 @@ fun AssistedSortDialog(
     onDismiss: () -> Unit,
     /** Réponse déjà collée (captures d'écran de la démo) : l'écran s'ouvre sur la validation. */
     initialReply: String? = null,
+    /** Mes livrets et investissements, proposés comme destination d'un virement. */
+    accounts: List<String> = emptyList(),
 ) {
     val context = LocalContext.current
     val batch = remember(toSort) { toSort.take(MAX_BATCH) }
@@ -102,6 +104,7 @@ fun AssistedSortDialog(
         sortingPrompt(
             sent.map { (ref, operation) -> AssistantOperation(ref, operation.date, operation.amountCents, operation.bankLabel) },
             envelopes.map { AssistantEnvelope(it.name, it.type.family.assistantName(), it.group) },
+            accounts,
         )
     }
 
@@ -166,6 +169,7 @@ fun AssistedSortDialog(
                             proposals = proposals,
                             byRef = byRef,
                             envelopes = envelopes,
+                            accounts = accounts,
                             onBack = { step = Step.PASTE },
                             onApply = onApply,
                         )
@@ -268,6 +272,7 @@ private fun ColumnScope.ReviewStep(
     proposals: List<AssistantProposal>,
     byRef: Map<Int, OperationRow>,
     envelopes: List<Envelope>,
+    accounts: List<String>,
     onBack: () -> Unit,
     onApply: (List<AssistedSortChoice>) -> Unit,
 ) {
@@ -279,7 +284,7 @@ private fun ColumnScope.ReviewStep(
         }
     }
     val targets = remember(proposals) {
-        mutableStateMapOf<Int, ProposalTarget>().apply { proposals.forEach { put(it.ref, it.target(names)) } }
+        mutableStateMapOf<Int, ProposalTarget>().apply { proposals.forEach { put(it.ref, it.target(names, accounts)) } }
     }
     var useNames by rememberSaveable { mutableStateOf(true) }
     var createRules by rememberSaveable { mutableStateOf(true) }
@@ -294,8 +299,9 @@ private fun ColumnScope.ReviewStep(
                 checked = accepted[proposal.ref] == true,
                 onCheckedChange = { accepted[proposal.ref] = it },
                 target = targets.getValue(proposal.ref),
-                proposedTarget = proposal.target(names),
+                proposedTarget = proposal.target(names, accounts),
                 envelopeNames = names,
+                accounts = accounts,
                 onTargetChange = { targets[proposal.ref] = it },
             )
             RowDivider(0.dp)
@@ -335,6 +341,7 @@ private fun ProposalRow(
     target: ProposalTarget,
     proposedTarget: ProposalTarget,
     envelopeNames: List<String>,
+    accounts: List<String>,
     onTargetChange: (ProposalTarget) -> Unit,
 ) {
     var picking by remember { mutableStateOf(false) }
@@ -372,6 +379,12 @@ private fun ProposalRow(
                             onClick = { onTargetChange(ProposalTarget.Existing(name)); picking = false },
                         )
                     }
+                    accounts.forEach { name ->
+                        DropdownMenuItem(
+                            text = { Text("Vers $name") },
+                            onClick = { onTargetChange(ProposalTarget.Account(name)); picking = false },
+                        )
+                    }
                     DropdownMenuItem(
                         text = { Text("Hors budget") },
                         onClick = { onTargetChange(ProposalTarget.OutOfBudget); picking = false },
@@ -390,6 +403,7 @@ private fun ProposalTarget.label(): String = when (this) {
     is ProposalTarget.Existing -> name
     is ProposalTarget.New -> "Nouvelle : $name ($family)"
     ProposalTarget.OutOfBudget -> "Hors budget"
+    is ProposalTarget.Account -> "Vers $name"
 }
 
 @Composable

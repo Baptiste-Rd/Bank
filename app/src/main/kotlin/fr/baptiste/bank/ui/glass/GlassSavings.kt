@@ -22,6 +22,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import fr.baptiste.bank.data.MonthSavings
 import fr.baptiste.bank.domain.budget.Dashboard
+import fr.baptiste.bank.domain.budget.HoldingLine
+import fr.baptiste.bank.domain.budget.Holdings
+import fr.baptiste.bank.ui.accounts.detail
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.LazyListScope
 import fr.baptiste.bank.domain.budget.EnvelopeLine
 import fr.baptiste.bank.domain.budget.dailyCapForTarget
 import fr.baptiste.bank.domain.model.EnvelopeType
@@ -61,6 +66,10 @@ fun GlassSavingsContent(
     canNextMonth: Boolean = false,
     onPreviousMonth: () -> Unit = {},
     onNextMonth: () -> Unit = {},
+    /** Livrets et investissements ; null tant que non chargé. */
+    holdings: Holdings? = null,
+    onManageAccounts: () -> Unit = {},
+    onOpenAccount: (HoldingLine) -> Unit = {},
 ) {
     var showInfo by remember { mutableStateOf(false) }
     // Un mois passé se consulte : ses chiffres sont définitifs, on n'y range plus rien.
@@ -149,7 +158,10 @@ fun GlassSavingsContent(
             }
         }
 
-        // 4. Ce qui est mis de côté.
+        // 4. Sur les autres comptes : ce qui est déjà de côté (le mois en cours seulement).
+        if (!readOnly && holdings != null) holdingsSection(holdings, onManageAccounts, onOpenAccount)
+
+        // 5. Ce qui est mis de côté.
         if (savingsLines.isNotEmpty()) {
             sectionHeader("put-aside-label", "Mis de côté", dot = accent)
             item(key = "put-aside") {
@@ -230,5 +242,60 @@ private fun GapTile(label: String, delta: Money, reference: String, modifier: Mo
             color = if (delta.isNegative) BankTheme.status.warning else BankTheme.status.good,
         )
         Text(reference, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/**
+ * « Sur tes comptes » : le total des livrets et investissements, l'écart à la fin du mois dernier,
+ * ce qui y a été versé ce mois-ci, puis un compte par ligne.
+ */
+private fun LazyListScope.holdingsSection(
+    holdings: Holdings,
+    onManage: () -> Unit,
+    onOpen: (HoldingLine) -> Unit,
+) {
+    sectionHeader("holdings-label", "Sur tes comptes", action = if (holdings.lines.isEmpty()) null else "Gérer", onAction = onManage)
+    item(key = "holdings") {
+        if (holdings.lines.isEmpty()) {
+            GlassCard(contentPadding = 16.dp) {
+                Text(
+                    "Ajoute tes livrets et ton compte d'investissement pour voir tout ce que tu as de côté.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                TextButton(onClick = onManage) { Text("Ajouter un compte") }
+            }
+            return@item
+        }
+        GlassCard(contentPadding = 16.dp, verticalPadding = 4.dp) {
+            Column(Modifier.padding(vertical = 12.dp)) {
+                Text(holdings.total.formatted(), style = MaterialTheme.typography.titleLarge)
+                val previous = holdings.history.dropLast(1).lastOrNull()
+                val parts = listOfNotNull(
+                    previous?.let { "${(holdings.total - it.total).signed()} depuis fin ${it.month.name()}" },
+                    holdings.transferredThisMonth.takeIf { it.isPositive }?.let { "${it.formatted()} versés ce mois" },
+                )
+                if (parts.isNotEmpty()) {
+                    Text(
+                        parts.joinToString(" · "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            holdings.lines.forEach { line ->
+                fr.baptiste.bank.ui.components.RowDivider(0.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { onOpen(line) }.padding(vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(line.account.name, style = MaterialTheme.typography.bodyLarge)
+                        Text(line.detail(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Text(line.balance?.formatted() ?: "–", style = MaterialTheme.typography.titleMedium)
+                }
+            }
+        }
     }
 }

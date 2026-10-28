@@ -194,6 +194,7 @@ private fun GlassOperationRow(
     val detail = buildList {
         add(
             operation.envelopeNames
+                ?: operation.transferAccount?.let { if (operation.amountCents < 0) "Vers $it" else "Depuis $it" }
                 ?: if (operation.ignored) "Hors budget" else suggestion?.let { "Proposé : $it" } ?: "À trier",
         )
         if (showDate) add(dayTitle(operation.date, LocalDate.now()).lowercase())

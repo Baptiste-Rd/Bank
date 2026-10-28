@@ -87,6 +87,7 @@ fun GlassMainScreen(
     val selectedMonth by viewModel.selectedMonth.collectAsStateWithLifecycle()
     val selectedYear by viewModel.selectedYear.collectAsStateWithLifecycle()
     val rules by viewModel.rules.collectAsStateWithLifecycle()
+    val holdings by viewModel.holdings.collectAsStateWithLifecycle()
     val aliases by viewModel.aliases.collectAsStateWithLifecycle()
     // Lu pour que les propositions suivent l'historique du tri.
     val sortedHistory by viewModel.sortedHistory.collectAsStateWithLifecycle()
@@ -165,6 +166,9 @@ fun GlassMainScreen(
                         canNextMonth = selectedMonth < YearMonth.now(),
                         onPreviousMonth = viewModel::previousMonth,
                         onNextMonth = viewModel::nextMonth,
+                        holdings = holdings,
+                        onManageAccounts = { controller.dialog = OpenDialog.Accounts },
+                        onOpenAccount = { controller.dialog = OpenDialog.AccountEdit(it) },
                     )
                     Tab.OPERATIONS -> GlassOperationsContent(
                         operations = operations,

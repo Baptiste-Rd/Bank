@@ -30,6 +30,7 @@ import fr.baptiste.bank.domain.bank.labelQuestion
 import fr.baptiste.bank.domain.bank.suggestedRuleKeyword
 import fr.baptiste.bank.ui.assistant.openClaudeWith
 import androidx.compose.ui.platform.LocalContext
+import fr.baptiste.bank.domain.budget.HoldingAccount
 import fr.baptiste.bank.domain.model.Envelope
 import fr.baptiste.bank.domain.model.TransactionSource
 import fr.baptiste.bank.domain.money.Money
@@ -58,6 +59,9 @@ fun SortOperationDialog(
     /** Enveloppe proposée d'après les opérations déjà rangées qui se ressemblent. */
     suggestedId: Long? = null,
     onRename: () -> Unit = {},
+    /** Mes livrets et investissements : un virement vers l'un d'eux n'est pas une dépense. */
+    accounts: List<HoldingAccount> = emptyList(),
+    onTransferToAccount: (Long) -> Unit = {},
 ) {
     val currentName = operation.envelopeNames?.split(", ")?.firstOrNull()
     val currentId = envelopes.firstOrNull { it.name == currentName }?.id
@@ -129,6 +133,17 @@ fun SortOperationDialog(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
+                }
+                if (accounts.isNotEmpty()) {
+                    Text(
+                        if (operation.amountCents < 0) "Ou virement vers un de mes comptes" else "Ou virement depuis un de mes comptes",
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        accounts.forEach { account ->
+                            AssistChip(onClick = { onTransferToAccount(account.id) }, label = { Text(account.name) })
+                        }
+                    }
                 }
                 TextButton(onClick = onIgnore, modifier = Modifier.padding(top = 4.dp)) {
                     Text("Hors budget (salaire, virement entre comptes...)")

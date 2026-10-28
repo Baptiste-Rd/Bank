@@ -26,6 +26,8 @@ data class AccountEntity(
     @ColumnInfo(name = "iban_suffix") val ibanSuffix: String? = null,
     /** Identifiant du compte chez l'agrégateur bancaire (Enable Banking), s'il est synchronisé. */
     @ColumnInfo(name = "external_uid") val externalUid: String? = null,
+    /** Compte retiré de la liste ; ses relevés sont gardés. */
+    @ColumnInfo(defaultValue = "0") val archived: Boolean = false,
 )
 
 @Entity(
@@ -62,6 +64,8 @@ data class TransactionEntity(
     @ColumnInfo(defaultValue = "0") val ignored: Boolean = false,
     /** Nom choisi par l'utilisateur, affiché à la place du libellé de la banque. */
     val alias: String? = null,
+    /** Virement vers un de mes comptes (livret, investissement) : ce compte. Hors budget. */
+    @ColumnInfo(name = "transfer_account_id") val transferAccountId: Long? = null,
 )
 
 @Entity(tableName = "envelope")
@@ -188,4 +192,24 @@ data class LabelAliasEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val pattern: String,
     val alias: String,
+)
+
+/** Relevé de solde d'un compte d'épargne ou d'investissement, saisi à la main ou lu à la banque. */
+@Entity(
+    tableName = "account_balance",
+    foreignKeys = [
+        ForeignKey(
+            entity = AccountEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["account_id"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [Index(value = ["account_id", "date"], unique = true)],
+)
+data class BalanceEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    @ColumnInfo(name = "account_id") val accountId: Long,
+    val date: LocalDate,
+    @ColumnInfo(name = "balance_cents") val balanceCents: Long,
 )

@@ -34,6 +34,9 @@ import fr.baptiste.bank.ui.bank.BankDialog
 import fr.baptiste.bank.ui.format.formatted
 import fr.baptiste.bank.domain.model.TransactionSource
 import fr.baptiste.bank.ui.assistant.AssistedSortDialog
+import fr.baptiste.bank.ui.accounts.AccountEditDialog
+import fr.baptiste.bank.ui.accounts.AccountsDialog
+import fr.baptiste.bank.domain.budget.HoldingLine
 import fr.baptiste.bank.ui.operations.RenameOperationDialog
 import fr.baptiste.bank.ui.operations.RulesDialog
 import fr.baptiste.bank.ui.operations.SortOperationDialog
@@ -82,6 +85,10 @@ sealed interface OpenDialog {
     data class SortOperation(val operation: OperationRow, val preselectedEnvelopeId: Long? = null) : OpenDialog
     data class RenameOperation(val operation: OperationRow) : OpenDialog
     data object Unsort : OpenDialog
+
+    /** Livrets et investissements : la liste, puis un compte (null : nouveau). */
+    data object Accounts : OpenDialog
+    data class AccountEdit(val line: HoldingLine?) : OpenDialog
 
     /** Tri assisté par Claude ; [demoReply] ouvre directement la validation (captures). */
     data class AssistedSort(val demoReply: String? = null) : OpenDialog
@@ -216,6 +223,7 @@ fun AppDialogs(
     val income by viewModel.monthlyIncome.collectAsStateWithLifecycle()
     val journal by viewModel.transferJournal.collectAsStateWithLifecycle()
     val archivedEnvelopes by viewModel.archivedEnvelopes.collectAsStateWithLifecycle()
+    val holdingAccounts by viewModel.holdingAccounts.collectAsStateWithLifecycle()
 
     // Connexion bancaire : synchronisation discrète à l'ouverture, et son compte rendu en bas de l'écran.
     val bankViewModel: BankViewModel = viewModel(factory = BankViewModel.Factory)
@@ -284,6 +292,13 @@ fun AppDialogs(
             suggestedId = remember(current.operation.id) { viewModel.suggestedEnvelopeId(current.operation) }
                 ?.takeIf { id -> envelopes.any { it.id == id } },
             onRename = { controller.dialog = OpenDialog.RenameOperation(current.operation) },
+            accounts = holdingAccounts,
+            onTransferToAccount = { accountId ->
+                viewModel.markTransferToAccount(current.operation.id, accountId)
+                val name = holdingAccounts.firstOrNull { it.id == accountId }?.name.orEmpty()
+                controller.notify("Virement vers $name : hors budget, compté dans ce que tu as de côté.")
+                close()
+            },
         )
         is OpenDialog.RenameOperation -> RenameOperationDialog(
             operation = current.operation,
@@ -327,6 +342,7 @@ fun AppDialogs(
                 toSort = toSort,
                 envelopes = envelopes,
                 initialReply = current.demoReply,
+                accounts = holdingAccounts.map { it.name },
                 onApply = { choices ->
                     viewModel.applyAssistedSort(choices) { result ->
                         controller.notify(
@@ -343,6 +359,36 @@ fun AppDialogs(
                 onDismiss = ::close,
             )
         }
+        OpenDialog.Accounts -> {
+            val holdings by viewModel.holdings.collectAsStateWithLifecycle()
+            AccountsDialog(
+                lines = holdings?.lines.orEmpty(),
+                onOpen = { controller.dialog = OpenDialog.AccountEdit(it) },
+                onAdd = { controller.dialog = OpenDialog.AccountEdit(null) },
+                onDismiss = ::close,
+            )
+        }
+        is OpenDialog.AccountEdit -> AccountEditDialog(
+            line = current.line,
+            onSave = { name, type, balance ->
+                val line = current.line
+                if (line == null) {
+                    viewModel.addManualAccount(name, type, balance ?: Money.ZERO)
+                    controller.notify("${name.trim()} ajouté.")
+                } else {
+                    viewModel.saveAccount(line.account.id, name, type, balance)
+                }
+                controller.dialog = OpenDialog.Accounts
+            },
+            onArchive = current.line?.let { line ->
+                {
+                    viewModel.archiveAccount(line.account.id)
+                    controller.notify("${line.account.name} retiré.")
+                    controller.dialog = OpenDialog.Accounts
+                }
+            },
+            onDismiss = { controller.dialog = OpenDialog.Accounts },
+        )
         OpenDialog.Rules -> {
             val rules by viewModel.rules.collectAsStateWithLifecycle()
             val aliases by viewModel.aliases.collectAsStateWithLifecycle()
