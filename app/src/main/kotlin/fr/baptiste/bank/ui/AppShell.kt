@@ -232,7 +232,7 @@ fun AppDialogs(
         controller.dialog = null
     }
     fun nameOf(envelopeId: Long?): String =
-        envelopeId?.let { id -> envelopes.firstOrNull { it.id == id }?.name } ?: "Portefeuille"
+        envelopeId?.let { id -> envelopes.firstOrNull { it.id == id }?.name } ?: "Non réparti"
 
     when (val current = controller.dialog) {
         null -> Unit
@@ -402,10 +402,17 @@ fun AppDialogs(
                     onDismiss = ::close,
                     onConfirm = { legs ->
                         viewModel.addTransfers(legs, plan.target.envelope.id, incoming = true, reason = "Couverture")
-                        val total = legs.fold(Money.ZERO) { sum, leg -> sum + leg.amount }
+                        // Dire d'où vient l'argent : un dépassement couvert ne disparaît pas, il est
+                        // payé par le non réparti ou par d'autres enveloppes.
+                        val sources = legs.joinToString(", ") { leg ->
+                            "${leg.amount.formatted()} de ${leg.sourceEnvelopeId?.let(::nameOf) ?: "Non réparti"}"
+                        }
+                        val fromWallet = legs.any { it.sourceEnvelopeId == null }
                         controller.notify(
-                            "${total.formatted()} ajoutés à ${plan.target.envelope.name}. Disponible du jour recalculé.",
-                        )
+                            "${plan.target.envelope.name} couverte : $sources." +
+                                if (fromWallet) " Le reste du jour et l'épargne prévue baissent d'autant." else "",
+                            action = "Journal",
+                        ) { controller.dialog = OpenDialog.Journal }
                         close()
                     },
                 )

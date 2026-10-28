@@ -50,7 +50,7 @@ import fr.baptiste.bank.ui.format.formatted
 import fr.baptiste.bank.ui.format.label
 import fr.baptiste.bank.ui.theme.BankTheme
 
-private const val WALLET = "Portefeuille"
+private const val WALLET = "Non réparti"
 private const val WALLET_ID = -1L
 
 /** Nom d'une extrémité de transfert : une enveloppe, ou le portefeuille (null). */

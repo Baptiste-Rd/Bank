@@ -87,7 +87,14 @@ fun EnvelopeRow(
             )
         }
         else -> RowDisplay(
-            detail = "${line.spent.formatted()} sur ${line.available.formatted()} · ${line.period.shortLabel}",
+            // Un transfert (couverture, ajout) se lit à part : « 550 € sur 400 € +150 € ».
+            detail = if (line.transferred.cents == 0L) {
+                "${line.spent.formatted()} sur ${line.available.formatted()} · ${line.period.shortLabel}"
+            } else {
+                val sign = if (line.transferred.isNegative) "−" else "+"
+                "${line.spent.formatted()} sur ${line.allocated.formatted()} $sign${Money(kotlin.math.abs(line.transferred.cents)).formatted()} · " +
+                    line.period.shortLabel
+            },
             value = line.remaining,
             caption = "reste",
             ratio = when {

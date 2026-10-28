@@ -35,6 +35,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -105,7 +106,8 @@ fun AssistedSortDialog(
     }
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+        // Fond plein : la fenêtre passe devant l'app, son texte doit rester lisible.
+        Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF0B1328)) {
             Column(Modifier.statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 12.dp)) {
                     Column(Modifier.weight(1f)) {
@@ -158,7 +160,8 @@ fun AssistedSortDialog(
                         },
                     )
                     Step.REVIEW -> {
-                        val proposals = remember(reply) { parseAssistantReply(reply).orEmpty().filter { it.ref in sent.keys } }
+                        val refs = sent.keys
+                        val proposals = remember(reply, refs) { parseAssistantReply(reply).orEmpty().filter { it.ref in refs } }
                         ReviewStep(
                             proposals = proposals,
                             byRef = byRef,
