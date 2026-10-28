@@ -107,7 +107,7 @@ fun AssistedSortDialog(
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         // Fond plein : la fenêtre passe devant l'app, son texte doit rester lisible.
-        Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF0B1328)) {
+        Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF0B1328), contentColor = Color.White) {
             Column(Modifier.statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 12.dp)) {
                     Column(Modifier.weight(1f)) {
