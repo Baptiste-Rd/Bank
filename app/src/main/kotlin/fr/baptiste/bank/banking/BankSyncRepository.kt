@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStoreFile
 import fr.baptiste.bank.data.BudgetRepository
 import fr.baptiste.bank.data.ImportResult
+import fr.baptiste.bank.domain.bank.chooseBalance
 import fr.baptiste.bank.domain.model.AccountType
 import fr.baptiste.bank.domain.money.Money
 import kotlinx.coroutines.Dispatchers
@@ -40,6 +41,12 @@ data class BankConnection(
     val accountLabel: String?,
     val lastSync: Instant?,
     val balanceCents: Long?,
+    /** Soldes fournis par la banque, par type, tels que lus à la dernière synchronisation. */
+    val bankBalances: Map<String, Long> = emptyMap(),
+    /** Type du solde retenu (XPCD, CLBD...). */
+    val balanceType: String? = null,
+    /** Opérations en attente retirées du solde comptabilisé (0 si aucune ou déjà comprises). */
+    val pendingApplied: Long = 0,
 ) {
     /** Identifiant et clé fournis : on peut parler à l'API. */
     val isConfigured: Boolean get() = !applicationId.isNullOrBlank() && hasKey
@@ -81,6 +88,9 @@ class BankSyncRepository(
         val accountIbanSuffix = stringPreferencesKey("account_iban_suffix")
         val lastSync = longPreferencesKey("last_sync")
         val balance = longPreferencesKey("balance_cents")
+        val balanceTypes = stringPreferencesKey("balance_types")
+        val balanceType = stringPreferencesKey("balance_type")
+        val pendingApplied = longPreferencesKey("pending_applied")
 
         /** Comptes autorisés lors de la connexion, une ligne par compte (uid, libellé, fin d'IBAN, type). */
         val sessionAccounts = stringPreferencesKey("session_accounts")
@@ -123,6 +133,12 @@ class BankSyncRepository(
         accountLabel = this[Keys.accountLabel],
         lastSync = this[Keys.lastSync]?.let(Instant::ofEpochMilli),
         balanceCents = this[Keys.balance],
+        bankBalances = this[Keys.balanceTypes].orEmpty().split(';').mapNotNull { part ->
+            val (type, cents) = part.split('=').takeIf { it.size == 2 } ?: return@mapNotNull null
+            cents.toLongOrNull()?.let { type to it }
+        }.toMap(),
+        balanceType = this[Keys.balanceType],
+        pendingApplied = this[Keys.pendingApplied] ?: 0,
     )
 
     suspend fun saveApplication(applicationId: String, redirectUrl: String) {
@@ -237,8 +253,13 @@ class BankSyncRepository(
         val from = lastSync?.atZone(ZoneId.systemDefault())?.toLocalDate()?.minusDays(10)
             ?: today.withDayOfMonth(1)
         val client = client()
-        val operations = client.bookedTransactions(uid, from)
-        val balance = runCatching { client.balanceCents(uid) }.getOrNull()
+        val fetched = client.transactions(uid, from)
+        val operations = fetched.booked
+        // Le solde retenu est celui que montre l'appli de la banque : attendu (en attente compris)
+        // s'il est fourni, sinon le comptabilisé moins les paiements en attente (voir chooseBalance).
+        val bankBalances = runCatching { client.balances(uid) }.getOrDefault(emptyMap())
+        val chosen = chooseBalance(bankBalances, fetched.pendingNet)
+        val balance = chosen?.cents
         val result = budget.importBankOperations(
             accountUid = uid,
             accountName = preferences[Keys.accountLabel] ?: "Compte courant",
@@ -248,6 +269,11 @@ class BankSyncRepository(
         store.edit {
             it[Keys.lastSync] = System.currentTimeMillis()
             if (balance != null) it[Keys.balance] = balance
+            it[Keys.balanceTypes] = bankBalances.entries.joinToString(";") { (type, cents) -> "$type=$cents" }
+            chosen?.let { c ->
+                it[Keys.balanceType] = c.type
+                it[Keys.pendingApplied] = c.pendingApplied
+            }
         }
         // Le solde du compte courant, gardé daté : l'app le décompose (onglet Budget).
         if (balance != null) {

@@ -49,6 +49,7 @@ import fr.baptiste.bank.banking.Aspsp
 import fr.baptiste.bank.banking.BankConnection
 import fr.baptiste.bank.banking.BankViewModel
 import fr.baptiste.bank.banking.DEFAULT_REDIRECT_URL
+import fr.baptiste.bank.domain.bank.balanceTypeLabel
 import fr.baptiste.bank.domain.money.Money
 import fr.baptiste.bank.ui.components.BlurBehindWindow
 import fr.baptiste.bank.ui.format.formatted
@@ -310,6 +311,24 @@ private fun ConnectedSection(connection: BankConnection, viewModel: BankViewMode
             Text(connection.accountLabel ?: "Compte", style = MaterialTheme.typography.bodyMedium)
             connection.balanceCents?.let {
                 Text("Solde : ${Money(it).formatted()}", style = MaterialTheme.typography.titleLarge)
+            }
+            // D'où vient ce solde : la banque en fournit souvent plusieurs, pas toujours celui de son appli.
+            if (connection.bankBalances.isNotEmpty()) {
+                Hint(
+                    buildString {
+                        append("Soldes fournis par la banque : ")
+                        append(
+                            connection.bankBalances.entries.joinToString(", ") { (type, cents) ->
+                                "${balanceTypeLabel(type)} ($type) ${Money(cents).formatted()}"
+                            },
+                        )
+                        append(".")
+                        if (connection.pendingApplied != 0L) {
+                            append(" Opérations en attente retirées : ${Money(connection.pendingApplied).formatted()}.")
+                        }
+                        connection.balanceType?.let { append(" Solde retenu : ${balanceTypeLabel(it)}.") }
+                    },
+                )
             }
             Hint(
                 connection.lastSync?.let { "Dernière synchronisation le ${it.local().format(dateTime)}." }

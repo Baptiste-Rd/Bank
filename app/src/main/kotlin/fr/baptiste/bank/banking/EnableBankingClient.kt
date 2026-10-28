@@ -1,6 +1,7 @@
 package fr.baptiste.bank.banking
 
 import fr.baptiste.bank.domain.bank.BankOperation
+import fr.baptiste.bank.domain.bank.chooseBalance
 import fr.baptiste.bank.domain.bank.decimalToCents
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -117,26 +118,33 @@ class EnableBankingClient(
         request("DELETE", "/sessions/${encode(sessionId)}")
     }
 
-    /**
-     * Solde du compte, en centimes. Parmi les soldes fournis, on préfère le solde comptable de
-     * clôture (CLBD), puis le disponible (ITAV, CLAV), puis le premier venu.
-     */
-    suspend fun balanceCents(accountUid: String): Long? {
-        val balances = request("GET", "/accounts/${encode(accountUid)}/balances").optJSONArray("balances") ?: return null
-        val items = (0 until balances.length()).map { balances.getJSONObject(it) }
-        val preferred = listOf("CLBD", "ITAV", "CLAV", "XPCD", "ITBD")
-        val chosen = preferred.firstNotNullOfOrNull { type -> items.firstOrNull { it.optString("balance_type") == type } }
-            ?: items.firstOrNull()
-            ?: return null
-        return chosen.optJSONObject("balance_amount")?.optString("amount")?.let(::decimalToCents)
+    /** Tous les soldes fournis par la banque, en centimes, par type (CLBD, XPCD, ITAV...). */
+    suspend fun balances(accountUid: String): Map<String, Long> {
+        val balances = request("GET", "/accounts/${encode(accountUid)}/balances").optJSONArray("balances") ?: return emptyMap()
+        return (0 until balances.length()).map { balances.getJSONObject(it) }.mapNotNull { item ->
+            val type = item.optString("balance_type").ifBlank { return@mapNotNull null }
+            val cents = item.optJSONObject("balance_amount")?.optString("amount")?.let(::decimalToCents) ?: return@mapNotNull null
+            type to cents
+        }.toMap()
     }
+
+    /** Solde à montrer pour un compte suivi (livret) : voir [chooseBalance]. */
+    suspend fun balanceCents(accountUid: String): Long? = chooseBalance(balances(accountUid))?.cents
 
     /**
      * Opérations comptabilisées depuis [from] inclus, toutes pages confondues. Les opérations en
      * attente (non comptabilisées) sont ignorées : leur montant ou leur libellé peut encore changer.
      */
-    suspend fun bookedTransactions(accountUid: String, from: LocalDate): List<BankOperation> {
+    suspend fun bookedTransactions(accountUid: String, from: LocalDate): List<BankOperation> =
+        transactions(accountUid, from).booked
+
+    /**
+     * Opérations depuis [from] : les comptabilisées, à importer, et le total signé de celles en
+     * attente (paiements par carte pas encore débités), qui sert seulement à corriger le solde.
+     */
+    suspend fun transactions(accountUid: String, from: LocalDate): BankTransactions {
         val operations = mutableListOf<BankOperation>()
+        var pendingNet = 0L
         var continuation: String? = null
         var pages = 0
         do {
@@ -147,12 +155,25 @@ class EnableBankingClient(
             val json = request("GET", query)
             val transactions = json.optJSONArray("transactions") ?: JSONArray()
             for (index in 0 until transactions.length()) {
-                transactions.getJSONObject(index).toOperation()?.let(operations::add)
+                val item = transactions.getJSONObject(index)
+                if (item.optString("status") == "PDNG") {
+                    item.signedCents()?.let { pendingNet += it }
+                } else {
+                    item.toOperation()?.let(operations::add)
+                }
             }
             continuation = json.optString("continuation_key").takeIf { it.isNotBlank() && it != "null" }
             pages++
         } while (continuation != null && pages < MAX_PAGES)
-        return operations
+        return BankTransactions(operations, pendingNet)
+    }
+
+    private fun JSONObject.signedCents(): Long? {
+        val amountObject = optJSONObject("transaction_amount") ?: return null
+        val rawAmount = amountObject.optString("amount")
+        val cents = decimalToCents(rawAmount) ?: return null
+        val debit = optString("credit_debit_indicator") == "DBIT"
+        return if (rawAmount.trim().startsWith("-")) cents else if (debit) -cents else cents
     }
 
     private fun JSONObject.toOperation(): BankOperation? {
@@ -252,3 +273,6 @@ class EnableBankingClient(
                 ?: runCatching { Instant.parse(text) }.getOrNull()
     }
 }
+
+/** Opérations comptabilisées, et total signé de celles en attente (négatif : paiements à venir). */
+data class BankTransactions(val booked: List<BankOperation>, val pendingNet: Long)
