@@ -88,6 +88,7 @@ fun GlassMainScreen(
     val selectedMonth by viewModel.selectedMonth.collectAsStateWithLifecycle()
     val selectedYear by viewModel.selectedYear.collectAsStateWithLifecycle()
     val rules by viewModel.rules.collectAsStateWithLifecycle()
+    val transferRules by viewModel.transferRules.collectAsStateWithLifecycle()
     val holdings by viewModel.holdings.collectAsStateWithLifecycle()
     val homeShowsDay by viewModel.homeShowsDay.collectAsStateWithLifecycle()
     val currentBalance by viewModel.currentAccountBalance.collectAsStateWithLifecycle()
@@ -212,7 +213,7 @@ fun GlassMainScreen(
                         onOpenRules = { controller.dialog = OpenDialog.Rules },
                         onAssistedSort = { controller.dialog = OpenDialog.AssistedSort() },
                         pending = bankConnection?.pending.orEmpty(),
-                        rulesSummary = "${rules.size} règle(s) · ${aliases.size} alias",
+                        rulesSummary = "${rules.size + transferRules.size} règle(s) · ${aliases.size} alias",
                     )
                 }
             }

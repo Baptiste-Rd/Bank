@@ -11,6 +11,7 @@ import fr.baptiste.bank.data.local.OperationRow
 import fr.baptiste.bank.data.local.RuleEntity
 import fr.baptiste.bank.data.local.RuleRow
 import fr.baptiste.bank.data.local.TransactionEntity
+import fr.baptiste.bank.data.local.TransferRuleEntity
 import fr.baptiste.bank.data.local.TransferEntity
 import fr.baptiste.bank.data.local.TransferRow
 import fr.baptiste.bank.domain.bank.BankOperation
@@ -19,6 +20,8 @@ import fr.baptiste.bank.domain.bank.LabelRule
 import fr.baptiste.bank.domain.bank.ProposalTarget
 import fr.baptiste.bank.domain.bank.envelopeNameKey
 import fr.baptiste.bank.domain.bank.SortedLabel
+import fr.baptiste.bank.domain.bank.TransferRule
+import fr.baptiste.bank.domain.bank.transferFor
 import fr.baptiste.bank.domain.bank.aliasFor
 import fr.baptiste.bank.domain.bank.ManualEntry
 import fr.baptiste.bank.domain.bank.cleanBankLabel
@@ -323,6 +326,7 @@ class BudgetRepository(
 
             val envelopes = envelopeDao.active().map { it.toDomain() }.associateBy { it.id }
             val rules = database.ruleDao().all().map { it.toDomain() }
+            val transferRules = database.transferRuleDao().all().map { TransferRule(it.id, it.pattern, it.accountId) }
             val manual = transactionDao.manualBetween(
                 added.minOf { it.date }.minusDays(7),
                 added.maxOf { it.date }.plusDays(2),
@@ -345,6 +349,14 @@ class BudgetRepository(
                     transactionDao.deleteManual(match.id)
                     manual.remove(match)
                     reconciled++
+                    continue
+                }
+                // Un virement vers un de mes comptes passe avant les enveloppes : ce n'est pas une dépense.
+                val transfer = transferRules.transferFor(transaction)
+                if (transfer != null) {
+                    transactionDao.setIgnored(transaction.id, true)
+                    transactionDao.setTransferAccount(transaction.id, transfer.accountId)
+                    sorted++
                     continue
                 }
                 val envelope = rules.matchingFor(transaction)?.let { envelopes[it.envelopeId] } ?: continue
@@ -445,9 +457,15 @@ class BudgetRepository(
     suspend fun applyRules(): Int = database.withTransaction {
         val envelopes = envelopeDao.active().map { it.toDomain() }.associateBy { it.id }
         val rules = database.ruleDao().all().map { it.toDomain() }
+        val transferRules = database.transferRuleDao().all().map { TransferRule(it.id, it.pattern, it.accountId) }
         transactionDao.unsorted()
             .filter { it.source != TransactionSource.MANUAL }
             .mapNotNull { transaction ->
+                transferRules.transferFor(transaction)?.let { transfer ->
+                    transactionDao.setIgnored(transaction.id, true)
+                    transactionDao.setTransferAccount(transaction.id, transfer.accountId)
+                    return@mapNotNull transaction.id
+                }
                 val envelope = rules.matchingFor(transaction)?.let { envelopes[it.envelopeId] } ?: return@mapNotNull null
                 imputationDao.insert(transaction.imputationIn(envelope, ImputationMode.RULE))
             }
@@ -469,7 +487,11 @@ class BudgetRepository(
                 ProposalTarget.OutOfBudget -> ignoreOperation(choice.transactionId)
                 is ProposalTarget.Account -> {
                     val account = accountDao.active().firstOrNull { envelopeNameKey(it.name) == envelopeNameKey(target.name) }
-                    if (account != null) markTransferToAccount(choice.transactionId, account.id) else ignoreOperation(choice.transactionId)
+                    if (account != null) {
+                        markTransferToAccount(choice.transactionId, account.id, choice.keyword)
+                    } else {
+                        ignoreOperation(choice.transactionId)
+                    }
                 }
                 is ProposalTarget.Existing, is ProposalTarget.New -> {
                     val name = if (target is ProposalTarget.Existing) target.name else (target as ProposalTarget.New).name
@@ -511,13 +533,32 @@ class BudgetRepository(
      * Virement vers un de mes comptes (livret, investissement) : hors budget, mais compté comme
      * versé sur ce compte. L'argent ne quitte pas mes poches, ce n'est pas une dépense.
      */
-    suspend fun markTransferToAccount(transactionId: Long, accountId: Long) {
+    suspend fun markTransferToAccount(transactionId: Long, accountId: Long, keyword: String? = null): Int =
         database.withTransaction {
             imputationDao.deleteForTransaction(transactionId)
             transactionDao.setIgnored(transactionId, true)
             transactionDao.setTransferAccount(transactionId, accountId)
+            val text = keyword?.trim().orEmpty()
+            if (text.isEmpty()) return@withTransaction 0
+            // Les suivants seront reconnus seuls ; un même motif ne mène qu'à un compte.
+            val dao = database.transferRuleDao()
+            val key = normalizeLabel(text)
+            dao.delete(dao.all().filter { normalizeLabel(it.pattern) == key }.map { it.id })
+            dao.insert(TransferRuleEntity(pattern = text, accountId = accountId))
+            val single = listOf(TransferRule(0, text, accountId))
+            transactionDao.unsorted()
+                .filter { it.source != TransactionSource.MANUAL && it.id != transactionId && single.transferFor(it) != null }
+                .onEach {
+                    transactionDao.setIgnored(it.id, true)
+                    transactionDao.setTransferAccount(it.id, accountId)
+                }
+                .size
         }
-    }
+
+    /** Règles de virement, pour l'écran Règles et alias. */
+    val transferRules: Flow<List<RuleRow>> = database.transferRuleDao().observeAll()
+
+    suspend fun deleteTransferRule(id: Long) = database.transferRuleDao().delete(listOf(id))
 
     // --- Autres comptes : livrets, investissement ---
 
@@ -658,6 +699,10 @@ private fun TransactionEntity.imputationIn(envelope: Envelope, mode: ImputationM
 private fun RuleEntity.toDomain() = LabelRule(id, matchType, pattern, envelopeId, priority)
 
 private fun LabelAliasEntity.toDomain() = LabelAlias(id, pattern, alias)
+
+/** Règle de virement pour une opération : sur le libellé de la banque, ou à défaut sur son nom. */
+private fun List<TransferRule>.transferFor(transaction: TransactionEntity): TransferRule? =
+    transferFor(transaction.cleanLabel) ?: transaction.alias?.let { transferFor(it) }
 
 /** Une règle s'applique au libellé de la banque, ou à défaut au nom choisi par l'utilisateur. */
 private fun List<LabelRule>.matchingFor(transaction: TransactionEntity): LabelRule? =

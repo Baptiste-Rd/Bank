@@ -19,8 +19,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RuleEntity::class,
         LabelAliasEntity::class,
         BalanceEntity::class,
+        TransferRuleEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -34,12 +35,13 @@ abstract class BankDatabase : RoomDatabase() {
     abstract fun ruleDao(): RuleDao
     abstract fun aliasDao(): AliasDao
     abstract fun balanceDao(): BalanceDao
+    abstract fun transferRuleDao(): TransferRuleDao
 
     companion object {
         /** [name] permet au mode démo d'utiliser une base séparée, sans toucher aux vraies données. */
         fun create(context: Context, name: String = "bank.db"): BankDatabase =
             Room.databaseBuilder(context, BankDatabase::class.java, name)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                 .build()
     }
 }
@@ -102,5 +104,17 @@ val MIGRATION_6_7 = object : Migration(6, 7) {
         db.execSQL(
             "CREATE UNIQUE INDEX IF NOT EXISTS index_account_balance_account_id_date ON account_balance (account_id, date)",
         )
+    }
+}
+
+/** Version 8 : règles de virement vers mes comptes (« LIVRET A » va vers le Livret A). */
+val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS transfer_rule (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, pattern TEXT NOT NULL, account_id INTEGER NOT NULL, " +
+                "FOREIGN KEY(account_id) REFERENCES account(id) ON UPDATE NO ACTION ON DELETE CASCADE)",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_transfer_rule_account_id ON transfer_rule (account_id)")
     }
 }

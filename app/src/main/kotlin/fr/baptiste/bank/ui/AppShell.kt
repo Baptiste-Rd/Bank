@@ -297,10 +297,16 @@ fun AppDialogs(
                 ?.takeIf { id -> envelopes.any { it.id == id } },
             onRename = { controller.dialog = OpenDialog.RenameOperation(current.operation) },
             accounts = holdingAccounts,
-            onTransferToAccount = { accountId ->
-                viewModel.markTransferToAccount(current.operation.id, accountId)
+            onTransferToAccount = { accountId, keyword ->
                 val name = holdingAccounts.firstOrNull { it.id == accountId }?.name.orEmpty()
-                controller.notify("Virement vers $name : hors budget, compté dans ce que tu as de côté.")
+                viewModel.markTransferToAccount(current.operation.id, accountId, keyword) { others ->
+                    controller.notify(
+                        buildString {
+                            append("Virement vers $name : hors budget, compté dans ce que tu as de côté.")
+                            if (others > 0) append(" $others autre(s) reconnu(s).")
+                        },
+                    )
+                }
                 close()
             },
         )
@@ -421,11 +427,14 @@ fun AppDialogs(
         OpenDialog.Rules -> {
             val rules by viewModel.rules.collectAsStateWithLifecycle()
             val aliases by viewModel.aliases.collectAsStateWithLifecycle()
+            val transferRules by viewModel.transferRules.collectAsStateWithLifecycle()
             RulesDialog(
                 rules = rules,
                 aliases = aliases,
                 onDeleteRule = viewModel::deleteRule,
                 onDeleteAlias = viewModel::deleteAlias,
+                transferRules = transferRules,
+                onDeleteTransferRule = viewModel::deleteTransferRule,
                 onDismiss = ::close,
             )
         }

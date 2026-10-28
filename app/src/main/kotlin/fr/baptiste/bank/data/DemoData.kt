@@ -147,7 +147,7 @@ object DemoData {
         )
         repository.recentOperations().first()
             .firstOrNull { it.bankLabel.contains("Livret", ignoreCase = true) }
-            ?.let { repository.markTransferToAccount(it.id, livret) }
+            ?.let { repository.markTransferToAccount(it.id, livret, keyword = "Livret A") }
 
         // Un alias : le prélèvement s'affiche sous un nom lisible.
         repository.recentOperations().first()

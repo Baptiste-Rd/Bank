@@ -94,6 +94,27 @@ data class RuleRow(
 )
 
 @Dao
+interface TransferRuleDao {
+    @Query("SELECT * FROM transfer_rule ORDER BY id")
+    suspend fun all(): List<TransferRuleEntity>
+
+    @Insert
+    suspend fun insert(rule: TransferRuleEntity): Long
+
+    @Query("DELETE FROM transfer_rule WHERE id IN (:ids)")
+    suspend fun delete(ids: List<Long>)
+
+    @Query(
+        """
+        SELECT r.id AS id, r.pattern AS pattern, a.name AS envelope_name
+        FROM transfer_rule r INNER JOIN account a ON a.id = r.account_id
+        ORDER BY r.pattern COLLATE NOCASE
+        """,
+    )
+    fun observeAll(): Flow<List<RuleRow>>
+}
+
+@Dao
 interface AliasDao {
     @Query("SELECT * FROM label_alias ORDER BY id")
     suspend fun all(): List<LabelAliasEntity>

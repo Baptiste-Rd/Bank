@@ -189,10 +189,34 @@ fun RulesDialog(
     onDeleteRule: (Long) -> Unit,
     onDeleteAlias: (id: Long, restoreLabels: Boolean) -> Unit,
     onDismiss: () -> Unit,
+    /** Virements reconnus vers mes comptes (le nom du compte dans [RuleRow.envelopeName]). */
+    transferRules: List<RuleRow> = emptyList(),
+    onDeleteTransferRule: (Long) -> Unit = {},
 ) {
     // Retirer se confirme : une règle ou un alias effacé par erreur se recrée à la main.
     var pendingRule by remember { mutableStateOf<RuleRow?>(null) }
     var pendingAlias by remember { mutableStateOf<LabelAlias?>(null) }
+    var pendingTransfer by remember { mutableStateOf<RuleRow?>(null) }
+    pendingTransfer?.let { rule ->
+        AlertDialog(
+            onDismissRequest = { pendingTransfer = null },
+            title = { Text("Retirer cette règle ?") },
+            text = {
+                Text(
+                    "« ${rule.pattern} » ne sera plus reconnu seul comme un virement vers ${rule.envelopeName}. " +
+                        "Les virements déjà reconnus le restent.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDeleteTransferRule(rule.id)
+                    pendingTransfer = null
+                }) { Text("Retirer") }
+            },
+            dismissButton = { TextButton(onClick = { pendingTransfer = null }) { Text("Annuler") } },
+        )
+        return
+    }
     pendingRule?.let { rule ->
         AlertDialog(
             onDismissRequest = { pendingRule = null },
@@ -253,6 +277,13 @@ fun RulesDialog(
                 rules.forEachIndexed { index, rule ->
                     if (index > 0) RowDivider(0.dp)
                     RuleLine("« ${rule.pattern} »", "va dans ${rule.envelopeName}") { pendingRule = rule }
+                }
+                if (transferRules.isNotEmpty()) {
+                    Text("Virements vers tes comptes", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 16.dp))
+                    transferRules.forEachIndexed { index, rule ->
+                        if (index > 0) RowDivider(0.dp)
+                        RuleLine("« ${rule.pattern} »", "va vers ${rule.envelopeName}") { pendingTransfer = rule }
+                    }
                 }
                 Text("Noms", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 16.dp))
                 if (aliases.isEmpty()) {

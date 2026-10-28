@@ -61,7 +61,8 @@ fun SortOperationDialog(
     onRename: () -> Unit = {},
     /** Mes livrets et investissements : un virement vers l'un d'eux n'est pas une dépense. */
     accounts: List<HoldingAccount> = emptyList(),
-    onTransferToAccount: (Long) -> Unit = {},
+    /** Le compte choisi, et le texte qui reconnaîtra les suivants (si la case est cochée). */
+    onTransferToAccount: (accountId: Long, keyword: String?) -> Unit = { _, _ -> },
 ) {
     val currentName = operation.envelopeNames?.split(", ")?.firstOrNull()
     val currentId = envelopes.firstOrNull { it.name == currentName }?.id
@@ -141,7 +142,10 @@ fun SortOperationDialog(
                     )
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         accounts.forEach { account ->
-                            AssistChip(onClick = { onTransferToAccount(account.id) }, label = { Text(account.name) })
+                            AssistChip(
+                                onClick = { onTransferToAccount(account.id, keyword.takeIf { createRule && it.isNotBlank() }) },
+                                label = { Text(account.name) },
+                            )
                         }
                     }
                 }

@@ -50,3 +50,16 @@ fun isNameTaken(name: String, taken: Collection<String>): Boolean {
     val key = envelopeNameKey(name)
     return key.isNotEmpty() && taken.any { envelopeNameKey(it) == key }
 }
+
+/**
+ * Règle de virement : une opération dont le libellé contient [pattern] est un virement vers (ou
+ * depuis) le compte [accountId] (livret, placement). Elle est hors budget et comptée comme versée.
+ */
+data class TransferRule(val id: Long, val pattern: String, val accountId: Long)
+
+/** Règle de virement qui s'applique à [label], ou null ; entre plusieurs, le motif le plus long. */
+fun List<TransferRule>.transferFor(label: String): TransferRule? {
+    val text = normalizeLabel(label)
+    return filter { normalizeLabel(it.pattern).let { pattern -> pattern.isNotEmpty() && text.contains(pattern) } }
+        .maxByOrNull { normalizeLabel(it.pattern).length }
+}

@@ -213,3 +213,22 @@ data class BalanceEntity(
     val date: LocalDate,
     @ColumnInfo(name = "balance_cents") val balanceCents: Long,
 )
+
+/** Règle de virement : un libellé qui contient [pattern] est un virement vers le compte [accountId]. */
+@Entity(
+    tableName = "transfer_rule",
+    foreignKeys = [
+        ForeignKey(
+            entity = AccountEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["account_id"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [Index("account_id")],
+)
+data class TransferRuleEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val pattern: String,
+    @ColumnInfo(name = "account_id") val accountId: Long,
+)

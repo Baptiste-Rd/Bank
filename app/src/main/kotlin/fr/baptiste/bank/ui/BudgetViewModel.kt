@@ -210,8 +210,14 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
 
     fun archiveAccount(accountId: Long) = perform { repository.archiveAccount(accountId) }
 
-    fun markTransferToAccount(transactionId: Long, accountId: Long) =
-        perform { repository.markTransferToAccount(transactionId, accountId) }
+    /** Virement vers un de mes comptes ; avec [keyword], les suivants seront reconnus seuls. */
+    fun markTransferToAccount(transactionId: Long, accountId: Long, keyword: String?, onDone: (Int) -> Unit = {}) {
+        viewModelScope.launch { onDone(repository.markTransferToAccount(transactionId, accountId, keyword)) }
+    }
+
+    val transferRules: StateFlow<List<RuleRow>> = repository.transferRules.asState(emptyList())
+
+    fun deleteTransferRule(id: Long) = perform { repository.deleteTransferRule(id) }
 
     val rules: StateFlow<List<RuleRow>> = repository.rules.asState(emptyList())
     val aliases: StateFlow<List<LabelAlias>> = repository.aliases.asState(emptyList())

@@ -46,4 +46,12 @@ class AliasesTest {
         assertFalse(isNameTaken("Bars", listOf("Bar")))
         assertFalse(isNameTaken("   ", listOf("Bar")))
     }
+
+    @Test
+    fun `transfer rules recognize transfers to my accounts`() {
+        val rules = listOf(TransferRule(1, "Livret A", 10), TransferRule(2, "Vir", 11), TransferRule(3, "", 12))
+        assertEquals(10L, rules.transferFor("VIR SEPA VERS LIVRET A")?.accountId)
+        assertEquals(11L, rules.transferFor("Vir Trade Republic")?.accountId)
+        assertEquals(null, rules.transferFor("Boulangerie"))
+    }
 }
