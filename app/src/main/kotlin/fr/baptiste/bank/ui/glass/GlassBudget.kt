@@ -34,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import fr.baptiste.bank.data.YearOverview
 import fr.baptiste.bank.domain.budget.Dashboard
+import fr.baptiste.bank.domain.budget.closings
 import fr.baptiste.bank.domain.budget.EnvelopeLine
 import fr.baptiste.bank.domain.model.Envelope
 import fr.baptiste.bank.domain.model.EnvelopeType
@@ -219,6 +220,9 @@ private fun LazyListScope.monthContent(
     val byFamily = dashboard.envelopes.groupBy { it.envelope.type.family }
     val usedNames = dashboard.envelopes.map { it.envelope.name.lowercase() }.toSet()
     val suggestions = envelopeTemplates.filter { (name, _) -> name.lowercase() !in usedNames }
+
+    // Un mois terminé commence par son bilan : où est allé ce qui restait, d'où vient ce qui manquait.
+    if (readOnly && dashboard.savings.isFinal) item(key = "review") { MonthReview(dashboard, onEdit) }
 
     item(key = "plan") {
         GlassCard(contentPadding = 16.dp) {
@@ -462,5 +466,57 @@ private fun PlanBar(parts: List<PlanPart>, modifier: Modifier = Modifier) {
             }
             x += width
         }
+    }
+}
+
+/**
+ * Bilan d'un mois terminé. Règle unique : ce qui reste dans une enveloppe à la fin de sa période
+ * va à l'épargne, un dépassement y est pris. Rien ne part seul dans une autre enveloppe ; pour
+ * remettre de l'argent quelque part, on le prend sur l'épargne (« Ajouter » sur l'enveloppe).
+ */
+@Composable
+private fun MonthReview(dashboard: Dashboard, onEdit: (Envelope) -> Unit) {
+    val savings = dashboard.savings
+    val closings = dashboard.closings()
+    val status = BankTheme.status
+    GlassCard(strong = true, contentPadding = 16.dp) {
+        Text("Bilan de ${dashboard.today.monthTitle().substringBefore(' ').lowercase()}", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "${savings.forecast.formatted()} épargnés",
+            style = MaterialTheme.typography.titleLarge,
+            color = if (savings.forecast.isNegative) status.over else MaterialTheme.colorScheme.onSurface,
+        )
+        Column(Modifier.padding(top = 8.dp)) {
+            ReviewLine("Objectif et transferts vers l'épargne", savings.secured)
+            ReviewLine("Reste du quotidien", savings.dailyMargin)
+            closings.forEach { line ->
+                val label = if (line.remaining.isNegative) "${line.envelope.name} · dépassé" else "${line.envelope.name} · reste"
+                ReviewLine(label, line.remaining)
+            }
+            val savingsSpent = savings.overruns - closings.filter { it.remaining.isNegative }
+                .fold(Money.ZERO) { sum, line -> sum - line.remaining }
+            if (savingsSpent.isPositive) ReviewLine("Dépenses sur l'épargne", Money(-savingsSpent.cents))
+        }
+        Text(
+            "Ce qui reste dans une enveloppe à la fin de sa période va à l'épargne ; un dépassement y est pris.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+        closings.firstOrNull { it.remaining.isNegative }?.let { over ->
+            RowActionButton("Ajuster ${over.envelope.name}", onClick = { onEdit(over.envelope) }, modifier = Modifier.padding(top = 8.dp))
+        }
+    }
+}
+
+@Composable
+private fun ReviewLine(label: String, amount: Money) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 3.dp)) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        Text(
+            amount.signed(),
+            style = MaterialTheme.typography.titleSmall,
+            color = if (amount.isNegative) BankTheme.status.warning else MaterialTheme.colorScheme.onSurface,
+        )
     }
 }

@@ -211,11 +211,13 @@ fun GlassSavingsContent(
                     if (outlook.isFinal) "Reste du budget du quotidien" else "Reste prévu du quotidien",
                     outlook.dailyMargin.signed(),
                 ),
+                if (outlook.surpluses.isPositive) InfoLine("Restes des enveloppes closes", outlook.surpluses.signed()) else null,
                 if (outlook.overruns.isPositive) InfoLine("Dépassements", "−${outlook.overruns.formatted()}") else null,
                 InfoLine("Épargne prévue", outlook.forecast.formatted()),
             ),
-            note = "Le reste du quotidien suit ton rythme de dépense actuel. Déplacer de l'argent vers l'épargne " +
-                "le met à l'abri ; le total ne monte que si tu dépenses moins.",
+            note = "Le reste du quotidien suit ton rythme de dépense actuel. Ce qui reste dans une charge ou une " +
+                "provision à la fin de sa période va à l'épargne ; un dépassement y est pris. Déplacer de l'argent " +
+                "vers l'épargne le met à l'abri ; le total ne monte que si tu dépenses moins.",
             onDismiss = { showInfo = false },
         )
     }

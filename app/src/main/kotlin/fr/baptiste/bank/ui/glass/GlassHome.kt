@@ -62,6 +62,8 @@ fun GlassHomeContent(
     onCover: (EnvelopeLine) -> Unit,
     onOpenEnvelope: (EnvelopeLine) -> Unit,
     onOpenTab: (Tab) -> Unit,
+    /** Ouvre le bilan du mois dernier (onglet Budget, mois précédent). */
+    onOpenReview: () -> Unit = {},
 ) {
     // Lu ici : le contenu d'une LazyColumn se construit hors composition.
     val warning = BankTheme.status.warning
@@ -137,7 +139,9 @@ fun GlassHomeContent(
 
         // 3. À faire : n'apparaît que s'il y a une décision à prendre.
         val watched = dashboard.alerts
-        val todoCount = watched.size + if (unsortedCount > 0) 1 else 0
+        // La première semaine du mois, le bilan du mois dernier attend d'être lu.
+        val lastMonth = savingsHistory.dropLast(1).lastOrNull()?.takeIf { dashboard.today.dayOfMonth <= 7 }
+        val todoCount = watched.size + (if (unsortedCount > 0) 1 else 0) + (if (lastMonth != null) 1 else 0)
         if (todoCount > 0) {
             sectionHeader("todo-label", "À faire", trailing = "$todoCount", dot = warning)
             item(key = "todo") {
@@ -146,8 +150,29 @@ fun GlassHomeContent(
                         if (index > 0) fr.baptiste.bank.ui.components.RowDivider()
                         TodoEnvelopeRow(line, onOpen = { onOpenEnvelope(line) }, onCover = { onCover(line) })
                     }
-                    if (unsortedCount > 0) {
+                    if (lastMonth != null) {
                         if (watched.isNotEmpty()) fr.baptiste.bank.ui.components.RowDivider()
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenReview).padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            CategoryAvatar("B", envelopeTypeColor(fr.baptiste.bank.domain.model.EnvelopeType.SAVINGS))
+                            Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                                Text(
+                                    "Bilan de ${lastMonth.month.month.getDisplayName(TextStyle.FULL_STANDALONE, Locale.FRANCE)}",
+                                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                                )
+                                Text(
+                                    "${lastMonth.outlook.forecast.formatted()} épargnés",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Chevron()
+                        }
+                    }
+                    if (unsortedCount > 0) {
+                        if (watched.isNotEmpty() || lastMonth != null) fr.baptiste.bank.ui.components.RowDivider()
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()

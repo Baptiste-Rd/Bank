@@ -124,6 +124,10 @@ fun GlassMainScreen(
                         savingsHistory = savingsHistory,
                         unsortedCount = unsortedCount,
                         onAddExpense = { controller.dialog = OpenDialog.Expense },
+                        onOpenReview = {
+                            if (selectedMonth == YearMonth.now()) viewModel.previousMonth()
+                            controller.tab = Tab.BUDGET
+                        },
                         onEditIncome = { controller.dialog = OpenDialog.Income },
                         onCover = cover,
                         onOpenEnvelope = openEnvelope,

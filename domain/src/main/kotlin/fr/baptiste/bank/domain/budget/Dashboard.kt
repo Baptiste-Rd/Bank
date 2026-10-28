@@ -205,12 +205,20 @@ fun computeDashboard(
         .filter { it.period.endInclusive in month }
         .sumOfMoney { if (it.remaining.isNegative) -it.remaining else Money.ZERO }
     val savingsSpent = spendings.filter { it.envelopeId in savingsIds && it.date in month }.sumOfMoney { it.amount }
+    // Le reste d'une enveloppe dont la période est terminée va à l'épargne (voir SavingsOutlook).
+    val surpluses = lines
+        .filter { it.envelope.type != EnvelopeType.DAILY && it.envelope.type != EnvelopeType.SAVINGS }
+        // Seule une période qui se termine aujourd'hui est close : c'est le cas, au dernier jour du mois,
+        // des charges mensuelles et des provisions qui se terminent ce mois-là.
+        .filter { it.period.endInclusive == today }
+        .sumOfMoney { if (it.remaining.isPositive) it.remaining else Money.ZERO }
     val savings = SavingsOutlook(
         target = savingsLines.sumOfMoney { it.allocated.convert(it.envelope.frequency, Frequency.MONTHLY) },
         transferred = savingsIds.fold(Money.ZERO) { total, id -> total + netTransfers(id, month) },
         dailyMargin = dailyBudget - dailyProjected,
         overruns = overruns + savingsSpent,
         isFinal = today == month.endInclusive,
+        surpluses = surpluses,
     )
 
     return Dashboard(
