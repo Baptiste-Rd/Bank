@@ -333,7 +333,8 @@ fun AppDialogs(
             val line = dashboard?.envelopes?.firstOrNull { it.envelope.id == current.envelopeId }
             if (line == null) {
                 // L'enveloppe a disparu (archivée) : on ferme la fenêtre, hors de la composition.
-                LaunchedEffect(current) { close() }
+                // Pendant le premier chargement (tableau de bord pas encore prêt), on attend.
+                if (dashboard != null) LaunchedEffect(current) { close() }
             } else {
                 val periodOperations by remember(line.envelope.id, line.period.key) {
                     viewModel.envelopeOperations(line.envelope.id, line.period.key)
