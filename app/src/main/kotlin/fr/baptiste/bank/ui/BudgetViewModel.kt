@@ -7,6 +7,8 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import fr.baptiste.bank.BankApplication
 import fr.baptiste.bank.data.BudgetRepository
+import fr.baptiste.bank.data.AssistedSortChoice
+import fr.baptiste.bank.data.AssistedSortResult
 import fr.baptiste.bank.data.MonthSavings
 import fr.baptiste.bank.data.UnsortScope
 import fr.baptiste.bank.data.YearOverview
@@ -164,6 +166,11 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     fun saveGlassTuning(encoded: String?) = perform { repository.setGlassTuning(encoded) }
+
+    /** Applique le tri validé après la proposition de Claude. */
+    fun applyAssistedSort(choices: List<AssistedSortChoice>, onDone: (AssistedSortResult) -> Unit) {
+        viewModelScope.launch { onDone(repository.applyAssistedSort(choices)) }
+    }
 
     val rules: StateFlow<List<RuleRow>> = repository.rules.asState(emptyList())
     val aliases: StateFlow<List<LabelAlias>> = repository.aliases.asState(emptyList())

@@ -184,6 +184,7 @@ fun GlassMainScreen(
                         },
                         onUnsort = { controller.dialog = OpenDialog.Unsort },
                         onOpenRules = { controller.dialog = OpenDialog.Rules },
+                        onAssistedSort = { controller.dialog = OpenDialog.AssistedSort() },
                         rulesSummary = "${rules.size} règle(s) · ${aliases.size} alias",
                     )
                 }

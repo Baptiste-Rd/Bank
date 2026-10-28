@@ -26,7 +26,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import fr.baptiste.bank.data.local.OperationRow
+import fr.baptiste.bank.domain.bank.labelQuestion
 import fr.baptiste.bank.domain.bank.suggestedRuleKeyword
+import fr.baptiste.bank.ui.assistant.openClaudeWith
+import androidx.compose.ui.platform.LocalContext
 import fr.baptiste.bank.domain.model.Envelope
 import fr.baptiste.bank.domain.model.TransactionSource
 import fr.baptiste.bank.domain.money.Money
@@ -87,7 +90,14 @@ fun SortOperationDialog(
                     )
                 }
                 if (operation.source != TransactionSource.MANUAL) {
-                    TextButton(onClick = onRename) { Text("Renommer") }
+                    val context = LocalContext.current
+                    Row {
+                        TextButton(onClick = onRename) { Text("Renommer") }
+                        // Un libellé obscur : Claude dit qui est derrière (libellé anonymisé, montant, date).
+                        TextButton(onClick = {
+                            openClaudeWith(context, labelQuestion(operation.bankLabel, operation.amountCents, operation.date))
+                        }) { Text("Demander à Claude") }
+                    }
                 }
                 Text("Ranger dans", style = MaterialTheme.typography.titleSmall)
                 if (isSuggestion) {

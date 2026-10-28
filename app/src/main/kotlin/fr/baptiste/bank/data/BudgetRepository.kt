@@ -15,6 +15,8 @@ import fr.baptiste.bank.data.local.TransferRow
 import fr.baptiste.bank.domain.bank.BankOperation
 import fr.baptiste.bank.domain.bank.LabelAlias
 import fr.baptiste.bank.domain.bank.LabelRule
+import fr.baptiste.bank.domain.bank.ProposalTarget
+import fr.baptiste.bank.domain.bank.envelopeNameKey
 import fr.baptiste.bank.domain.bank.SortedLabel
 import fr.baptiste.bank.domain.bank.aliasFor
 import fr.baptiste.bank.domain.bank.ManualEntry
@@ -32,6 +34,7 @@ import fr.baptiste.bank.domain.budget.computeDashboard
 import fr.baptiste.bank.domain.budget.dashboardDateRange
 import fr.baptiste.bank.domain.model.AccountType
 import fr.baptiste.bank.domain.model.Envelope
+import fr.baptiste.bank.domain.model.EnvelopeType
 import fr.baptiste.bank.domain.model.ImputationMode
 import fr.baptiste.bank.domain.model.RuleMatchType
 import fr.baptiste.bank.domain.model.TransactionSource
@@ -425,6 +428,46 @@ class BudgetRepository(
             .size
     }
 
+    /**
+     * Applique le tri validé par l'utilisateur après la proposition de Claude, en une transaction :
+     * crée les nouvelles enveloppes (à 0 €, à budgéter), range chaque opération, la renomme et crée
+     * les règles demandées. Rend le nombre d'opérations traitées et les enveloppes créées.
+     */
+    suspend fun applyAssistedSort(choices: List<AssistedSortChoice>): AssistedSortResult = database.withTransaction {
+        val active = envelopeDao.active().map { it.toDomain() }
+        val byKey = active.associateBy { envelopeNameKey(it.name) }.toMutableMap()
+        val created = mutableListOf<String>()
+        for (choice in choices) {
+            if (choice.alias != null) renameOperation(choice.transactionId, choice.alias, pattern = choice.keyword)
+            when (val target = choice.target) {
+                ProposalTarget.OutOfBudget -> ignoreOperation(choice.transactionId)
+                is ProposalTarget.Existing, is ProposalTarget.New -> {
+                    val name = if (target is ProposalTarget.Existing) target.name else (target as ProposalTarget.New).name
+                    val envelope = byKey[envelopeNameKey(name)] ?: run {
+                        val type = when (target) {
+                            is ProposalTarget.New -> typeForFamily(target.family)
+                            else -> EnvelopeType.DAILY
+                        }
+                        val draft = Envelope(
+                            id = 0,
+                            name = name,
+                            type = type,
+                            frequency = type.defaultFrequency,
+                            amount = Money.ZERO,
+                            status = type.defaultStatus,
+                            anchor = if (type.defaultFrequency.isCalendar) null else LocalDate.now(),
+                        )
+                        val id = saveEnvelope(draft)
+                        created += name
+                        draft.copy(id = id).also { byKey[envelopeNameKey(name)] = it }
+                    }
+                    sortOperation(choice.transactionId, envelope, choice.keyword)
+                }
+            }
+        }
+        AssistedSortResult(sorted = choices.size, createdEnvelopes = created)
+    }
+
     /** Met une opération hors budget : elle reste visible mais n'est comptée dans aucune enveloppe. */
     suspend fun ignoreOperation(transactionId: Long) {
         database.withTransaction {
@@ -485,6 +528,24 @@ private fun LabelAliasEntity.toDomain() = LabelAlias(id, pattern, alias)
 /** Une règle s'applique au libellé de la banque, ou à défaut au nom choisi par l'utilisateur. */
 private fun List<LabelRule>.matchingFor(transaction: TransactionEntity): LabelRule? =
     matching(transaction.cleanLabel) ?: transaction.alias?.let { matching(it) }
+
+/** Un choix validé du tri assisté : où ranger l'opération, et facultativement son nom et sa règle. */
+data class AssistedSortChoice(
+    val transactionId: Long,
+    val target: ProposalTarget,
+    val alias: String?,
+    val keyword: String?,
+)
+
+data class AssistedSortResult(val sorted: Int, val createdEnvelopes: List<String>)
+
+/** Famille proposée par Claude (vocabulaire de l'app) vers le type du calcul. */
+private fun typeForFamily(family: String): EnvelopeType = when (envelopeNameKey(family)) {
+    envelopeNameKey("charges fixes") -> EnvelopeType.FIXED
+    envelopeNameKey("provisions") -> EnvelopeType.ANNUAL
+    envelopeNameKey("épargne") -> EnvelopeType.SAVINGS
+    else -> EnvelopeType.DAILY
+}
 
 /** Ce qu'on déclasse dans un mois. */
 sealed interface UnsortScope {

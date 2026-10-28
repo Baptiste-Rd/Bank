@@ -60,6 +60,8 @@ fun GlassOperationsContent(
     onUnsort: () -> Unit = {},
     onOpenRules: () -> Unit = {},
     rulesSummary: String? = null,
+    /** Tri assisté par Claude des opérations à trier. */
+    onAssistedSort: () -> Unit = {},
 ) {
     var pendingDelete by remember { mutableStateOf<OperationRow?>(null) }
     val toSortColor = BankTheme.status.warning
@@ -123,6 +125,10 @@ fun GlassOperationsContent(
         if (operations.any { it.source != TransactionSource.MANUAL }) {
             item(key = "sort-tools") {
                 GlassCard(contentPadding = 16.dp, verticalPadding = 4.dp) {
+                    if (toSort.isNotEmpty()) {
+                        ToolRow("Trier avec Claude", "Identifier et proposer, tu valides", onAssistedSort)
+                        RowDivider(0.dp)
+                    }
                     ToolRow("Règles et alias", rulesSummary, onOpenRules)
                     RowDivider(0.dp)
                     ToolRow("Déclasser ce mois-ci", "Tout, une enveloppe ou un libellé", onUnsort)

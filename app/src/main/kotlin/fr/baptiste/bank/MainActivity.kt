@@ -59,6 +59,9 @@ class MainActivity : ComponentActivity() {
             "ENVELOPE" -> OpenDialog.EnvelopeDetail(1)
             "UNSORT" -> OpenDialog.Unsort
             "RULES" -> OpenDialog.Rules
+            "ASSISTED" -> OpenDialog.AssistedSort()
+            // Validation du tri assisté, avec une réponse type de Claude pour les trois opérations de la démo.
+            "ASSISTED_REVIEW" -> OpenDialog.AssistedSort(demoReply = DEMO_ASSISTANT_REPLY)
             // Un nom déjà pris (« courses » existe) : le formulaire le signale.
             "DUPLICATE" -> OpenDialog.EnvelopeEditor(
                 fr.baptiste.bank.domain.model.Envelope(
@@ -125,5 +128,16 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_MONTHS_BACK = "monthsBack"
         const val EXTRA_BUDGET_VIEW = "budgetView"
         const val EXTRA_TUNING = "tuning"
+
+        private val DEMO_ASSISTANT_REPLY = """
+            Phase 1 et 2 faites. Voici le tableau :
+            ```json
+            [
+              {"n": 1, "nom": "Free Mobile", "enveloppe": "Téléphone", "nouvelle": true, "famille": "charges fixes", "motcle": "Free Mobile", "confiance": "haute", "raison": "Forfait mobile mensuel prélevé par Free."},
+              {"n": 2, "nom": "Carrefour City", "enveloppe": "Courses", "nouvelle": false, "famille": "quotidien", "motcle": "Carrefour City", "confiance": "haute", "raison": "Supérette alimentaire."},
+              {"n": 3, "nom": "Salaire", "enveloppe": "HORS BUDGET", "nouvelle": false, "famille": null, "motcle": "Salaire", "confiance": "moyenne", "raison": "Virement reçu de l'employeur."}
+            ]
+            ```
+        """.trimIndent()
     }
 }

@@ -32,6 +32,8 @@ import fr.baptiste.bank.ui.components.ExpenseSheet
 import fr.baptiste.bank.ui.components.IncomeDialog
 import fr.baptiste.bank.ui.bank.BankDialog
 import fr.baptiste.bank.ui.format.formatted
+import fr.baptiste.bank.domain.model.TransactionSource
+import fr.baptiste.bank.ui.assistant.AssistedSortDialog
 import fr.baptiste.bank.ui.operations.RenameOperationDialog
 import fr.baptiste.bank.ui.operations.RulesDialog
 import fr.baptiste.bank.ui.operations.SortOperationDialog
@@ -80,6 +82,9 @@ sealed interface OpenDialog {
     data class SortOperation(val operation: OperationRow, val preselectedEnvelopeId: Long? = null) : OpenDialog
     data class RenameOperation(val operation: OperationRow) : OpenDialog
     data object Unsort : OpenDialog
+
+    /** Tri assisté par Claude ; [demoReply] ouvre directement la validation (captures). */
+    data class AssistedSort(val demoReply: String? = null) : OpenDialog
     data object Rules : OpenDialog
 
     /** Les fenêtres liées à une enveloppe gardent son identifiant, pas sa ligne : elles suivent ainsi
@@ -313,6 +318,31 @@ fun AppDialogs(
             },
             onDismiss = ::close,
         )
+        is OpenDialog.AssistedSort -> {
+            val operations by viewModel.operations.collectAsStateWithLifecycle()
+            val toSort = remember(operations) {
+                operations.filter { it.envelopeNames == null && !it.ignored && it.source != TransactionSource.MANUAL }
+            }
+            AssistedSortDialog(
+                toSort = toSort,
+                envelopes = envelopes,
+                initialReply = current.demoReply,
+                onApply = { choices ->
+                    viewModel.applyAssistedSort(choices) { result ->
+                        controller.notify(
+                            buildString {
+                                append("${result.sorted} opération(s) rangée(s).")
+                                if (result.createdEnvelopes.isNotEmpty()) {
+                                    append(" Créée(s) à 0 € : ${result.createdEnvelopes.joinToString(", ")}, à budgéter.")
+                                }
+                            },
+                        )
+                    }
+                    close()
+                },
+                onDismiss = ::close,
+            )
+        }
         OpenDialog.Rules -> {
             val rules by viewModel.rules.collectAsStateWithLifecycle()
             val aliases by viewModel.aliases.collectAsStateWithLifecycle()
