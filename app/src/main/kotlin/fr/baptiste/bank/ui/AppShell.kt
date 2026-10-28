@@ -407,10 +407,18 @@ fun AppDialogs(
                         val sources = legs.joinToString(", ") { leg ->
                             "${leg.amount.formatted()} de ${leg.sourceEnvelopeId?.let(::nameOf) ?: "Non réparti"}"
                         }
+                        // Pris sur le non réparti pour une enveloppe hors quotidien : le budget du quotidien
+                        // baisse. Pour une enveloppe du quotidien, rien ne bouge : le dépassement le
+                        // réduisait déjà, l'argent change seulement d'étiquette.
                         val fromWallet = legs.any { it.sourceEnvelopeId == null }
+                        val daily = plan.target.envelope.type == fr.baptiste.bank.domain.model.EnvelopeType.DAILY
                         controller.notify(
                             "${plan.target.envelope.name} couverte : $sources." +
-                                if (fromWallet) " Le reste du jour et l'épargne prévue baissent d'autant." else "",
+                                when {
+                                    fromWallet && !daily -> " Le reste du jour et l'épargne prévue baissent d'autant."
+                                    fromWallet -> " Le budget du quotidien ne change pas : il comptait déjà ce dépassement."
+                                    else -> ""
+                                },
                             action = "Journal",
                         ) { controller.dialog = OpenDialog.Journal }
                         close()
