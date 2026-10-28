@@ -76,12 +76,17 @@ object DemoData {
         spend("Bar", 16, 1800L, "Bar du coin")
         spend("Projets", 5, 10000L, "Vélo")
         spend("Coiffeur", maxOf(1, today.dayOfMonth - 10), 3000L)
+        // Les charges fixes sont payées chaque mois : sans elles, leur montant passerait pour un reste.
+        spend("Prêt", 5, 40000L, "Échéance prêt")
+        spend("Abonnements", 10, 4200L, "Abonnements")
 
         // Cinq mois d'historique, pour l'épargne mois par mois : le quotidien varie d'un mois à l'autre.
         val monthlyDaily = listOf(62000L, 71000L, 58000L, 66000L, 69000L)
         monthlyDaily.forEachIndexed { index, total ->
             val month = YearMonth.from(today).minusMonths(index + 1L)
             val split = listOf("Courses" to 0.62, "Essence" to 0.18, "Sorties" to 0.20)
+            repository.addManualExpense(Money.euros(400), month.atDay(5), "Échéance prêt", byName.getValue("Prêt"))
+            repository.addManualExpense(Money(4200), month.atDay(10), "Abonnements", byName.getValue("Abonnements"))
             split.forEachIndexed { part, (name, share) ->
                 repository.addManualExpense(
                     Money((total * share).toLong()),
