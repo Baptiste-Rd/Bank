@@ -578,9 +578,11 @@ class BudgetRepository(
         }
     }
 
-    val savingsGoals: Flow<SavingsGoals> = settings.savingsGoals.map { (precaution, total) -> SavingsGoals(precaution, total) }
+    val savingsGoals: Flow<SavingsGoals> = combine(settings.savingsGoals, settings.savingsGoalBy) { (precaution, total), by ->
+        SavingsGoals(precaution, total, by)
+    }
 
-    suspend fun setSavingsGoals(goals: SavingsGoals) = settings.setSavingsGoals(goals.precaution, goals.total)
+    suspend fun setSavingsGoals(goals: SavingsGoals) = settings.setSavingsGoals(goals.precaution, goals.total, goals.totalBy)
 
     /** Ajoute un compte saisi à la main, avec son solde du jour. */
     suspend fun addManualAccount(name: String, type: AccountType, balance: Money): Long = database.withTransaction {

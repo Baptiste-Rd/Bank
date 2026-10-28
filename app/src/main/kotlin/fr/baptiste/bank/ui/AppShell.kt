@@ -380,8 +380,9 @@ fun AppDialogs(
             SavingsGoalsDialog(
                 precaution = goals.precaution,
                 total = goals.total,
-                onSave = { precaution, total ->
-                    viewModel.setSavingsGoals(fr.baptiste.bank.domain.budget.SavingsGoals(precaution, total))
+                totalBy = goals.totalBy,
+                onSave = { precaution, total, by ->
+                    viewModel.setSavingsGoals(fr.baptiste.bank.domain.budget.SavingsGoals(precaution, total, by))
                     close()
                 },
                 onDismiss = ::close,

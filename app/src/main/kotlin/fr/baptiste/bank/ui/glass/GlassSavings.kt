@@ -167,7 +167,7 @@ fun GlassSavingsContent(
         }
 
         // 4. Sur les autres comptes : ce qui est déjà de côté (le mois en cours seulement).
-        if (!readOnly && holdings != null) holdingsSection(holdings, goals, onManageAccounts, onOpenAccount, onEditGoals)
+        if (!readOnly && holdings != null) holdingsSection(holdings, goals, dashboard.savings.forecast, onManageAccounts, onOpenAccount, onEditGoals)
 
         // 5. Ce qui est mis de côté.
         if (savingsLines.isNotEmpty()) {
@@ -263,6 +263,7 @@ private fun GapTile(label: String, delta: Money, reference: String, modifier: Mo
 private fun LazyListScope.holdingsSection(
     holdings: Holdings,
     goals: SavingsGoals,
+    monthlySavings: Money,
     onManage: () -> Unit,
     onOpen: (HoldingLine) -> Unit,
     onEditGoals: () -> Unit,
@@ -292,7 +293,7 @@ private fun LazyListScope.holdingsSection(
                 if (parts.isNotEmpty()) {
                     Text(parts.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                GoalsBar(progress, Modifier.padding(top = 12.dp).clickable(onClick = onEditGoals))
+                GoalsBar(progress, monthlySavings, Modifier.padding(top = 12.dp).clickable(onClick = onEditGoals))
             }
             HoldingGroup("Disponible tout de suite", progress.available, holdings.lines.filter { it.account.type == AccountType.SAVINGS }, onOpen)
             HoldingGroup("Placé, valeur qui fluctue", progress.invested, holdings.lines.filter { it.account.type != AccountType.SAVINGS }, onOpen)
@@ -305,7 +306,7 @@ private fun LazyListScope.holdingsSection(
  * un repère marque la précaution. Toucher la barre règle les objectifs.
  */
 @Composable
-private fun GoalsBar(progress: GoalsProgress, modifier: Modifier = Modifier) {
+private fun GoalsBar(progress: GoalsProgress, monthlySavings: Money, modifier: Modifier = Modifier) {
     val status = BankTheme.status
     val accent = envelopeTypeColor(EnvelopeType.SAVINGS)
     val target = progress.goals.total
@@ -340,6 +341,26 @@ private fun GoalsBar(progress: GoalsProgress, modifier: Modifier = Modifier) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        // Avec une échéance : ce qu'elle demande par mois, et si l'épargne prévue du mois suit.
+        progress.pace(java.time.LocalDate.now(), monthlySavings)?.let { pace ->
+            val by = progress.goals.totalBy?.label.orEmpty()
+            Text(
+                "Pour fin $by : ${pace.monthlyNeeded.formatted()} par mois sur ${pace.monthsLeft} mois",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+            Text(
+                when {
+                    pace.onTrack -> "Ton épargne prévue ce mois (${pace.monthlyPace.formatted()}) suit ce rythme."
+                    pace.reachedAt != null ->
+                        "À ton rythme actuel (${pace.monthlyPace.formatted()} par mois), atteint fin ${pace.reachedAt?.label}."
+                    else -> "Ce mois-ci, rien n'est mis de côté : à ce rythme, l'objectif n'avance pas."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = if (pace.onTrack) status.good else status.warning,
+            )
+        }
     }
 }
 

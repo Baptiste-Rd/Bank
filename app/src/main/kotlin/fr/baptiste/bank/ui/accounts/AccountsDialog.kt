@@ -31,6 +31,7 @@ import fr.baptiste.bank.domain.money.Money
 import fr.baptiste.bank.ui.components.BlurBehindWindow
 import fr.baptiste.bank.ui.components.RowDivider
 import fr.baptiste.bank.ui.format.formatted
+import fr.baptiste.bank.ui.format.label
 import fr.baptiste.bank.domain.money.parseMoney
 import fr.baptiste.bank.ui.components.toFieldText
 
@@ -230,9 +231,12 @@ fun CurrentBalanceDialog(initial: Money?, onSave: (Money) -> Unit, onDismiss: ()
 fun SavingsGoalsDialog(
     precaution: Money,
     total: Money,
-    onSave: (precaution: Money, total: Money) -> Unit,
+    totalBy: java.time.YearMonth?,
+    onSave: (precaution: Money, total: Money, totalBy: java.time.YearMonth?) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    var by by rememberSaveable { mutableStateOf(totalBy?.toString()) }
+    var pickingMonth by remember { mutableStateOf(false) }
     var precautionText by rememberSaveable { mutableStateOf(precaution.toFieldText()) }
     var totalText by rememberSaveable { mutableStateOf(total.toFieldText()) }
     val p = parseMoney(precautionText)
@@ -265,10 +269,33 @@ fun SavingsGoalsDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
                 )
+                // Échéance du total : l'app en déduit combien mettre de côté chaque mois.
+                Text("Atteindre le total pour", style = MaterialTheme.typography.titleSmall)
+                androidx.compose.foundation.layout.Box {
+                    androidx.compose.material3.OutlinedButton(onClick = { pickingMonth = true }) {
+                        Text(by?.let { "fin ${java.time.YearMonth.parse(it).label}" } ?: "Sans échéance")
+                    }
+                    androidx.compose.material3.DropdownMenu(expanded = pickingMonth, onDismissRequest = { pickingMonth = false }) {
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text("Sans échéance") },
+                            onClick = { by = null; pickingMonth = false },
+                        )
+                        val now = java.time.YearMonth.now()
+                        (0L..36L).map { now.plusMonths(it) }.forEach { month ->
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { Text("fin ${month.label}") },
+                                onClick = { by = month.toString(); pickingMonth = false },
+                            )
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
-            TextButton(onClick = { if (p != null && t != null) onSave(p, t) }, enabled = valid) { Text("Enregistrer") }
+            TextButton(
+                onClick = { if (p != null && t != null) onSave(p, t, by?.let(java.time.YearMonth::parse)) },
+                enabled = valid,
+            ) { Text("Enregistrer") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } },
     )

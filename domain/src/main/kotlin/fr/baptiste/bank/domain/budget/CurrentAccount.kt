@@ -84,7 +84,26 @@ fun Dashboard.explainCurrentAccount(
  * Objectifs d'épargne, par paliers : d'abord la précaution (sur ce qui est disponible tout de
  * suite, les livrets), puis un total pour les projets de vie (tous comptes). Au-delà : projets.
  */
-data class SavingsGoals(val precaution: Money, val total: Money)
+data class SavingsGoals(
+    val precaution: Money,
+    val total: Money,
+    /** Mois où le total doit être atteint (fin de ce mois), ou null : sans échéance. */
+    val totalBy: java.time.YearMonth? = null,
+)
+
+/** Ce que demande l'échéance du total, comparé au rythme d'épargne du mois. */
+data class GoalPace(
+    /** Salaires restants d'ici l'échéance : les mois après le mois en cours, échéance comprise. */
+    val monthsLeft: Int,
+    /** À mettre de côté par mois pour y arriver (arrondi à l'euro supérieur). */
+    val monthlyNeeded: Money,
+    /** Épargne prévue ce mois-ci. */
+    val monthlyPace: Money,
+    /** À ce rythme, le mois où le total serait atteint (null : rythme nul ou négatif). */
+    val reachedAt: java.time.YearMonth?,
+) {
+    val onTrack: Boolean get() = monthlyPace >= monthlyNeeded
+}
 
 data class GoalsProgress(
     val available: Money,
@@ -101,6 +120,25 @@ data class GoalsProgress(
 
     /** Au-delà du total visé : la part libre pour les projets personnels. */
     val beyond: Money get() = (total - goals.total).let { if (it.isPositive) it else Money.ZERO }
+
+    /**
+     * Rythme demandé par l'échéance, ou null (pas d'échéance, ou total déjà atteint). Le mois en
+     * cours n'est pas compté : son salaire est déjà réparti ; ce qu'il reste à épargner se joue sur
+     * les salaires suivants. Une échéance déjà passée ou ce mois-ci compte pour un mois.
+     */
+    fun pace(today: java.time.LocalDate, monthlySavings: Money): GoalPace? {
+        val by = goals.totalBy ?: return null
+        if (totalReached) return null
+        val current = java.time.YearMonth.from(today)
+        val monthsLeft = maxOf(1, java.time.temporal.ChronoUnit.MONTHS.between(current, by).toInt())
+        val needed = totalMissing.divideCeil(monthsLeft.toLong() * 100) * 100
+        val reachedAt = if (monthlySavings.isPositive) {
+            current.plusMonths(maxOf(1L, totalMissing.divideCeil(monthlySavings.cents).cents))
+        } else {
+            null
+        }
+        return GoalPace(monthsLeft, needed, monthlySavings, reachedAt)
+    }
 }
 
 /** Avancement vers les objectifs : les livrets comptent comme disponibles, les placements à part. */
