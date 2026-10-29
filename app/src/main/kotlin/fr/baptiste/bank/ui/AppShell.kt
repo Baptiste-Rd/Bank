@@ -520,7 +520,8 @@ fun AppDialogs(
             val board = dashboard
             val line = board?.envelopes?.firstOrNull { it.envelope.id == current.envelopeId }
             if (board == null || line == null) {
-                LaunchedEffect(current) { close() }
+                // Pendant le premier chargement, on attend ; une enveloppe disparue ferme la fenêtre.
+                if (board != null) LaunchedEffect(current) { close() }
             } else {
                 TransferDialog(
                     dashboard = board,
