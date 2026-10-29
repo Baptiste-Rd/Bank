@@ -65,6 +65,8 @@ fun GlassOperationsContent(
     onAssistedSort: () -> Unit = {},
     /** Opérations en attente à la banque : montrées, pas encore importées. */
     pending: List<PendingOperation> = emptyList(),
+    /** En-tête de l'écran (titre, bascule Analyse | Liste) ; par défaut le titre « Opérations ». */
+    header: (androidx.compose.foundation.lazy.LazyListScope.() -> Unit)? = null,
 ) {
     var pendingDelete by remember { mutableStateOf<OperationRow?>(null) }
     val toSortColor = BankTheme.status.warning
@@ -90,7 +92,7 @@ fun GlassOperationsContent(
         contentPadding = glassContentPadding(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        largeTitle("Opérations")
+        if (header != null) header() else largeTitle("Opérations")
         if (operations.isEmpty()) {
             item(key = "empty") {
                 GlassCard(strong = true) {

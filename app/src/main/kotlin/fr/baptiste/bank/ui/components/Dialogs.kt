@@ -30,7 +30,6 @@ import fr.baptiste.bank.domain.budget.monthsUntil
 import fr.baptiste.bank.domain.budget.purchaseMonth
 import fr.baptiste.bank.domain.model.DEFAULT_CATEGORY
 import fr.baptiste.bank.domain.model.Envelope
-import fr.baptiste.bank.domain.model.category
 import fr.baptiste.bank.domain.model.categoryChoices
 import fr.baptiste.bank.domain.model.storedCategory
 import fr.baptiste.bank.domain.model.suggestCategory
@@ -72,7 +71,9 @@ fun EnvelopeDialog(
     val today = LocalDate.now()
     var name by rememberSaveable { mutableStateOf(initial?.name.orEmpty()) }
     // Catégorie : choisie dans la liste, ou suggérée d'après le nom tant que je n'y ai pas touché.
-    var category by rememberSaveable { mutableStateOf(initial?.category ?: DEFAULT_CATEGORY) }
+    var category by rememberSaveable {
+        mutableStateOf(initial?.group ?: suggestCategory(initial?.name.orEmpty()) ?: DEFAULT_CATEGORY)
+    }
     var categoryChosen by rememberSaveable { mutableStateOf(initial?.group != null || (initial != null && initial.id != 0L)) }
     var newCategory by rememberSaveable { mutableStateOf<String?>(null) }
     var type by rememberSaveable { mutableStateOf(initial?.type ?: EnvelopeType.DAILY) }

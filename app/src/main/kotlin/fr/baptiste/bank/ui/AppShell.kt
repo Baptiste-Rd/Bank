@@ -71,8 +71,8 @@ enum class Tab(val title: String, @DrawableRes val icon: Int) {
     /** Combien vais-je mettre de côté ? */
     SAVINGS("Épargne", R.drawable.ic_savings),
 
-    /** Que s'est-il passé ? */
-    OPERATIONS("Opérations", R.drawable.ic_list),
+    /** Que s'est-il passé ? Où est parti l'argent ? */
+    OPERATIONS("Dépenses", R.drawable.ic_list),
 }
 
 /** Les fenêtres ouvertes sont décrites par un état unique : une seule s'affiche à la fois. */

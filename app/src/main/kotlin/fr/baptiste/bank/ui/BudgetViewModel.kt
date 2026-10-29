@@ -33,6 +33,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
+import fr.baptiste.bank.domain.budget.YearSpending
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -97,12 +100,35 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
 
     fun nextYear() = _selectedYear.update { if (it < LocalDate.now().year) it + 1 else it }
 
+    /** Choisit un mois (au plus le mois en cours), depuis l'histogramme de l'année. */
+    fun selectMonth(month: YearMonth) {
+        _selectedMonth.value = minOf(month, YearMonth.now())
+    }
+
     /** Mois suivant, sans dépasser le mois en cours. */
     fun nextMonth() {
         _selectedMonth.update { if (it < YearMonth.now()) it.plusMonths(1) else it }
     }
 
     val operations: StateFlow<List<OperationRow>> = repository.recentOperations().asState(emptyList())
+
+    /** Dépenses de l'année du mois consulté (vue Mois de l'analyse). */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val monthYearSpending: StateFlow<YearSpending?> = _selectedMonth
+        .map { it.year }
+        .distinctUntilChanged()
+        .flatMapLatest { repository.spendingYear(it) }
+        .asState(null)
+
+    /** Dépenses de l'année consultée (vue Année de l'analyse). */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val yearSpending: StateFlow<YearSpending?> = _selectedYear
+        .flatMapLatest { repository.spendingYear(it) }
+        .asState(null)
+
+    /** Opérations d'une enveloppe sur un mois, pour la descente de l'analyse. */
+    fun envelopeMonthOperations(envelopeId: Long, month: YearMonth): Flow<List<OperationRow>> =
+        repository.envelopeMonthOperations(envelopeId, month)
 
     /** Opérations d'une enveloppe sur une période (fiche d'enveloppe). */
     fun envelopeOperations(envelopeId: Long, periodKey: String): Flow<List<OperationRow>> =

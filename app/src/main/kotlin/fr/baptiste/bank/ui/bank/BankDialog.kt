@@ -345,6 +345,12 @@ private fun ConnectedSection(connection: BankConnection, viewModel: BankViewMode
             "à quatre les consultations automatiques par jour. Les nouvelles opérations sont rapprochées de " +
             "tes saisies, rangées par tes règles, et le reste attend dans l'onglet Opérations.",
     )
+    OutlinedButton(onClick = viewModel::fetchHistory) { Text("Récupérer l'historique depuis le 1er janvier") }
+    Hint(
+        (connection.historyOldest?.let { "Historique reçu jusqu'au ${it.format(dateOnly)}. " } ?: "") +
+            "Les banques donnent souvent 90 jours ; au-delà, certaines demandent une connexion récente : " +
+            "si elle refuse, reconnecte la banque puis réessaie aussitôt. Les opérations déjà là ne sont pas doublées.",
+    )
     OutlinedButton(onClick = { confirmDisconnect = true }) { Text("Déconnecter la banque") }
 
     if (confirmDisconnect) {

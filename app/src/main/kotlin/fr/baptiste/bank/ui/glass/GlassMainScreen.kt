@@ -25,6 +25,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -75,6 +76,7 @@ fun GlassMainScreen(
     initialBudgetView: BudgetView = BudgetView.MONTH,
     /** Ouvre directement le menu développeur (captures d'écran). */
     initialTuningOpen: Boolean = false,
+    initialSpendingView: SpendingTabView = SpendingTabView.ANALYSIS,
 ) {
     val controller = rememberAppController(initialTab, initialDialog)
     val dashboard by viewModel.dashboard.collectAsStateWithLifecycle()
@@ -106,6 +108,17 @@ fun GlassMainScreen(
     val sortedHistory by viewModel.sortedHistory.collectAsStateWithLifecycle()
     val updateAvailable = rememberUpdateAvailable(updateViewModel)
     var menuOpen by remember { mutableStateOf(false) }
+    var spendingView by rememberSaveable { mutableStateOf(initialSpendingView) }
+    // En-tête de l'onglet Dépenses, commun aux deux vues.
+    val spendingHeader: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {
+        largeTitle("Dépenses")
+        item(key = "spending-view") {
+            SegmentedToggle(
+                listOf("Analyse", if (unsortedCount > 0) "Liste · $unsortedCount à trier" else "Liste"),
+                spendingView.ordinal,
+            ) { spendingView = SpendingTabView.entries[it] }
+        }
+    }
 
     // Réglages du verre : ceux enregistrés, ou l'essai en cours quand le menu développeur est ouvert.
     val savedTuningText by viewModel.glassTuning.collectAsStateWithLifecycle()
@@ -147,7 +160,11 @@ fun GlassMainScreen(
                         onEditIncome = { controller.dialog = OpenDialog.Income },
                         onCover = cover,
                         onOpenEnvelope = openEnvelope,
-                        onOpenTab = { controller.tab = it },
+                        onOpenTab = {
+                            // Le lien « à trier » de l'accueil mène à la liste, pas à l'analyse.
+                            if (it == Tab.OPERATIONS) spendingView = SpendingTabView.LIST
+                            controller.tab = it
+                        },
                     )
                     Tab.BUDGET -> {
                         val yearOverview by viewModel.yearOverview.collectAsStateWithLifecycle()
@@ -205,7 +222,33 @@ fun GlassMainScreen(
                             controller.notify("Suivi depuis ${month.label}.")
                         },
                     )
-                    Tab.OPERATIONS -> GlassOperationsContent(
+                    Tab.OPERATIONS -> if (spendingView == SpendingTabView.ANALYSIS) {
+                        val monthYearSpending by viewModel.monthYearSpending.collectAsStateWithLifecycle()
+                        val yearSpending by viewModel.yearSpending.collectAsStateWithLifecycle()
+                        GlassAnalysisContent(
+                            header = spendingHeader,
+                            month = selectedMonth,
+                            monthYear = monthYearSpending,
+                            canNextMonth = selectedMonth < YearMonth.now(),
+                            onPreviousMonth = viewModel::previousMonth,
+                            onNextMonth = viewModel::nextMonth,
+                            year = selectedYear,
+                            yearSpending = yearSpending,
+                            canNextYear = selectedYear < LocalDate.now().year,
+                            onPreviousYear = viewModel::previousYear,
+                            onNextYear = viewModel::nextYear,
+                            onSelectMonth = viewModel::selectMonth,
+                            trackingStart = trackingStart,
+                            onTrackMonth = { month ->
+                                viewModel.setTrackingStart(month)
+                                controller.notify("Suivi depuis ${month.label}.")
+                            },
+                            onSort = { spendingView = SpendingTabView.LIST },
+                            envelopeOperations = viewModel::envelopeMonthOperations,
+                            initialYear = initialBudgetView == BudgetView.YEAR,
+                        )
+                    } else GlassOperationsContent(
+                        header = spendingHeader,
                         operations = operations,
                         envelopes = envelopes + archived,
                         onDelete = viewModel::deleteExpense,

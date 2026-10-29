@@ -20,6 +20,7 @@ import fr.baptiste.bank.ui.ClassicMainScreen
 import fr.baptiste.bank.ui.OpenDialog
 import fr.baptiste.bank.ui.Tab
 import fr.baptiste.bank.ui.glass.BudgetView
+import fr.baptiste.bank.ui.glass.SpendingTabView
 import fr.baptiste.bank.ui.glass.GlassMainScreen
 import fr.baptiste.bank.ui.glass.GlassTheme
 import fr.baptiste.bank.ui.theme.BankTheme
@@ -32,7 +33,8 @@ import java.time.YearMonth
  * Paramètres de lancement facultatifs, utilisés par les captures d'écran automatiques :
  * `demo` (base d'exemple séparée), `style` (GLASS ou CLASSIC, sans enregistrer le choix)
  * `tab` (HOME, BUDGET, SAVINGS ou OPERATIONS), `dialog` (BANK ou PLANNED), `monthsBack`
- * (nombre de mois en arrière) et `budgetView` (YEAR pour la vue à l'année).
+ * (nombre de mois en arrière), `budgetView` (YEAR pour la vue à l'année, Budget et Analyse) et
+ * `spendingView` (LIST pour la liste des opérations de l'onglet Dépenses).
  */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,6 +51,7 @@ class MainActivity : ComponentActivity() {
         // Fenêtres ouvrables au lancement, pour les captures : la connexion bancaire, un achat prévu.
         val monthsBack = intent.getIntExtra(EXTRA_MONTHS_BACK, 0).coerceIn(0, 36)
         val initialBudgetView = if (intent.getStringExtra(EXTRA_BUDGET_VIEW) == "YEAR") BudgetView.YEAR else BudgetView.MONTH
+        val initialSpendingView = if (intent.getStringExtra(EXTRA_SPENDING_VIEW) == "LIST") SpendingTabView.LIST else SpendingTabView.ANALYSIS
         val initialDialog = when (intent.getStringExtra(EXTRA_DIALOG)) {
             "BANK" -> OpenDialog.Bank
             // Formulaire d'un nouvel achat prévu, pré-rempli comme depuis le modèle.
@@ -112,6 +115,7 @@ class MainActivity : ComponentActivity() {
                         initialDialog,
                         initialBudgetView,
                         initialTuningOpen,
+                        initialSpendingView,
                     )
                 }
                 UiStyle.CLASSIC -> BankTheme {
@@ -128,6 +132,7 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_DIALOG = "dialog"
         const val EXTRA_MONTHS_BACK = "monthsBack"
         const val EXTRA_BUDGET_VIEW = "budgetView"
+        const val EXTRA_SPENDING_VIEW = "spendingView"
         const val EXTRA_TUNING = "tuning"
 
         private val DEMO_ASSISTANT_REPLY = """

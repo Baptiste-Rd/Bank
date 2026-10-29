@@ -53,6 +53,8 @@ data class BankConnection(
     val pendingApplied: Long = 0,
     /** Opérations en attente à la banque (paiements, retraits pas encore comptabilisés). */
     val pending: List<PendingOperation> = emptyList(),
+    /** Plus ancienne opération reçue lors d'une récupération d'historique (null : jamais demandée). */
+    val historyOldest: LocalDate? = null,
 ) {
     /** Identifiant et clé fournis : on peut parler à l'API. */
     val isConfigured: Boolean get() = !applicationId.isNullOrBlank() && hasKey
@@ -64,6 +66,16 @@ data class BankConnection(
     /** Consentement présent mais expiré : il faut repasser par la banque. */
     val isExpired: Boolean get() = sessionId != null && validUntil != null && !validUntil.isAfter(Instant.now())
 }
+
+/** Résultat d'une récupération d'historique : ce qui a été importé, et jusqu'où la banque est remontée. */
+data class HistoryResult(
+    val import: ImportResult,
+    val requested: LocalDate,
+    /** Plus ancienne opération reçue (null : aucune). */
+    val oldest: LocalDate?,
+    /** Raison du refus de la banque pour la date demandée (null : acceptée). */
+    val refused: String? = null,
+)
 
 /**
  * Connexion à la banque via Enable Banking, et synchronisation des opérations.
@@ -98,6 +110,7 @@ class BankSyncRepository(
         val balanceType = stringPreferencesKey("balance_type")
         val pendingApplied = longPreferencesKey("pending_applied")
         val pendingOperations = stringPreferencesKey("pending_operations")
+        val historyOldest = stringPreferencesKey("history_oldest")
 
         /** Comptes autorisés lors de la connexion, une ligne par compte (uid, libellé, fin d'IBAN, type). */
         val sessionAccounts = stringPreferencesKey("session_accounts")
@@ -146,6 +159,7 @@ class BankSyncRepository(
         }.toMap(),
         balanceType = this[Keys.balanceType],
         pendingApplied = this[Keys.pendingApplied] ?: 0,
+        historyOldest = this[Keys.historyOldest]?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
         pending = this[Keys.pendingOperations].orEmpty().lines().mapNotNull { line ->
             val parts = line.split('\t')
             if (parts.size < 3) return@mapNotNull null
@@ -313,6 +327,37 @@ class BankSyncRepository(
             )
         }
         return result
+    }
+
+    /**
+     * Récupère l'historique depuis [from] (par défaut le 1er janvier), sans toucher au solde ni à la
+     * date de dernière synchronisation. Les opérations déjà là sont écartées par le dédoublonnage.
+     * Au-delà de 90 jours, une banque peut exiger une authentification récente : si elle refuse,
+     * on redemande les 89 derniers jours et on le dit.
+     */
+    suspend fun fetchHistory(from: LocalDate = LocalDate.now().withDayOfYear(1)): HistoryResult {
+        val preferences = store.data.first()
+        val uid = preferences[Keys.accountUid] ?: throw IllegalStateException("Aucun compte choisi.")
+        val client = client()
+        val fallback = LocalDate.now().minusDays(89)
+        val (operations, refused) = try {
+            client.bookedTransactions(uid, from) to null
+        } catch (error: EnableBankingException) {
+            if (!from.isBefore(fallback)) throw error
+            client.bookedTransactions(uid, fallback) to (error.message ?: "refus de la banque")
+        }
+        val result = budget.importBankOperations(
+            accountUid = uid,
+            accountName = preferences[Keys.accountLabel] ?: "Compte courant",
+            ibanSuffix = preferences[Keys.accountIbanSuffix],
+            operations = operations,
+        )
+        val oldest = operations.minOfOrNull { it.date }
+        store.edit { prefs ->
+            val known = prefs[Keys.historyOldest]?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+            listOfNotNull(oldest, known).minOrNull()?.let { prefs[Keys.historyOldest] = it.toString() }
+        }
+        return HistoryResult(result, requested = from, oldest = oldest, refused = refused)
     }
 
     /** Vrai si une synchronisation automatique est due (dernière il y a plus de 6 heures). */

@@ -39,6 +39,8 @@ import fr.baptiste.bank.domain.budget.SavingsGoals
 import fr.baptiste.bank.domain.budget.explainCurrentAccount
 import fr.baptiste.bank.domain.budget.SavingsOutlook
 import fr.baptiste.bank.domain.budget.Spending
+import fr.baptiste.bank.domain.budget.YearSpending
+import fr.baptiste.bank.domain.budget.yearSpending
 import fr.baptiste.bank.domain.budget.Transfer
 import fr.baptiste.bank.domain.budget.TransferLeg
 import fr.baptiste.bank.domain.budget.computeDashboard
@@ -598,6 +600,28 @@ class BudgetRepository(
         }
 
     suspend fun setTrackingStart(month: YearMonth?) = settings.setTrackingStart(month)
+
+    /**
+     * Dépenses réelles de [year], mois par mois, par catégorie et par enveloppe (archivées comprises :
+     * leurs dépenses restent), avec ce qui reste à trier chaque mois. Voir [yearSpending].
+     */
+    fun spendingYear(year: Int, today: LocalDate = LocalDate.now()): Flow<YearSpending> {
+        val from = LocalDate.of(year, 1, 1)
+        val to = LocalDate.of(year, 12, 31)
+        val all = combine(envelopes, archivedEnvelopes) { active, archived -> active + archived }
+        val spendings = imputationDao.observeSpendings(from, to)
+            .map { rows -> rows.map { Spending(it.envelopeId, it.date, Money(it.amountCents), it.wholePeriod) } }
+        val unsorted = transactionDao.observeUnsortedOutRows(from, to).map { rows ->
+            rows.groupBy { YearMonth.from(it.date) }.mapValues { (_, list) -> Money(list.sumOf { it.amountCents }) }
+        }
+        return combine(all, spendings, unsorted, trackingStart(today)) { envelopes, spent, toSort, start ->
+            yearSpending(year, today, start, envelopes, spent, toSort)
+        }
+    }
+
+    /** Opérations d'une enveloppe sur un mois, avec la part qui lui revient (analyse des dépenses). */
+    fun envelopeMonthOperations(envelopeId: Long, month: YearMonth): Flow<List<OperationRow>> =
+        transactionDao.observeEnvelopeOperationsBetween(envelopeId, month.atDay(1), month.atEndOfMonth())
 
     /** Dernier solde du compte courant : lu à la banque ou saisi à la main. */
     val currentAccountBalance: Flow<BalanceSnapshot?> = balanceDao.observeCurrentAccountBalance()

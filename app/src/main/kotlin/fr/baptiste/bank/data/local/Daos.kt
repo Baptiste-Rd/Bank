@@ -170,6 +170,12 @@ interface AllocationDao {
     fun observeAll(): Flow<List<AllocationEntity>>
 }
 
+/** Un montant daté (positif), pour des totaux par mois. */
+data class DatedAmount(
+    val date: LocalDate,
+    @ColumnInfo(name = "amount_cents") val amountCents: Long,
+)
+
 /** Une dépense vue depuis une enveloppe : la date vient de la transaction, le montant de l'imputation. */
 data class SpendingRow(
     @ColumnInfo(name = "envelope_id") val envelopeId: Long,
@@ -254,6 +260,26 @@ interface TransactionDao {
     )
     fun observeEnvelopeOperations(envelopeId: Long, periodKey: String): Flow<List<OperationRow>>
 
+    /**
+     * Opérations d'une enveloppe entre deux dates (analyse des dépenses), avec la part imputée à
+     * cette enveloppe : une opération répartie n'y compte que pour sa part.
+     */
+    @Query(
+        """
+        SELECT t.id AS id, t.date AS date, -i.amount_cents AS amount_cents,
+               COALESCE(t.alias, t.clean_label) AS display_label, t.clean_label AS clean_label,
+               t.source AS source, t.ignored AS ignored, e.name AS envelope_names,
+               i.whole_period AS whole_period, i.period_key AS period_key, ta.name AS transfer_account
+        FROM imputation i
+        INNER JOIN transaction_record t ON t.id = i.transaction_id
+        INNER JOIN envelope e ON e.id = i.envelope_id
+        LEFT JOIN account ta ON ta.id = t.transfer_account_id
+        WHERE i.envelope_id = :envelopeId AND t.date BETWEEN :from AND :to
+        ORDER BY t.date DESC, t.id DESC
+        """,
+    )
+    fun observeEnvelopeOperationsBetween(envelopeId: Long, from: LocalDate, to: LocalDate): Flow<List<OperationRow>>
+
     /** Date de la première opération enregistrée : l'historique commence là. */
     @Query("SELECT MIN(date) FROM transaction_record")
     fun observeFirstDate(): Flow<LocalDate?>
@@ -287,6 +313,16 @@ interface TransactionDao {
         """,
     )
     fun observeUnsortedOut(from: LocalDate, to: LocalDate): Flow<Long>
+
+    /** Les mêmes dépenses à trier, une ligne par opération (date, montant positif). */
+    @Query(
+        """
+        SELECT t.date AS date, -t.amount_cents AS amount_cents FROM transaction_record t
+        WHERE t.ignored = 0 AND t.amount_cents < 0 AND t.source != 'MANUAL' AND t.date BETWEEN :from AND :to
+          AND NOT EXISTS (SELECT 1 FROM imputation i WHERE i.transaction_id = t.id)
+        """,
+    )
+    fun observeUnsortedOutRows(from: LocalDate, to: LocalDate): Flow<List<DatedAmount>>
 
     /** Montants des virements vers mes comptes sur une plage de dates. */
     @Query("SELECT amount_cents FROM transaction_record WHERE transfer_account_id IS NOT NULL AND date BETWEEN :from AND :to")

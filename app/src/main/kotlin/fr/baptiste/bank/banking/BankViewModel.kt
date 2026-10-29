@@ -88,6 +88,23 @@ class BankViewModel(private val repository: BankSyncRepository?) : ViewModel() {
 
     fun syncNow() = launchAction { report(repository?.sync()) }
 
+    /** Récupère l'historique depuis le 1er janvier et dit jusqu'où la banque est remontée. */
+    fun fetchHistory() = launchAction {
+        val result = repository?.fetchHistory() ?: return@launchAction
+        val format = java.time.format.DateTimeFormatter.ofPattern("d MMMM yyyy", java.util.Locale.FRANCE)
+        _message.value = buildString {
+            if (result.refused != null) {
+                append("La banque refuse de remonter au ${result.requested.format(format)}. ")
+            }
+            append(
+                result.oldest?.let { "Historique reçu jusqu'au ${it.format(format)}" }
+                    ?: "Aucune opération reçue",
+            )
+            val added = result.import.added
+            append(if (added == 0) " ; rien de nouveau." else " : $added opération(s) ajoutée(s), ${result.import.toSort} à trier.")
+        }
+    }
+
     /** Synchronisation discrète à l'ouverture de l'app, si la dernière date de plus de 6 heures. */
     fun syncIfDue() {
         val repository = repository ?: return
