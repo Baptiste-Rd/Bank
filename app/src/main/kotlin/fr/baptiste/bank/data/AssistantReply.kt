@@ -26,6 +26,7 @@ fun parseAssistantReply(reply: String): List<AssistantProposal>? {
             keyword = item.text("motcle"),
             confidence = item.text("confiance"),
             reason = item.text("raison"),
+            category = item.text("categorie") ?: item.text("catégorie"),
         )
     }.distinctBy { it.ref }
 }

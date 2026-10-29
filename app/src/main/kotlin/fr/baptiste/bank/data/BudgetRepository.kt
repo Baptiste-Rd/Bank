@@ -507,6 +507,7 @@ class BudgetRepository(
                             amount = Money.ZERO,
                             status = type.defaultStatus,
                             anchor = if (type.defaultFrequency.isCalendar) null else LocalDate.now(),
+                            group = (target as? ProposalTarget.New)?.category,
                         )
                         val id = saveEnvelope(draft)
                         created += name

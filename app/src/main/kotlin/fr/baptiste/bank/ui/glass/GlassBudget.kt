@@ -79,19 +79,23 @@ private data class PlanPart(val family: EnvelopeFamily, val amount: Money)
 /** Vue de l'onglet Budget. */
 enum class BudgetView { MONTH, YEAR }
 
-/** Ce qu'une carte de famille empile : une enveloppe seule, ou un groupe et ses enveloppes. */
+/** Ce qu'une carte de famille empile : une enveloppe seule, ou une catégorie et ses enveloppes. */
 private sealed interface FamilyEntry {
     data class Single(val line: EnvelopeLine) : FamilyEntry
     data class Group(val name: String, val lines: List<EnvelopeLine>) : FamilyEntry
 }
 
-/** Range les lignes d'une famille : chaque groupe à la place de sa première enveloppe. */
+/**
+ * Range les lignes d'une famille : une catégorie qui y réunit au moins deux enveloppes prend la
+ * place de la première ; une enveloppe seule de sa catégorie (ou dans « Autres ») reste seule.
+ */
 private fun List<EnvelopeLine>.entries(): List<FamilyEntry> {
     val seen = mutableSetOf<String>()
+    val shared = mapNotNull { it.envelope.group }.groupingBy { it }.eachCount().filterValues { it >= 2 }.keys
     return mapNotNull { line ->
         val group = line.envelope.group
         when {
-            group == null -> FamilyEntry.Single(line)
+            group == null || group !in shared -> FamilyEntry.Single(line)
             seen.add(group) -> FamilyEntry.Group(group, filter { it.envelope.group == group })
             else -> null
         }

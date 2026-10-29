@@ -28,7 +28,12 @@ import fr.baptiste.bank.domain.bank.isNameTaken
 import fr.baptiste.bank.domain.budget.convert
 import fr.baptiste.bank.domain.budget.monthsUntil
 import fr.baptiste.bank.domain.budget.purchaseMonth
+import fr.baptiste.bank.domain.model.DEFAULT_CATEGORY
 import fr.baptiste.bank.domain.model.Envelope
+import fr.baptiste.bank.domain.model.category
+import fr.baptiste.bank.domain.model.categoryChoices
+import fr.baptiste.bank.domain.model.storedCategory
+import fr.baptiste.bank.domain.model.suggestCategory
 import fr.baptiste.bank.domain.model.EnvelopeStatus
 import fr.baptiste.bank.domain.model.EnvelopeType
 import fr.baptiste.bank.domain.money.Money
@@ -51,20 +56,25 @@ internal fun Money.toFieldText(): String =
  * habituels de ce type (une charge fixe est mensuelle et protégée, un projet est annuel...).
  * La période se règle librement : par mois, toutes les 6 semaines, tous les 10 jours...
  */
+private const val NEW_CATEGORY = "Nouvelle catégorie…"
+
 @Composable
 fun EnvelopeDialog(
     initial: Envelope?,
     onDismiss: () -> Unit,
     onSave: (Envelope) -> Unit,
     onArchive: (Envelope) -> Unit,
-    /** Groupes déjà utilisés, proposés en un geste. */
+    /** Catégories que j'ai déjà créées, proposées avec la liste de départ. */
     groups: List<String> = emptyList(),
     /** Noms des autres enveloppes (actives et archivées) : un nom ne sert qu'une fois. */
     takenNames: List<String> = emptyList(),
 ) {
     val today = LocalDate.now()
     var name by rememberSaveable { mutableStateOf(initial?.name.orEmpty()) }
-    var group by rememberSaveable { mutableStateOf(initial?.group.orEmpty()) }
+    // Catégorie : choisie dans la liste, ou suggérée d'après le nom tant que je n'y ai pas touché.
+    var category by rememberSaveable { mutableStateOf(initial?.category ?: DEFAULT_CATEGORY) }
+    var categoryChosen by rememberSaveable { mutableStateOf(initial?.group != null || (initial != null && initial.id != 0L)) }
+    var newCategory by rememberSaveable { mutableStateOf<String?>(null) }
     var type by rememberSaveable { mutableStateOf(initial?.type ?: EnvelopeType.DAILY) }
     var scale by rememberSaveable { mutableStateOf(initial?.frequency?.scale ?: type.defaultFrequency.scale) }
     var everyText by rememberSaveable { mutableStateOf((initial?.frequency?.every ?: 1).toString()) }
@@ -118,7 +128,10 @@ fun EnvelopeDialog(
             ) {
                 OutlinedTextField(
                     value = name,
-                    onValueChange = { name = it },
+                    onValueChange = {
+                        name = it
+                        if (!categoryChosen) category = suggestCategory(it) ?: DEFAULT_CATEGORY
+                    },
                     label = { Text("Nom") },
                     isError = nameTaken,
                     supportingText = if (nameTaken) {
@@ -129,23 +142,32 @@ fun EnvelopeDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                // Groupe : un niveau, sans budget propre ; il additionne ses enveloppes (Courses et Bar
-                // dans Nourriture). Une dépense reste imputée à l'enveloppe, jamais au groupe.
-                OutlinedTextField(
-                    value = group,
-                    onValueChange = { group = it },
-                    label = { Text("Groupe (facultatif)") },
-                    supportingText = { Text("Ex. « Nourriture » pour Courses et Bar : le groupe additionne ses enveloppes.") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                val otherGroups = groups.filter { it != group.trim() }
-                if (otherGroups.isNotEmpty()) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        otherGroups.take(3).forEach { existing ->
-                            androidx.compose.material3.AssistChip(onClick = { group = existing }, label = { Text(existing) })
+                // Catégorie : réunit plusieurs enveloppes (Courses et Bar dans Nourriture) pour les
+                // statistiques. Une dépense reste imputée à l'enveloppe, jamais à la catégorie.
+                val categoryOptions = remember(groups) { categoryChoices(groups) + NEW_CATEGORY }
+                ChoiceField(
+                    label = "Catégorie",
+                    selected = if (newCategory != null) NEW_CATEGORY else category,
+                    options = categoryOptions,
+                    optionLabel = { it },
+                    onSelect = {
+                        categoryChosen = true
+                        if (it == NEW_CATEGORY) {
+                            newCategory = ""
+                        } else {
+                            newCategory = null
+                            category = it
                         }
-                    }
+                    },
+                )
+                newCategory?.let { typed ->
+                    OutlinedTextField(
+                        value = typed,
+                        onValueChange = { newCategory = it },
+                        label = { Text("Nom de la catégorie") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
                 ChoiceField(
                     label = "Type",
@@ -261,7 +283,7 @@ fun EnvelopeDialog(
                                 frequency = frequency,
                                 amount = amount,
                                 status = status,
-                                group = group.trim().ifEmpty { null },
+                                group = storedCategory(newCategory?.takeIf { it.isNotBlank() } ?: category),
                                 anchor = when {
                                     type == EnvelopeType.PLANNED -> plannedStart
                                     frequency.isCalendar -> null

@@ -44,16 +44,16 @@ object DemoData {
                 anchor = if (frequency.isCalendar) null else today.minusDays(20),
             )
         listOf(
-            // Un groupe : Courses et Bar sont réunis sous « Nourriture ».
+            // Une catégorie partagée : Courses et Bar sont réunis sous « Nourriture ».
             envelope("Courses", EnvelopeType.DAILY, 320).copy(group = "Nourriture"),
             envelope("Bar", EnvelopeType.DAILY, 60).copy(group = "Nourriture"),
-            envelope("Essence", EnvelopeType.DAILY, 120),
-            envelope("Sorties", EnvelopeType.DAILY, 80),
-            envelope("Coiffeur", EnvelopeType.RECURRING, 30, Frequency(6, Scale.WEEK)),
-            envelope("Abonnements", EnvelopeType.FIXED, 45),
-            envelope("Prêt", EnvelopeType.FIXED, 400),
+            envelope("Essence", EnvelopeType.DAILY, 120).copy(group = "Transports"),
+            envelope("Sorties", EnvelopeType.DAILY, 80).copy(group = "Loisirs"),
+            envelope("Coiffeur", EnvelopeType.RECURRING, 30, Frequency(6, Scale.WEEK)).copy(group = "Santé"),
+            envelope("Abonnements", EnvelopeType.FIXED, 45).copy(group = "Abonnements"),
+            envelope("Prêt", EnvelopeType.FIXED, 400).copy(group = "Logement"),
             envelope("Projets", EnvelopeType.ANNUAL, 1200),
-            envelope("Vacances", EnvelopeType.ANNUAL, 1800),
+            envelope("Vacances", EnvelopeType.ANNUAL, 1800).copy(group = "Voyages"),
             envelope("Épargne", EnvelopeType.SAVINGS, 300),
             // L'achat prévu du scénario : créé ce mois-ci, il ne pèse pas sur les mois passés.
             plannedPurchase("Ordinateur", Money.euros(1200), YearMonth.from(today).plusMonths(5), today),

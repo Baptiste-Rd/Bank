@@ -25,7 +25,7 @@ class AssistantTest {
         )
         assertTrue(prompt.contains("Phase 1"))
         assertTrue(prompt.contains("Phase 3"))
-        assertTrue(prompt.contains("- Courses (quotidien, groupe Nourriture)"))
+        assertTrue(prompt.contains("- Courses (quotidien, catégorie Nourriture)"))
         assertTrue(prompt.contains("1 | 27/10/2026 | −19,99 € | Prlv Free Mobile"))
         assertFalse(prompt.contains("778899"))
     }
@@ -47,8 +47,17 @@ class AssistantTest {
         assertEquals(ProposalTarget.Existing("Courses"), proposal("courses", isNew = true).target(mine))
         assertEquals(ProposalTarget.Existing("Épargne"), proposal("Epargne").target(mine))
         assertEquals(ProposalTarget.OutOfBudget, proposal("Hors budget").target(mine))
-        assertEquals(ProposalTarget.New("Téléphone", "charges fixes"), proposal("Téléphone", true, "Charges fixes").target(mine))
+        assertEquals(ProposalTarget.New("Téléphone", "charges fixes", "Abonnements"), proposal("Téléphone", true, "Charges fixes").target(mine))
         assertEquals(ProposalTarget.New("Animaux", "quotidien"), proposal("Animaux", true, "inconnue").target(mine))
+    }
+
+    @Test
+    fun `a new envelope keeps the proposed category, else a suggested one`() {
+        val withCategory = AssistantProposal(1, "Nom", "Croquettes", true, "quotidien", null, "haute", null, category = "Animaux")
+        assertEquals(ProposalTarget.New("Croquettes", "quotidien", "Animaux"), withCategory.target(emptyList()))
+        val others = AssistantProposal(1, "Nom", "Divers", true, "quotidien", null, "haute", null, category = "Autres")
+        assertEquals(ProposalTarget.New("Divers", "quotidien", null), others.target(emptyList()))
+        assertEquals(ProposalTarget.New("Parking", "quotidien", "Transports"), proposal("Parking", true, "quotidien").target(emptyList()))
     }
 
     @Test

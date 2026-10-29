@@ -20,7 +20,7 @@ import java.util.Locale
 /** Une opération telle qu'envoyée : un numéro (pas l'identifiant interne), date, montant, libellé. */
 data class AssistantOperation(val ref: Int, val date: LocalDate, val amountCents: Long, val label: String)
 
-/** Une enveloppe telle qu'envoyée : son nom, sa famille (« quotidien »...), son groupe éventuel. */
+/** Une enveloppe telle qu'envoyée : son nom, sa famille (« quotidien »...), sa catégorie éventuelle. */
 data class AssistantEnvelope(val name: String, val family: String, val group: String? = null)
 
 /** Enveloppe spéciale : l'opération ne compte dans aucune enveloppe (salaire, virement interne). */
@@ -88,8 +88,9 @@ fun sortingPrompt(
     appendLine()
     appendLine(
         "Phase 2 — Proposition. Range chaque opération dans une de mes enveloppes, en reprenant son nom exact. " +
-            "Si aucune ne convient vraiment, propose une nouvelle enveloppe : nom court, et une famille parmi " +
-            assistantFamilies.joinToString(", ") + ". Une rentrée d'argent (salaire, remboursement) ou un virement " +
+            "Si aucune ne convient vraiment, propose une nouvelle enveloppe : nom court, une famille parmi " +
+            assistantFamilies.joinToString(", ") + ", et une catégorie (reprends une des miennes si elle convient, " +
+            "sinon parmi " + fr.baptiste.bank.domain.model.defaultCategories.joinToString(", ") + "). Une rentrée d'argent (salaire, remboursement) ou un virement " +
             "entre mes propres comptes va dans \"$OUT_OF_BUDGET\"." +
             if (accounts.isEmpty()) "" else " Un virement vers (ou depuis) un de mes comptes d'épargne va dans \"$ACCOUNT_PREFIX<nom du compte>\".",
     )
@@ -100,13 +101,13 @@ fun sortingPrompt(
     )
     appendLine(
         """{"n": 1, "nom": "nom lisible", "enveloppe": "nom exact", "nouvelle": false, "famille": "quotidien", """ +
-            """"motcle": "mot du libellé qui reconnaîtra les prochaines", "confiance": "haute", "raison": "une phrase"}""",
+            """"categorie": "Nourriture", "motcle": "mot du libellé qui reconnaîtra les prochaines", "confiance": "haute", "raison": "une phrase"}""",
     )
     appendLine()
     appendLine("Mes enveloppes :")
     envelopes.forEach { envelope ->
         append("- ${envelope.name} (${envelope.family}")
-        if (envelope.group != null) append(", groupe ${envelope.group}")
+        if (envelope.group != null) append(", catégorie ${envelope.group}")
         appendLine(")")
     }
     if (accounts.isNotEmpty()) {
@@ -145,6 +146,8 @@ data class AssistantProposal(
     val keyword: String?,
     val confidence: String?,
     val reason: String?,
+    /** Catégorie proposée pour une nouvelle enveloppe. */
+    val category: String? = null,
 )
 
 /** Ce que l'app fera d'une proposition, une fois rapprochée de mes enveloppes. */
@@ -152,8 +155,8 @@ sealed interface ProposalTarget {
     /** Une enveloppe existante (son nom exact chez moi). */
     data class Existing(val name: String) : ProposalTarget
 
-    /** Une enveloppe à créer. */
-    data class New(val name: String, val family: String) : ProposalTarget
+    /** Une enveloppe à créer, avec sa catégorie (null : « Autres »). */
+    data class New(val name: String, val family: String, val category: String? = null) : ProposalTarget
 
     /** Hors budget. */
     data object OutOfBudget : ProposalTarget
@@ -178,5 +181,8 @@ fun AssistantProposal.target(existing: Collection<String>, accounts: Collection<
     }
     existing.firstOrNull { envelopeNameKey(it) == key }?.let { return ProposalTarget.Existing(it) }
     val knownFamily = assistantFamilies.firstOrNull { envelopeNameKey(it) == envelopeNameKey(family.orEmpty()) }
-    return ProposalTarget.New(envelope.trim(), knownFamily ?: assistantFamilies.first())
+    val proposedCategory = category?.trim()?.takeIf { it.isNotEmpty() }
+        ?.let { fr.baptiste.bank.domain.model.storedCategory(it) }
+        ?: fr.baptiste.bank.domain.model.suggestCategory(envelope)
+    return ProposalTarget.New(envelope.trim(), knownFamily ?: assistantFamilies.first(), proposedCategory)
 }
