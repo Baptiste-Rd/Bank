@@ -173,6 +173,13 @@ interface AllocationDao {
     fun observeAll(): Flow<List<AllocationEntity>>
 }
 
+/** Une sortie écartée du budget : [toAccount] vrai pour un virement vers un de mes comptes. */
+data class ExcludedAmount(
+    val date: LocalDate,
+    @ColumnInfo(name = "amount_cents") val amountCents: Long,
+    @ColumnInfo(name = "to_account") val toAccount: Boolean,
+)
+
 /** Un montant daté (positif), pour des totaux par mois. */
 data class DatedAmount(
     val date: LocalDate,
@@ -327,6 +334,17 @@ interface TransactionDao {
     )
     fun observeUnsortedOutRows(from: LocalDate, to: LocalDate): Flow<List<DatedAmount>>
 
+    /** Sorties de la banque écartées du budget : hors budget, ou virements vers mes comptes. */
+    @Query(
+        """
+        SELECT t.date AS date, -t.amount_cents AS amount_cents,
+               (t.transfer_account_id IS NOT NULL) AS to_account
+        FROM transaction_record t
+        WHERE t.ignored = 1 AND t.amount_cents < 0 AND t.source != 'MANUAL' AND t.date BETWEEN :from AND :to
+        """,
+    )
+    fun observeExcludedOutRows(from: LocalDate, to: LocalDate): Flow<List<ExcludedAmount>>
+
     /** Montants des virements vers mes comptes sur une plage de dates. */
     @Query("SELECT amount_cents FROM transaction_record WHERE transfer_account_id IS NOT NULL AND date BETWEEN :from AND :to")
     fun observeTransfersToAccounts(from: LocalDate, to: LocalDate): Flow<List<Long>>
@@ -428,7 +446,7 @@ interface TransferDao {
         """
         SELECT t.id AS id, t.effective_date AS effective_date, t.amount_cents AS amount_cents,
                t.reason AS reason, t.cancelled AS cancelled,
-               s.name AS source_name, d.name AS target_name,
+               CASE WHEN t.from_reserve = 1 THEN 'Réserve' ELSE s.name END AS source_name, d.name AS target_name,
                t.source_envelope_id AS source_envelope_id, t.target_envelope_id AS target_envelope_id
         FROM transfer t
         LEFT JOIN envelope s ON s.id = t.source_envelope_id

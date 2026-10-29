@@ -30,7 +30,10 @@ data class CurrentAccountExplained(
     /** Provisions mises de côté mois après mois (vacances, projets) et pas encore dépensées. */
     val provisionsHeld: Money = Money.ZERO,
 ) {
-    /** Ce qui reste sur le compte hors budget du mois (négatif : il manque de l'argent). */
+    /**
+     * Ce qui reste sur le compte hors budget du mois (négatif : il manque de l'argent) : la réserve,
+     * que l'on peut mettre de côté sans toucher au mois.
+     */
     val free: Money get() = balance - monthLeft - chargesDue - savingsPending - provisionsHeld
 }
 
@@ -61,10 +64,11 @@ fun Dashboard.explainCurrentAccount(
         .filter { it.period.endInclusive.isAfter(monthEnd) }
         .fold(Money.ZERO) { sum, line ->
             val funded = line.envelope.fundedThrough(java.time.YearMonth.from(today), line.period, line.allocated, sinceMonth)
-            val held = funded - line.spent
+            val held = funded + line.fromReserve - line.spent
             if (held.isPositive) sum + held else sum
         }
-    val pending = savings.secured - transferredToAccounts
+    // L'épargne à virer comprend ce qui a été mis de côté depuis la réserve ce mois-ci.
+    val pending = savings.secured + reserveToSavings - transferredToAccounts
     return CurrentAccountExplained(
         balance = balance,
         asOf = asOf,

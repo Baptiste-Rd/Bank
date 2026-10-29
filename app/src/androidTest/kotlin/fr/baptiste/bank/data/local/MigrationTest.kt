@@ -90,6 +90,29 @@ class MigrationTest {
         database.close()
     }
 
+    @Test
+    fun migrate10To11KeepsTransfersFromTheWallet() {
+        createDatabase(version = 10) { db ->
+            db.execSQL(
+                "INSERT INTO envelope (id, name, type, scale, amount_cents, status, priority, carry_over, archived, every) " +
+                    "VALUES (1, 'Épargne', 'SAVINGS', 'MONTH', 30000, 'PROTECTED', 0, 0, 0, 1)",
+            )
+            db.execSQL(
+                "INSERT INTO transfer (id, effective_date, source_envelope_id, target_envelope_id, amount_cents, cancelled) " +
+                    "VALUES (1, 20000, NULL, 1, 100000, 0)",
+            )
+        }
+        val database = open()
+        val db = database.openHelper.writableDatabase
+        db.query("SELECT amount_cents, from_reserve FROM transfer WHERE id = 1").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(100000L, cursor.getLong(0))
+            // Un transfert existant venait du portefeuille : il le reste.
+            assertEquals(0L, cursor.getLong(1))
+        }
+        database.close()
+    }
+
     /** Recrée une base de [version] à partir de son schéma exporté, puis y écrit [fill]. */
     private fun createDatabase(version: Int, fill: (SQLiteDatabase) -> Unit) {
         val assets = InstrumentationRegistry.getInstrumentation().context.assets
@@ -115,7 +138,7 @@ class MigrationTest {
     }
 
     private fun open(): BankDatabase = Room.databaseBuilder(context, BankDatabase::class.java, DB)
-        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
         .build()
 
     private companion object {

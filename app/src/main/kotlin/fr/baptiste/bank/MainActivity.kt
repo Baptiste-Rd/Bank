@@ -62,6 +62,8 @@ class MainActivity : ComponentActivity() {
             "ENVELOPE" -> OpenDialog.EnvelopeDetail(1)
             // Fiche d'une provision annuelle de la démo (Vacances), avec sa proposition de rattrapage.
             "PROVISION" -> OpenDialog.EnvelopeDetail(9)
+            // Mettre de côté sur l'épargne de la démo : la réserve est proposée en premier.
+            "RESERVE" -> OpenDialog.Move(10, incoming = true)
             "UNSORT" -> OpenDialog.Unsort
             "RULES" -> OpenDialog.Rules
             "ASSISTED" -> OpenDialog.AssistedSort()

@@ -516,6 +516,7 @@ fun AppDialogs(
             }
         }
         is OpenDialog.Move -> {
+            val reserve by viewModel.currentAccount.collectAsStateWithLifecycle()
             val board = dashboard
             val line = board?.envelopes?.firstOrNull { it.envelope.id == current.envelopeId }
             if (board == null || line == null) {
@@ -526,14 +527,19 @@ fun AppDialogs(
                     line = line,
                     incoming = current.incoming,
                     onDismiss = ::close,
-                    onConfirm = { counterpart, amount, reason ->
-                        viewModel.addTransfers(
-                            legs = listOf(TransferLeg(counterpart, amount)),
-                            envelopeId = line.envelope.id,
-                            incoming = current.incoming,
-                            reason = reason,
-                        )
-                        val from = if (current.incoming) nameOf(counterpart) else line.envelope.name
+                    reserve = reserve?.free?.takeIf { it.isPositive },
+                    onConfirm = { counterpart, amount, reason, fromReserve ->
+                        if (fromReserve) {
+                            viewModel.addReserveTransfer(line.envelope.id, amount, reason)
+                        } else {
+                            viewModel.addTransfers(
+                                legs = listOf(TransferLeg(counterpart, amount)),
+                                envelopeId = line.envelope.id,
+                                incoming = current.incoming,
+                                reason = reason,
+                            )
+                        }
+                        val from = if (fromReserve) "ta réserve" else if (current.incoming) nameOf(counterpart) else line.envelope.name
                         val to = if (current.incoming) line.envelope.name else nameOf(counterpart)
                         controller.notify("${amount.formatted()} déplacés de $from vers $to.")
                         close()

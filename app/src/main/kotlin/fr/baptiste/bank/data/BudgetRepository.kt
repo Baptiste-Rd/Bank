@@ -186,6 +186,23 @@ class BudgetRepository(
         if (rows.isNotEmpty()) transferDao.insertAll(rows)
     }
 
+    /** Met [amount] de côté dans une enveloppe depuis la réserve : le mois n'est pas touché. */
+    suspend fun addReserveTransfer(envelopeId: Long, amount: Money, reason: String?, date: LocalDate = LocalDate.now()) {
+        if (!amount.isPositive) return
+        transferDao.insertAll(
+            listOf(
+                TransferEntity(
+                    effectiveDate = date,
+                    sourceEnvelopeId = null,
+                    targetEnvelopeId = envelopeId,
+                    amountCents = amount.cents,
+                    reason = reason?.takeIf { it.isNotBlank() },
+                    fromReserve = true,
+                ),
+            ),
+        )
+    }
+
     suspend fun cancelTransfer(id: Long) {
         transferDao.cancel(id)
     }
@@ -626,8 +643,12 @@ class BudgetRepository(
         val unsorted = transactionDao.observeUnsortedOutRows(from, to).map { rows ->
             rows.groupBy { YearMonth.from(it.date) }.mapValues { (_, list) -> Money(list.sumOf { it.amountCents }) }
         }
-        return combine(all, spendings, unsorted, trackingStart(today)) { envelopes, spent, toSort, start ->
-            yearSpending(year, today, start, envelopes, spent, toSort)
+        val excluded = transactionDao.observeExcludedOutRows(from, to)
+        return combine(all, spendings, unsorted, excluded, trackingStart(today)) { envelopes, spent, toSort, out, start ->
+            fun byMonth(rows: List<fr.baptiste.bank.data.local.ExcludedAmount>) =
+                rows.groupBy { YearMonth.from(it.date) }.mapValues { (_, list) -> Money(list.sumOf { it.amountCents }) }
+            val (toAccounts, outOfBudget) = out.partition { it.toAccount }
+            yearSpending(year, today, start, envelopes, spent, toSort, byMonth(outOfBudget), byMonth(toAccounts))
         }
     }
 
@@ -797,6 +818,7 @@ private fun TransferEntity.toDomain() = Transfer(
     targetEnvelopeId = targetEnvelopeId,
     amount = Money(amountCents),
     reason = reason,
+    fromReserve = fromReserve,
 )
 
 private fun EnvelopeEntity.toDomain() = Envelope(

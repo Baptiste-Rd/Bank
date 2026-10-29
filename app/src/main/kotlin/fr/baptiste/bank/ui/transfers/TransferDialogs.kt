@@ -55,6 +55,7 @@ import fr.baptiste.bank.ui.theme.BankTheme
 
 private const val WALLET = "Non réparti"
 private const val WALLET_ID = -1L
+private const val RESERVE_ID = -2L
 
 /** Nom d'une extrémité de transfert : une enveloppe, ou le portefeuille (null). */
 private fun Dashboard.nameOf(envelopeId: Long?): String =
@@ -147,17 +148,25 @@ fun TransferDialog(
     line: EnvelopeLine,
     incoming: Boolean,
     onDismiss: () -> Unit,
-    onConfirm: (counterpartId: Long?, amount: Money, reason: String) -> Unit,
+    onConfirm: (counterpartId: Long?, amount: Money, reason: String, fromReserve: Boolean) -> Unit,
+    /** Réserve : l'argent déjà sur le compte, hors budget du mois (null : inconnue ou vide). */
+    reserve: Money? = null,
 ) {
     val others = dashboard.envelopes.filter { it.envelope.id != line.envelope.id }
-    // Le portefeuille est représenté par un identifiant qui ne correspond à aucune enveloppe.
-    val options: List<Long> = listOf(WALLET_ID) + others.map { it.envelope.id }
-    var counterpart by remember { mutableStateOf(WALLET_ID) }
+    // Le portefeuille et la réserve sont représentés par des identifiants sans enveloppe.
+    // La réserve n'est proposée qu'en apport : on y met de côté, on n'y rend rien.
+    val withReserve = incoming && reserve != null && reserve.isPositive
+    val options: List<Long> = listOfNotNull(RESERVE_ID.takeIf { withReserve }, WALLET_ID) + others.map { it.envelope.id }
+    // Pour l'épargne et les provisions, la réserve d'abord : y mettre de côté ne touche pas au mois.
+    val prefersReserve = withReserve && line.envelope.type != fr.baptiste.bank.domain.model.EnvelopeType.DAILY
+    var counterpart by remember { mutableStateOf(if (prefersReserve) RESERVE_ID else WALLET_ID) }
+    val fromReserve = counterpart == RESERVE_ID
     var amountText by rememberSaveable { mutableStateOf("") }
     var reason by rememberSaveable { mutableStateOf("") }
     val amount = parseMoney(amountText)
 
     fun optionLabel(id: Long): String {
+        if (id == RESERVE_ID) return "Réserve, déjà sur le compte (${reserve?.formatted()})"
         if (id == WALLET_ID) {
             return dashboard.unallocated?.let { "$WALLET (${it.formatted()})" } ?: WALLET
         }
@@ -197,11 +206,22 @@ fun TransferDialog(
                 // Ce que le transfert fait au reste du mois, avant de le valider : 1 000 € pris
                 // sur un mois déjà dépensé ne doivent pas surprendre après coup.
                 if (amount != null && amount.isPositive) {
-                    val other = counterpart.takeIf { it != WALLET_ID }
+                    val other = counterpart.takeIf { it != WALLET_ID && it != RESERVE_ID }
                     val source = if (incoming) other else line.envelope.id
                     val target = if (incoming) line.envelope.id else other
                     val before = dashboard.monthLeft
-                    val after = dashboard.monthLeftAfterTransfer(source, target, amount)
+                    val after = dashboard.monthLeftAfterTransfer(source, target, amount, fromReserve)
+                    if (fromReserve) {
+                        Text(
+                            if (reserve != null && amount > reserve) {
+                                "C'est plus que ta réserve (${reserve.formatted()}) : le compte ne contient pas tout ça hors budget du mois."
+                            } else {
+                                "Pris sur l'argent déjà sur le compte : ton budget du mois et ton épargne du mois ne changent pas."
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (reserve != null && amount > reserve) BankTheme.status.warning else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     if (after != before) {
                         Text(
                             "Ton reste du mois passera de ${before.formatted()} à ${after.formatted()}." +
@@ -216,7 +236,9 @@ fun TransferDialog(
         confirmButton = {
             TextButton(
                 enabled = amount != null && amount.isPositive,
-                onClick = { if (amount != null) onConfirm(counterpart.takeIf { it != WALLET_ID }, amount, reason) },
+                onClick = {
+                    if (amount != null) onConfirm(counterpart.takeIf { it != WALLET_ID && it != RESERVE_ID }, amount, reason, fromReserve)
+                },
             ) { Text(if (incoming) "Ajouter" else "Retirer") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } },

@@ -148,6 +148,9 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
 
     fun cancelTransfer(id: Long) = perform { repository.cancelTransfer(id) }
 
+    fun addReserveTransfer(envelopeId: Long, amount: Money, reason: String?) =
+        perform { repository.addReserveTransfer(envelopeId, amount, reason) }
+
     /** Enregistre l'enveloppe ; [onSaved] reçoit son identifiant (utile juste après une création). */
     fun saveEnvelope(envelope: Envelope, onSaved: (Long) -> Unit = {}) {
         viewModelScope.launch { onSaved(repository.saveEnvelope(envelope)) }

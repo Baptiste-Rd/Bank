@@ -220,6 +220,7 @@ private fun LazyListScope.monthAnalysis(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (report.unsorted.isPositive) UnsortedLine(report.unsorted, onSort)
+            ExcludedLine(report)
         }
     }
     if (report.categories.isEmpty()) {
@@ -262,6 +263,25 @@ private fun UnsortedLine(amount: Money, onSort: () -> Unit) {
         )
         TextButton(onClick = onSort) { Text("Trier") }
     }
+}
+
+/**
+ * Ce qui est sorti du compte sans compter ici : le hors budget (à vérifier s'il cache une vraie
+ * dépense) et les virements vers mes comptes (de l'épargne).
+ */
+@Composable
+private fun ExcludedLine(report: MonthSpending) {
+    val parts = listOfNotNull(
+        report.outOfBudget.takeIf { it.isPositive }?.let { "${it.formatted()} hors budget" },
+        report.toAccounts.takeIf { it.isPositive }?.let { "${it.formatted()} virés vers tes comptes" },
+    )
+    if (parts.isEmpty()) return
+    Text(
+        "Pas comptés : ${parts.joinToString(" · ")}. Une dépense rangée hors budget par erreur se reclasse dans la liste.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 4.dp),
+    )
 }
 
 /** Une catégorie : nom, dépensé sur budget, barre (le trait marque le budget). */

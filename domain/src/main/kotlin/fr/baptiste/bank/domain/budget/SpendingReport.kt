@@ -35,6 +35,10 @@ data class MonthSpending(
     val categories: List<CategorySpent>,
     /** Dépenses encore à trier (positif). */
     val unsorted: Money = Money.ZERO,
+    /** Sorties classées hors budget (positif) : pas comptées ; à vérifier si le total paraît bas. */
+    val outOfBudget: Money = Money.ZERO,
+    /** Virements vers mes comptes (positif) : de l'épargne, pas des dépenses. */
+    val toAccounts: Money = Money.ZERO,
 ) {
     val total: Money get() = categories.sumOfMoney { it.spent }
     val budget: Money get() = categories.sumOfMoney { it.budget }
@@ -51,6 +55,8 @@ fun monthSpending(
     spendings: List<Spending>,
     unsorted: Money = Money.ZERO,
     tracked: Boolean = true,
+    outOfBudget: Money = Money.ZERO,
+    toAccounts: Money = Money.ZERO,
 ): MonthSpending {
     if (!tracked) return MonthSpending(month, tracked = false, categories = emptyList())
     val spentById = spendings
@@ -74,7 +80,7 @@ fun monthSpending(
             )
         }
         .sortedWith(compareByDescending<CategorySpent> { it.spent }.thenByDescending { it.budget })
-    return MonthSpending(month, tracked = true, categories = categories, unsorted = unsorted)
+    return MonthSpending(month, tracked = true, categories = categories, unsorted = unsorted, outOfBudget = outOfBudget, toAccounts = toAccounts)
 }
 
 /** Une catégorie sur l'année : total, moyenne par mois renseigné, écart au budget (positif : dépassé). */
@@ -116,13 +122,23 @@ fun yearSpending(
     envelopes: List<Envelope>,
     spendings: List<Spending>,
     unsortedByMonth: Map<YearMonth, Money> = emptyMap(),
+    outOfBudgetByMonth: Map<YearMonth, Money> = emptyMap(),
+    toAccountsByMonth: Map<YearMonth, Money> = emptyMap(),
 ): YearSpending {
     val current = YearMonth.from(today)
     val last = if (year == current.year) current.monthValue else if (year < current.year) 12 else 0
     val months = (1..last).map { number ->
         val month = YearMonth.of(year, number)
         val tracked = trackingStart == null || !month.isBefore(trackingStart)
-        monthSpending(month, envelopes, spendings, unsortedByMonth[month] ?: Money.ZERO, tracked)
+        monthSpending(
+            month,
+            envelopes,
+            spendings,
+            unsortedByMonth[month] ?: Money.ZERO,
+            tracked,
+            outOfBudgetByMonth[month] ?: Money.ZERO,
+            toAccountsByMonth[month] ?: Money.ZERO,
+        )
     }
     return YearSpending(year, months)
 }

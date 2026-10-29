@@ -595,7 +595,7 @@ private fun CurrentAccountCard(explained: CurrentAccountExplained?, onSetBalance
             if (explained.provisionsHeld.isPositive) AccountLine("Provisions mises de côté", explained.provisionsHeld)
             fr.baptiste.bank.ui.components.RowDivider(0.dp)
             val free = explained.free
-            AccountLine(if (free.isNegative) "Il manque" else "Libre sur le compte", free, strong = true, positiveGood = true)
+            AccountLine(if (free.isNegative) "Il manque" else "Réserve, libre sur le compte", free, strong = true, positiveGood = true)
         }
         val note = when {
             explained.free.isNegative -> buildString {
@@ -604,7 +604,9 @@ private fun CurrentAccountCard(explained: CurrentAccountExplained?, onSetBalance
                 if (explained.unsortedOut.isPositive) append(", ${explained.unsortedOut.formatted()} de dépenses à trier")
                 append(", ou dépenses faites hors de l'app.")
             }
-            explained.free.isPositive -> "Hors budget du mois : à virer vers un livret, ou à garder pour plus tard."
+            explained.free.isPositive ->
+                "Hors budget du mois. Pour la mettre de côté sans toucher au mois : ouvre une enveloppe d'épargne " +
+                    "ou une provision, Ajouter, puis « Réserve »."
             else -> null
         }
         if (note != null) {

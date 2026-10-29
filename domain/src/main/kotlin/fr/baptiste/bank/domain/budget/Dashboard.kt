@@ -37,6 +37,11 @@ data class Transfer(
     val targetEnvelopeId: Long?,
     val amount: Money,
     val reason: String? = null,
+    /**
+     * Pris sur la réserve (l'argent déjà sur le compte, hors budget du mois) plutôt que sur le
+     * portefeuille : ni le salaire du mois ni l'épargne du mois ne changent. [sourceEnvelopeId] est null.
+     */
+    val fromReserve: Boolean = false,
 )
 
 /**
@@ -61,6 +66,8 @@ data class EnvelopeLine(
     val funded: Money = Money.ZERO,
     /** Rattrapage proposé (provision suivie depuis moins longtemps que sa période). */
     val catchUp: CatchUpProposal? = null,
+    /** Reçu de la réserve sur la période (compris dans [transferred]). */
+    val fromReserve: Money = Money.ZERO,
 ) {
     val needsCover: Boolean get() = remaining.isNegative || projection.isAlert
 }
@@ -101,6 +108,8 @@ data class Dashboard(
     val envelopes: List<EnvelopeLine>,
     /** Épargne du mois : objectif, part à l'abri, prévision de fin de mois. */
     val savings: SavingsOutlook,
+    /** Mis de côté ce mois-ci sur les enveloppes d'épargne depuis la réserve (hors épargne du mois). */
+    val reserveToSavings: Money = Money.ZERO,
 ) {
     val alerts: List<EnvelopeLine> get() = envelopes.filter { it.needsCover }
 }
@@ -153,6 +162,8 @@ fun computeDashboard(
             monthlyShare = envelope.monthShare(currentMonth, period, allocated),
             funded = envelope.fundedThrough(currentMonth, period, allocated, trackingStart),
             catchUp = envelope.catchUpProposal(period, allocated, currentMonth, trackingStart),
+            fromReserve = transfers.filter { it.fromReserve && it.date in period && it.targetEnvelopeId == envelope.id }
+                .sumOfMoney { it.amount },
             // Seul le quotidien se dépense au fil des jours : on prolonge son rythme. Une charge, une
             // provision ou un achat se paie en une fois ; prolonger son rythme annoncerait à tort un
             // dépassement (un prêt payé le 5 « prévu » à 442 € pour 400). Tout y compte comme ponctuel.
@@ -178,7 +189,8 @@ fun computeDashboard(
     val wallet = monthlyIncome?.let { income ->
         val reserved = lines.sumOfMoney { it.monthlyShare }
         val walletIn = transfers.filter { it.date in month && it.targetEnvelopeId == null }.sumOfMoney { it.amount }
-        val walletOut = transfers.filter { it.date in month && it.sourceEnvelopeId == null }.sumOfMoney { it.amount }
+        // La réserve n'est pas le portefeuille : ce qu'elle donne ne sort pas du salaire du mois.
+        val walletOut = transfers.filter { it.date in month && it.sourceEnvelopeId == null && !it.fromReserve }.sumOfMoney { it.amount }
         income - reserved + walletIn - walletOut
     }
     // Budget du quotidien : avec un salaire, tout ce qui n'est pas réservé ailleurs se dépense au
@@ -234,9 +246,13 @@ fun computeDashboard(
         // des charges mensuelles et des provisions qui se terminent ce mois-là.
         .filter { it.period.endInclusive == today }
         .sumOfMoney { if (it.remaining.isPositive) it.remaining else Money.ZERO }
+    val reserveToSavings = transfers
+        .filter { it.fromReserve && it.date in month && it.targetEnvelopeId in savingsIds }
+        .sumOfMoney { it.amount }
     val savings = SavingsOutlook(
         target = savingsLines.sumOfMoney { it.allocated.convert(it.envelope.frequency, Frequency.MONTHLY) },
-        transferred = savingsIds.fold(Money.ZERO) { total, id -> total + netTransfers(id, month) },
+        // L'argent venu de la réserve était déjà là : il n'est pas de l'épargne du mois.
+        transferred = savingsIds.fold(Money.ZERO) { total, id -> total + netTransfers(id, month) } - reserveToSavings,
         dailyMargin = dailyBudget - dailyProjected,
         overruns = overruns + savingsSpent,
         isFinal = today == month.endInclusive,
@@ -257,6 +273,7 @@ fun computeDashboard(
         unallocated = wallet,
         envelopes = lines,
         savings = savings,
+        reserveToSavings = reserveToSavings,
     )
 }
 
@@ -336,10 +353,12 @@ val Dashboard.monthLeft: Money get() = dailyBudget - dailySpent
  * enveloppes du quotidien : un transfert à l'intérieur ne change rien, un transfert qui en sort
  * (vers l'épargne, une charge...) le réduit d'autant, un transfert qui y entre l'augmente.
  */
-fun Dashboard.monthLeftAfterTransfer(sourceId: Long?, targetId: Long?, amount: Money): Money {
+fun Dashboard.monthLeftAfterTransfer(sourceId: Long?, targetId: Long?, amount: Money, fromReserve: Boolean = false): Money {
     fun inDaily(id: Long?): Boolean =
         if (id == null) unallocated != null else envelopes.any { it.envelope.id == id && it.envelope.type == EnvelopeType.DAILY }
     val delta = when {
+        // La réserve est hors du mois : seul un apport au quotidien change le reste du mois.
+        fromReserve -> if (targetId != null && inDaily(targetId)) amount else Money.ZERO
         inDaily(sourceId) == inDaily(targetId) -> Money.ZERO
         inDaily(sourceId) -> Money.ZERO - amount
         else -> amount

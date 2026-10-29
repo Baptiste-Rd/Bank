@@ -171,6 +171,8 @@ data class TransferEntity(
     @ColumnInfo(name = "amount_cents") val amountCents: Long,
     val reason: String? = null,
     val cancelled: Boolean = false,
+    /** Pris sur la réserve (l'argent déjà sur le compte) ; [sourceEnvelopeId] est alors NULL. */
+    @ColumnInfo(name = "from_reserve", defaultValue = "0") val fromReserve: Boolean = false,
 )
 
 @Entity(

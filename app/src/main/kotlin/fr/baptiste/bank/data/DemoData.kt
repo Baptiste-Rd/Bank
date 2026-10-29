@@ -137,8 +137,8 @@ object DemoData {
         repository.setInvestment(trading, Money.euros(3000), fr.baptiste.bank.domain.budget.TaxWrapper.SECURITIES)
         val pea = repository.addManualAccount("PEA", AccountType.INVESTMENT, Money.euros(2400))
         repository.setInvestment(pea, Money.euros(2000), fr.baptiste.bank.domain.budget.TaxWrapper.PEA_OVER_5)
-        // Le solde du compte courant, tel que la banque l'afficherait : l'app le décompose.
-        repository.setCurrentAccountBalance(Money.euros(1450))
+        // Le solde du compte courant, tel que la banque l'afficherait : il contient une réserve (mois passés).
+        repository.setCurrentAccountBalance(Money.euros(3450))
         // Le virement du mois vers le livret : reconnu, il n'est pas une dépense.
         repository.importBankOperations(
             accountUid = "demo",
