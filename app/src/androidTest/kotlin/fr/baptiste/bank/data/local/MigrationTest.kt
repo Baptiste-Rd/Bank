@@ -73,6 +73,23 @@ class MigrationTest {
         database.close()
     }
 
+    @Test
+    fun migrate9To10KeepsAccountsWithoutInvestment() {
+        createDatabase(version = 9) { db ->
+            db.execSQL("INSERT INTO account (id, name, type, archived) VALUES (1, 'PEA', 'INVESTMENT', 0)")
+        }
+        val database = open()
+        val db = database.openHelper.writableDatabase
+        db.query("SELECT name, invested_cents, tax_wrapper FROM account WHERE id = 1").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals("PEA", cursor.getString(0))
+            assertEquals(true, cursor.isNull(1))
+            assertEquals(true, cursor.isNull(2))
+        }
+        db.execSQL("UPDATE account SET invested_cents = 200000, tax_wrapper = 'PEA_OVER_5' WHERE id = 1")
+        database.close()
+    }
+
     /** Recrée une base de [version] à partir de son schéma exporté, puis y écrit [fill]. */
     private fun createDatabase(version: Int, fill: (SQLiteDatabase) -> Unit) {
         val assets = InstrumentationRegistry.getInstrumentation().context.assets
@@ -98,7 +115,7 @@ class MigrationTest {
     }
 
     private fun open(): BankDatabase = Room.databaseBuilder(context, BankDatabase::class.java, DB)
-        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
         .build()
 
     private companion object {

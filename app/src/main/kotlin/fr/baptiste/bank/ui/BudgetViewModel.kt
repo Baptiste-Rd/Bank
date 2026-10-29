@@ -237,11 +237,24 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
     /** Virements vers mes comptes, mois par mois, pour le bilan. */
     fun transfersToAccounts(month: YearMonth): Flow<Money> = repository.transfersToAccounts(month)
 
-    fun addManualAccount(name: String, type: AccountType, balance: Money) = perform { repository.addManualAccount(name, type, balance) }
+    fun addManualAccount(
+        name: String,
+        type: AccountType,
+        balance: Money,
+        investment: AccountInvestment = AccountInvestment(),
+    ) = perform {
+        val id = repository.addManualAccount(name, type, balance)
+        if (type == AccountType.INVESTMENT) repository.setInvestment(id, investment.invested, investment.wrapper)
+    }
 
-    fun saveAccount(accountId: Long, name: String, type: AccountType, balance: Money?) = perform {
+    fun saveAccount(accountId: Long, name: String, type: AccountType, balance: Money?, investment: AccountInvestment = AccountInvestment()) = perform {
         repository.renameAccount(accountId, name, type)
         if (balance != null) repository.updateBalance(accountId, balance)
+        repository.setInvestment(
+            accountId,
+            investment.invested.takeIf { type == AccountType.INVESTMENT },
+            investment.wrapper.takeIf { type == AccountType.INVESTMENT },
+        )
     }
 
     fun archiveAccount(accountId: Long) = perform { repository.archiveAccount(accountId) }
@@ -274,3 +287,9 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
         }
     }
 }
+
+/** Ce qu'un placement précise pour son net estimé : le montant versé et l'enveloppe fiscale. */
+data class AccountInvestment(
+    val invested: Money? = null,
+    val wrapper: fr.baptiste.bank.domain.budget.TaxWrapper? = null,
+)

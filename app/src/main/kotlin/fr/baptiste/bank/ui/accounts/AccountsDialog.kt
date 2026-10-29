@@ -16,6 +16,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import fr.baptiste.bank.domain.budget.TaxWrapper
+import fr.baptiste.bank.ui.AccountInvestment
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -109,10 +111,11 @@ fun HoldingLine.isStale(today: java.time.LocalDate = java.time.LocalDate.now()):
  * Créer ou modifier un compte. Pour un compte relié, seuls le nom et le type se modifient : le
  * solde vient de la banque.
  */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun AccountEditDialog(
     line: HoldingLine?,
-    onSave: (name: String, type: AccountType, balance: Money?) -> Unit,
+    onSave: (name: String, type: AccountType, balance: Money?, investment: AccountInvestment) -> Unit,
     onArchive: (() -> Unit)?,
     onDismiss: () -> Unit,
 ) {
@@ -120,6 +123,9 @@ fun AccountEditDialog(
     var type by rememberSaveable { mutableStateOf(line?.account?.type ?: AccountType.SAVINGS) }
     var balanceText by rememberSaveable { mutableStateOf(line?.balance?.toFieldText().orEmpty()) }
     var confirmArchive by remember { mutableStateOf(false) }
+    var investedText by rememberSaveable { mutableStateOf(line?.account?.invested?.toFieldText().orEmpty()) }
+    var wrapper by rememberSaveable { mutableStateOf(line?.account?.taxWrapper) }
+    val invested = if (investedText.isBlank()) null else parseMoney(investedText)
     val linked = line?.account?.linked == true
     val balance = if (balanceText.isBlank()) null else parseMoney(balanceText)
     val canSave = name.isNotBlank() && (linked || balance != null)
@@ -179,13 +185,54 @@ fun AccountEditDialog(
                         )
                     }
                 }
+                // Placement : de quoi estimer ce qui resterait après impôt si tout était retiré.
+                if (type == AccountType.INVESTMENT) {
+                    Text("Enveloppe fiscale", style = MaterialTheme.typography.labelMedium)
+                    androidx.compose.foundation.layout.FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        TaxWrapper.entries.forEach { option ->
+                            FilterChip(
+                                selected = wrapper == option,
+                                onClick = { wrapper = if (wrapper == option) null else option },
+                                label = { Text(option.label) },
+                            )
+                        }
+                    }
+                    OutlinedTextField(
+                        value = investedText,
+                        onValueChange = { investedText = it },
+                        label = { Text("Total versé") },
+                        suffix = { Text("€") },
+                        isError = investedText.isNotBlank() && invested == null,
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    val value = if (linked) line?.balance else balance
+                    val estimate = value?.let { fr.baptiste.bank.domain.budget.netEstimate(wrapper, it, invested) }
+                    Text(
+                        if (estimate != null) {
+                            "Plus-value ${estimate.gain.formatted()}, impôt estimé ${estimate.tax.formatted()} : " +
+                                "≈ ${estimate.net.formatted()} si tu retirais tout aujourd'hui."
+                        } else {
+                            "Le total versé figure dans ton appli (« investi »). Avec l'enveloppe, l'app estime ce " +
+                                "qui resterait après impôt sur la plus-value."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 if (onArchive != null) {
                     TextButton(onClick = { confirmArchive = true }) { Text("Retirer ce compte") }
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = { onSave(name, type, if (linked) null else balance) }, enabled = canSave) {
+            TextButton(
+                onClick = { onSave(name, type, if (linked) null else balance, AccountInvestment(invested, wrapper)) },
+                enabled = canSave && (investedText.isBlank() || invested != null),
+            ) {
                 Text("Enregistrer")
             }
         },
@@ -300,3 +347,13 @@ fun SavingsGoalsDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } },
     )
 }
+
+/** Nom d'une enveloppe fiscale, tel que l'affichent les banques. */
+val TaxWrapper.label: String
+    get() = when (this) {
+        TaxWrapper.SECURITIES -> "Compte-titres"
+        TaxWrapper.PEA_UNDER_5 -> "PEA de moins de 5 ans"
+        TaxWrapper.PEA_OVER_5 -> "PEA de plus de 5 ans"
+        TaxWrapper.LIFE_INSURANCE_UNDER_8 -> "Assurance-vie de moins de 8 ans"
+        TaxWrapper.LIFE_INSURANCE_OVER_8 -> "Assurance-vie de plus de 8 ans"
+    }

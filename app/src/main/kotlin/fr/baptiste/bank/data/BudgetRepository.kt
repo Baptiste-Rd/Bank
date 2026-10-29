@@ -572,7 +572,16 @@ class BudgetRepository(
     /** Comptes d'épargne et d'investissement (pas le compte courant). */
     val holdingAccounts: Flow<List<HoldingAccount>> = accountDao.observeActive().map { rows ->
         rows.filter { it.type != AccountType.CURRENT }
-            .map { HoldingAccount(it.id, it.name, it.type, linked = it.externalUid != null) }
+            .map {
+                HoldingAccount(
+                    it.id,
+                    it.name,
+                    it.type,
+                    linked = it.externalUid != null,
+                    invested = it.investedCents?.let(::Money),
+                    taxWrapper = it.taxWrapper,
+                )
+            }
     }
 
     /** Ce qui est de côté sur ces comptes, six mois d'historique, et les virements du mois vers eux. */
@@ -587,6 +596,7 @@ class BudgetRepository(
                 accounts = accounts,
                 snapshots = balances.map { BalanceSnapshot(it.accountId, it.date, Money(it.balanceCents)) },
                 today = today,
+                months = 12,
                 transfersThisMonth = transfers.map(::Money),
             )
         }
@@ -684,6 +694,10 @@ class BudgetRepository(
         accountDao.rename(accountId, name.trim(), type)
 
     suspend fun archiveAccount(accountId: Long) = accountDao.archive(accountId)
+
+    /** Placement : montant versé et enveloppe fiscale, pour le net estimé. */
+    suspend fun setInvestment(accountId: Long, invested: Money?, wrapper: fr.baptiste.bank.domain.budget.TaxWrapper?) =
+        accountDao.setInvestment(accountId, invested?.cents, wrapper)
 
     /** Solde lu à la banque pour un compte suivi (livret relié) : crée le compte au premier relevé. */
     suspend fun recordLinkedBalance(uid: String, name: String, ibanSuffix: String?, type: AccountType, balance: Money) {

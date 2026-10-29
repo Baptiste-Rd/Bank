@@ -406,13 +406,13 @@ fun AppDialogs(
         }
         is OpenDialog.AccountEdit -> AccountEditDialog(
             line = current.line,
-            onSave = { name, type, balance ->
+            onSave = { name, type, balance, investment ->
                 val line = current.line
                 if (line == null) {
-                    viewModel.addManualAccount(name, type, balance ?: Money.ZERO)
+                    viewModel.addManualAccount(name, type, balance ?: Money.ZERO, investment)
                     controller.notify("${name.trim()} ajouté.")
                 } else {
-                    viewModel.saveAccount(line.account.id, name, type, balance)
+                    viewModel.saveAccount(line.account.id, name, type, balance, investment)
                 }
                 controller.dialog = OpenDialog.Accounts
             },

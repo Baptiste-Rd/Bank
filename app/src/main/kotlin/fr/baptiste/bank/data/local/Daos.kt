@@ -43,6 +43,9 @@ interface AccountDao {
 
     @Query("UPDATE account SET archived = 1 WHERE id = :id")
     suspend fun archive(id: Long)
+
+    @Query("UPDATE account SET invested_cents = :investedCents, tax_wrapper = :wrapper WHERE id = :id")
+    suspend fun setInvestment(id: Long, investedCents: Long?, wrapper: fr.baptiste.bank.domain.budget.TaxWrapper?)
 }
 
 @Dao

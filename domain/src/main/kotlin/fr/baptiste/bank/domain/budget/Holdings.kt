@@ -11,14 +11,27 @@ import java.time.YearMonth
  * le solde à une date est le dernier relevé connu à cette date.
  */
 
-/** Un compte d'épargne ou d'investissement. [linked] : relié à la banque, mis à jour seul. */
-data class HoldingAccount(val id: Long, val name: String, val type: AccountType, val linked: Boolean)
+/**
+ * Un compte d'épargne ou d'investissement. [linked] : relié à la banque, mis à jour seul.
+ * [invested] et [taxWrapper] (placements) : montant versé et enveloppe fiscale, pour le net estimé.
+ */
+data class HoldingAccount(
+    val id: Long,
+    val name: String,
+    val type: AccountType,
+    val linked: Boolean,
+    val invested: Money? = null,
+    val taxWrapper: TaxWrapper? = null,
+)
 
 /** Relevé de solde d'un compte à une date. */
 data class BalanceSnapshot(val accountId: Long, val date: LocalDate, val balance: Money)
 
 /** Un compte et son dernier solde connu (null : jamais renseigné). */
-data class HoldingLine(val account: HoldingAccount, val balance: Money?, val asOf: LocalDate?)
+data class HoldingLine(val account: HoldingAccount, val balance: Money?, val asOf: LocalDate?) {
+    /** Net estimé si tout était retiré aujourd'hui (placements renseignés), sinon null. */
+    val estimate: NetEstimate? get() = balance?.let { netEstimate(account.taxWrapper, it, account.invested) }
+}
 
 /** Total de côté à la fin d'un mois. */
 data class HoldingsMonth(val month: YearMonth, val total: Money)
@@ -30,7 +43,13 @@ data class Holdings(
     val history: List<HoldingsMonth>,
     /** Versé sur ces comptes ce mois-ci depuis le compte courant (virements reconnus). */
     val transferredThisMonth: Money,
-)
+) {
+    /** Total après l'impôt estimé des placements renseignés (les autres comptent pour leur solde). */
+    val netTotal: Money get() = lines.fold(Money.ZERO) { sum, line -> sum + (line.estimate?.net ?: line.balance ?: Money.ZERO) }
+
+    /** Impôt estimé sur l'ensemble des placements renseignés. */
+    val estimatedTax: Money get() = lines.fold(Money.ZERO) { sum, line -> sum + (line.estimate?.tax ?: Money.ZERO) }
+}
 
 /** Solde de [accountId] le jour [date] : le dernier relevé connu à cette date, ou null. */
 fun List<BalanceSnapshot>.balanceOn(accountId: Long, date: LocalDate): Money? =

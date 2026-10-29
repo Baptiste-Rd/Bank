@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import fr.baptiste.bank.domain.budget.TaxWrapper
 import fr.baptiste.bank.domain.model.AccountType
 import fr.baptiste.bank.domain.model.EnvelopeStatus
 import fr.baptiste.bank.domain.model.EnvelopeType
@@ -28,6 +29,10 @@ data class AccountEntity(
     @ColumnInfo(name = "external_uid") val externalUid: String? = null,
     /** Compte retiré de la liste ; ses relevés sont gardés. */
     @ColumnInfo(defaultValue = "0") val archived: Boolean = false,
+    /** Placement : total versé (pour la plus-value), en centimes ; NULL : inconnu. */
+    @ColumnInfo(name = "invested_cents") val investedCents: Long? = null,
+    /** Placement : enveloppe fiscale (compte-titres, PEA, assurance-vie) ; NULL : inconnue. */
+    @ColumnInfo(name = "tax_wrapper") val taxWrapper: TaxWrapper? = null,
 )
 
 @Entity(

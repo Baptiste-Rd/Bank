@@ -56,3 +56,29 @@ class HoldingsTest {
         assertEquals(emptyList<HoldingsMonth>(), holdings.history)
     }
 }
+
+class TaxesTest {
+
+    @Test
+    fun `securities account pays the 31_4 percent flat tax on the gain`() {
+        // 3 120 € pour 3 000 € versés : 120 € de plus-value, 37,68 € d'impôt.
+        val estimate = netEstimate(TaxWrapper.SECURITIES, Money.euros(3120), Money.euros(3000))!!
+        assertEquals(Money.euros(120), estimate.gain)
+        assertEquals(Money(3768), estimate.tax)
+        assertEquals(Money(308232), estimate.net)
+    }
+
+    @Test
+    fun `an old PEA only pays social contributions and a loss pays nothing`() {
+        assertEquals(Money(18600), TaxWrapper.PEA_OVER_5.taxOn(Money.euros(1000)))
+        assertEquals(Money.ZERO, TaxWrapper.SECURITIES.taxOn(Money.euros(-50)))
+        // Assurance-vie de plus de 8 ans : 17,2 % sur tout, 7,5 % au-delà de 4 600 €.
+        assertEquals(Money(172000 + 40500), TaxWrapper.LIFE_INSURANCE_OVER_8.taxOn(Money.euros(10000)))
+    }
+
+    @Test
+    fun `without invested amount there is no estimate`() {
+        assertEquals(null, netEstimate(TaxWrapper.SECURITIES, Money.euros(3120), null))
+        assertEquals(null, netEstimate(null, Money.euros(3120), Money.euros(3000)))
+    }
+}

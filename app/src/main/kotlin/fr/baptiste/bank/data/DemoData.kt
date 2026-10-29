@@ -133,7 +133,10 @@ object DemoData {
         }
         val trading = repository.addManualAccount("Trade Republic", AccountType.INVESTMENT, Money.euros(3120))
         repository.updateBalance(trading, Money.euros(3000), today.minusMonths(1).withDayOfMonth(15))
-        repository.addManualAccount("PEA", AccountType.INVESTMENT, Money.euros(2400))
+        // Montant versé et enveloppe fiscale : l'app en estime le net après impôt.
+        repository.setInvestment(trading, Money.euros(3000), fr.baptiste.bank.domain.budget.TaxWrapper.SECURITIES)
+        val pea = repository.addManualAccount("PEA", AccountType.INVESTMENT, Money.euros(2400))
+        repository.setInvestment(pea, Money.euros(2000), fr.baptiste.bank.domain.budget.TaxWrapper.PEA_OVER_5)
         // Le solde du compte courant, tel que la banque l'afficherait : l'app le décompose.
         repository.setCurrentAccountBalance(Money.euros(1450))
         // Le virement du mois vers le livret : reconnu, il n'est pas une dépense.

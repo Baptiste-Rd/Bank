@@ -299,10 +299,74 @@ private fun LazyListScope.holdingsSection(
                 if (parts.isNotEmpty()) {
                     Text(parts.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                if (holdings.estimatedTax.isPositive) {
+                    Text(
+                        "≈ ${holdings.netTotal.formatted()} après l'impôt estimé sur les plus-values (${holdings.estimatedTax.formatted()})",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 GoalsBar(progress, monthlySavings, Modifier.padding(top = 12.dp).clickable(onClick = onEditGoals))
             }
             HoldingGroup("Disponible tout de suite", progress.available, holdings.lines.filter { it.account.type == AccountType.SAVINGS }, onOpen)
             HoldingGroup("Placé, valeur qui fluctue", progress.invested, holdings.lines.filter { it.account.type != AccountType.SAVINGS }, onOpen)
+        }
+    }
+    // Évolution du total sur douze mois : seuls les mois connus (après le premier relevé) comptent.
+    if (holdings.history.size > 1) {
+        sectionHeader("holdings-history-label", "Tes comptes mois par mois", trailing = "fin de mois")
+        item(key = "holdings-history") {
+            GlassCard(contentPadding = 16.dp) {
+                HoldingsLineChart(holdings.history)
+            }
+        }
+    }
+}
+
+/**
+ * Le total de côté à la fin de chaque mois connu : une ligne, un point par mois, la première et la
+ * dernière valeur écrites. L'échelle part du plus bas, pour lire la pente plutôt que le niveau.
+ */
+@Composable
+private fun HoldingsLineChart(history: List<fr.baptiste.bank.domain.budget.HoldingsMonth>) {
+    val accent = envelopeTypeColor(EnvelopeType.SAVINGS)
+    val guide = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+    val values = history.map { it.total.cents }
+    val low = values.min()
+    val high = values.max()
+    val span = (high - low).coerceAtLeast(1L)
+    Column {
+        Row {
+            Text(
+                "${history.first().total.formatted()} fin ${history.first().month.name()}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            Text(history.last().total.formatted(), style = MaterialTheme.typography.labelMedium)
+        }
+        androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(96.dp).padding(vertical = 8.dp)) {
+            val step = if (values.size > 1) size.width / (values.size - 1) else 0f
+            fun point(index: Int) = androidx.compose.ui.geometry.Offset(
+                step * index,
+                size.height - size.height * (values[index] - low) / span,
+            )
+            drawLine(guide, androidx.compose.ui.geometry.Offset(0f, size.height), androidx.compose.ui.geometry.Offset(size.width, size.height), strokeWidth = 1.dp.toPx())
+            for (index in 1 until values.size) {
+                drawLine(accent, point(index - 1), point(index), strokeWidth = 2.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            }
+            values.indices.forEach { index -> drawCircle(accent, radius = 4.dp.toPx(), center = point(index)) }
+        }
+        Row(Modifier.fillMaxWidth()) {
+            history.forEach { month ->
+                Text(
+                    month.month.month.getDisplayName(TextStyle.NARROW_STANDALONE, Locale.FRANCE),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
     }
 }
@@ -391,7 +455,17 @@ private fun HoldingGroup(title: String, subtotal: Money, lines: List<HoldingLine
                     color = if (line.isStale()) BankTheme.status.warning else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Text(line.balance?.formatted() ?: "–", style = MaterialTheme.typography.titleMedium)
+            Column(horizontalAlignment = Alignment.End) {
+                Text(line.balance?.formatted() ?: "–", style = MaterialTheme.typography.titleMedium)
+                // Placement renseigné : ce qui resterait après impôt si tout était retiré aujourd'hui.
+                line.estimate?.let { estimate ->
+                    Text(
+                        "≈ ${estimate.net.formatted()} net",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
     }
 }
