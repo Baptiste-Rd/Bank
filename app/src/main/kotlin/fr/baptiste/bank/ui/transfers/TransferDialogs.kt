@@ -159,7 +159,9 @@ fun TransferDialog(
     val options: List<Long> = listOfNotNull(RESERVE_ID.takeIf { withReserve }, WALLET_ID) + others.map { it.envelope.id }
     // Pour l'épargne et les provisions, la réserve d'abord : y mettre de côté ne touche pas au mois.
     val prefersReserve = withReserve && line.envelope.type != fr.baptiste.bank.domain.model.EnvelopeType.DAILY
-    var counterpart by remember { mutableStateOf(if (prefersReserve) RESERVE_ID else WALLET_ID) }
+    // La réserve peut arriver après l'ouverture (solde du compte en cours de lecture) : le choix
+    // par défaut suit, tant que rien d'autre n'a été choisi.
+    var counterpart by remember(prefersReserve) { mutableStateOf(if (prefersReserve) RESERVE_ID else WALLET_ID) }
     val fromReserve = counterpart == RESERVE_ID
     var amountText by rememberSaveable { mutableStateOf("") }
     var reason by rememberSaveable { mutableStateOf("") }
