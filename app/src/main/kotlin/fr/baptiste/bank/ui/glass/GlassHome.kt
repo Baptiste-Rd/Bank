@@ -106,12 +106,13 @@ fun GlassHomeContent(
                 val monthLeft = dashboard.dailyBudget - dashboard.dailySpent
                 val shown = if (showsDay) allowance.remainingToday else monthLeft
                 Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    // À gauche, contre le libellé : à droite, la bascule passait sous les boutons
+                    // flottants (+ et ⋮) quand l'accueil défile.
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(
                             if (showsDay) "Reste du jour" else "Reste du mois",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.weight(1f),
                         )
                         PeriodPills(showsDay, onShowsDayChange)
                     }
@@ -251,7 +252,17 @@ fun GlassHomeContent(
                             )
                         }
                     }
-                    Text(savings.forecast.formatted(), style = MaterialTheme.typography.titleMedium)
+                    // Comparée à l'objectif : vert au-dessus, blanc à 5 % près, rouge en dessous.
+                    val margin = savings.target.divideFloor(20)
+                    Text(
+                        savings.forecast.formatted(),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = when {
+                            savings.forecast > savings.target + margin -> BankTheme.status.good
+                            savings.forecast < savings.target - margin -> BankTheme.status.over
+                            else -> MaterialTheme.colorScheme.onSurface
+                        },
+                    )
                     Spacer(Modifier.width(4.dp))
                     Chevron()
                 }

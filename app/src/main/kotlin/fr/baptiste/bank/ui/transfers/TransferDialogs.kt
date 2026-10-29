@@ -40,6 +40,8 @@ import androidx.compose.ui.unit.dp
 import fr.baptiste.bank.data.local.TransferRow
 import fr.baptiste.bank.domain.budget.CoveragePlan
 import fr.baptiste.bank.domain.budget.Dashboard
+import fr.baptiste.bank.domain.budget.monthLeft
+import fr.baptiste.bank.domain.budget.monthLeftAfterTransfer
 import fr.baptiste.bank.domain.budget.EnvelopeLine
 import fr.baptiste.bank.domain.budget.TransferLeg
 import fr.baptiste.bank.domain.money.Money
@@ -75,11 +77,15 @@ fun CoverDialog(
         text = {
             BlurBehindWindow()
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // On couvre jusqu'à la fin de la période, pas seulement le constaté : sinon l'enveloppe
+                // revient dans « À faire » dès le lendemain.
                 Text(
-                    if (target.remaining.isNegative) {
-                        "L'enveloppe est dépassée de ${(-target.remaining).formatted()}."
-                    } else {
-                        "À ce rythme, il manquera ${target.projection.overrun.formatted()} à la fin de la période."
+                    when {
+                        target.remaining.isNegative && target.projection.overrun > -target.remaining ->
+                            "L'enveloppe est dépassée de ${(-target.remaining).formatted()} ; à ce rythme, il manquera " +
+                                "${target.projection.overrun.formatted()} à la fin de la période."
+                        target.remaining.isNegative -> "L'enveloppe est dépassée de ${(-target.remaining).formatted()}."
+                        else -> "À ce rythme, il manquera ${target.projection.overrun.formatted()} à la fin de la période."
                     },
                     style = MaterialTheme.typography.bodyMedium,
                 )
@@ -105,10 +111,18 @@ fun CoverDialog(
                             color = BankTheme.status.over,
                         )
                     }
+                    val before = dashboard.monthLeft
+                    val after = plan.legs.fold(before) { left, leg ->
+                        left + (dashboard.monthLeftAfterTransfer(leg.sourceEnvelopeId, target.envelope.id, leg.amount) - before)
+                    }
                     Text(
-                        "Le disponible du jour est recalculé à partir d'aujourd'hui.",
+                        if (after == before) {
+                            "Ton reste du mois ne change pas : le dépassement le réduisait déjà."
+                        } else {
+                            "Ton reste du mois passera de ${before.formatted()} à ${after.formatted()}."
+                        },
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (after.isNegative) BankTheme.status.over else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -179,6 +193,23 @@ fun TransferDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                // Ce que le transfert fait au reste du mois, avant de le valider : 1 000 € pris
+                // sur un mois déjà dépensé ne doivent pas surprendre après coup.
+                if (amount != null && amount.isPositive) {
+                    val other = counterpart.takeIf { it != WALLET_ID }
+                    val source = if (incoming) other else line.envelope.id
+                    val target = if (incoming) line.envelope.id else other
+                    val before = dashboard.monthLeft
+                    val after = dashboard.monthLeftAfterTransfer(source, target, amount)
+                    if (after != before) {
+                        Text(
+                            "Ton reste du mois passera de ${before.formatted()} à ${after.formatted()}." +
+                                if (after.isNegative) " Ce mois-ci, tu dépenserais plus que ton budget." else "",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (after.isNegative) BankTheme.status.over else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
         },
         confirmButton = {

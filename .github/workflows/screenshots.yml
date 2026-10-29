@@ -40,7 +40,17 @@ jobs:
           profile: pixel_7
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          script: ./scripts/screenshots.sh app/build/outputs/apk/debug/app-debug.apk shots
+          # Tests sur l'appareil d'abord (migrations de la base), puis les captures.
+          script: |
+            ./gradlew :app:connectedDebugAndroidTest
+            ./scripts/screenshots.sh app/build/outputs/apk/debug/app-debug.apk shots
+
+      # Un test sur l'appareil qui échoue : son message en annotation, lisible sans les journaux.
+      - name: Résumé des tests sur l'appareil
+        if: failure()
+        run: |
+          summary=$(grep -rh -A3 "<failure" app/build/outputs/androidTest-results 2>/dev/null | head -40 | sed -e 's/%/%25/g' | sed -e ':a;N;$!ba;s/\n/%0A/g')
+          echo "::error title=Tests sur l'appareil::${summary:-aucun rapport}"
 
       # Schémas de la base exportés par Room : référence des tests de migration (app/schemas).
       - name: Joindre les schémas de la base

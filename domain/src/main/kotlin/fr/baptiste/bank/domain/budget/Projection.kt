@@ -24,7 +24,9 @@ data class Projection(
  *
  * Projection = dépensé × jours de la période / jours écoulés.
  * Une alerte est levée quand la projection dépasse le disponible de plus de
- * [alertThresholdPercent] %. Avec un disponible nul, toute dépense projetée déclenche l'alerte.
+ * [alertThresholdPercent] % et d'au moins [minimumAlert] : sur une petite enveloppe (un parking à
+ * 6 €), quelques centimes de rythme en trop ne sont pas une décision à prendre. Un dépassement
+ * déjà constaté reste signalé à part (reste négatif).
  *
  * @param available budget de la période (allocation, reliquat et transferts compris).
  * @param spent total dépensé sur la période, rattrapages compris.
@@ -38,6 +40,7 @@ fun project(
     today: LocalDate,
     alertThresholdPercent: Int = 10,
     lumpSum: Money = Money.ZERO,
+    minimumAlert: Money = Money.euros(3),
 ): Projection {
     require(alertThresholdPercent >= 0) { "Le seuil d'alerte ne peut pas être négatif" }
     val elapsed = period.daysElapsedAt(today).toLong()
@@ -48,11 +51,12 @@ fun project(
         lumpSum + (paced * period.lengthInDays.toLong()).divideCeil(elapsed)
     }
     val overrun = if (projected > available) projected - available else Money.ZERO
-    val tolerance = if (available.isPositive) {
+    val percent = if (available.isPositive) {
         (available * alertThresholdPercent.toLong()).divideFloor(100)
     } else {
         Money.ZERO
     }
+    val tolerance = maxOf(percent, minimumAlert)
     return Projection(
         spent = spent,
         available = available,

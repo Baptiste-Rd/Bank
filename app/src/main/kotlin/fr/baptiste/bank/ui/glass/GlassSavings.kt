@@ -78,6 +78,8 @@ fun GlassSavingsContent(
     onOpenAccount: (HoldingLine) -> Unit = {},
     goals: SavingsGoals = SavingsGoals(Money.euros(10_000), Money.euros(20_000)),
     onEditGoals: () -> Unit = {},
+    trackingStart: java.time.YearMonth? = null,
+    onTrackMonth: (java.time.YearMonth) -> Unit = {},
 ) {
     var showInfo by remember { mutableStateOf(false) }
     // Un mois passé se consulte : ses chiffres sont définitifs, on n'y range plus rien.
@@ -99,6 +101,10 @@ fun GlassSavingsContent(
                 onNext = onNextMonth,
                 note = if (readOnly) "Mois terminé" else null,
             )
+        }
+        if (trackingStart != null && selectedMonth < trackingStart) {
+            item(key = "not-tracked") { NotTrackedCard(selectedMonth, trackingStart) { onTrackMonth(selectedMonth) } }
+            return@LazyColumn
         }
         if (dashboard == null) {
             item { Box(Modifier.fillMaxWidth().padding(48.dp), Alignment.Center) { CircularProgressIndicator() } }

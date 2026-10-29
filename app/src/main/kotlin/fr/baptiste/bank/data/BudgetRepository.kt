@@ -129,12 +129,11 @@ class BudgetRepository(
                 spendings,
                 transfers,
                 settings.monthlyIncome,
-                transactionDao.observeFirstDate(),
-            ) { allocs, spent, moves, income, firstDate ->
-                // Un mois sans aucune donnée (avant la première opération) n'est pas « tout
-                // épargné » : il est simplement absent. Le mois consulté reste toujours.
-                val firstMonth = YearMonth.from(firstDate ?: today)
-                dates.filter { it == today || YearMonth.from(it) >= firstMonth }.map { date ->
+                trackingStart(today),
+            ) { allocs, spent, moves, income, start ->
+                // Un mois avant le début du suivi n'est pas « tout épargné » : il est absent. Le mois
+                // en cours reste toujours.
+                dates.filter { YearMonth.from(it) >= start || YearMonth.from(it) == YearMonth.now() }.map { date ->
                     MonthSavings(
                         month = YearMonth.from(date),
                         outlook = computeDashboard(active, allocs, spent, income, date, transfers = moves).savings,
@@ -588,6 +587,17 @@ class BudgetRepository(
         }
     }
 
+    /**
+     * Début du suivi : le mois choisi par l'utilisateur, sinon le premier mois avec une opération
+     * (sinon le mois de [today]). Avant lui, un mois est « non renseigné » : ni bilan, ni moyenne.
+     */
+    fun trackingStart(today: LocalDate = LocalDate.now()): Flow<YearMonth> =
+        combine(settings.trackingStart, transactionDao.observeFirstDate()) { chosen, first ->
+            chosen ?: YearMonth.from(first ?: today)
+        }
+
+    suspend fun setTrackingStart(month: YearMonth?) = settings.setTrackingStart(month)
+
     /** Dernier solde du compte courant : lu à la banque ou saisi à la main. */
     val currentAccountBalance: Flow<BalanceSnapshot?> = balanceDao.observeCurrentAccountBalance()
         .map { it?.let { row -> BalanceSnapshot(row.accountId, row.date, Money(row.balanceCents)) } }
@@ -613,9 +623,9 @@ class BudgetRepository(
             currentAccountBalance,
             transfersToAccounts(month),
             transactionDao.observeUnsortedOut(month.atDay(1), month.atEndOfMonth()),
-            transactionDao.observeFirstDate(),
-        ) { board, balance, transferred, unsorted, first ->
-            balance?.let { board.explainCurrentAccount(it.balance, it.date, transferred, Money(unsorted), since = first) }
+            trackingStart(today),
+        ) { board, balance, transferred, unsorted, start ->
+            balance?.let { board.explainCurrentAccount(it.balance, it.date, transferred, Money(unsorted), since = start.atDay(1)) }
         }
     }
 

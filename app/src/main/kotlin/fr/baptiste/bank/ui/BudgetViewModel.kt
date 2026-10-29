@@ -187,6 +187,11 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
     val holdings: StateFlow<Holdings?> = repository.holdings().asState(null)
     val holdingAccounts: StateFlow<List<HoldingAccount>> = repository.holdingAccounts.asState(emptyList())
 
+    /** Début du suivi : avant, les mois sont « non renseignés ». */
+    val trackingStart: StateFlow<YearMonth?> = repository.trackingStart().asState(null)
+
+    fun setTrackingStart(month: YearMonth?) = perform { repository.setTrackingStart(month) }
+
     /** Compte courant décomposé (null tant qu'aucun solde n'est connu). */
     val currentAccount: StateFlow<CurrentAccountExplained?> = repository.currentAccountExplained().asState(null)
     val currentAccountBalance: StateFlow<BalanceSnapshot?> = repository.currentAccountBalance.asState(null)

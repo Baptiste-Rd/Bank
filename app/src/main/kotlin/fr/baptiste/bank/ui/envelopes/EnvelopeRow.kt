@@ -130,7 +130,13 @@ fun EnvelopeRow(
                     Text(
                         display.value.formatted(),
                         style = MaterialTheme.typography.titleMedium,
-                        color = if (display.value.isNegative) status.over else MaterialTheme.colorScheme.onSurface,
+                        // Un reste positif est un bénéfice : vert. Ce qui est mis de côté (épargne, achat
+                        // prévu) reste neutre : ce n'est pas un reste.
+                        color = when {
+                            display.value.isNegative -> status.over
+                            display.caption == "reste" && display.value.isPositive -> status.good
+                            else -> MaterialTheme.colorScheme.onSurface
+                        },
                     )
                     Text(display.caption, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }

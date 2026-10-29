@@ -89,4 +89,15 @@ class SettingsRepository(context: Context, storeName: String = "settings") {
             if (totalBy == null) it.remove(totalGoalByKey) else it[totalGoalByKey] = totalBy.toString()
         }
     }
+
+    private val trackingStartKey = stringPreferencesKey("tracking_start")
+
+    /** Début du suivi choisi par l'utilisateur (« 2026-09 »), ou null : le premier mois avec des opérations. */
+    val trackingStart: Flow<java.time.YearMonth?> = settingsStore.data.map { prefs ->
+        prefs[trackingStartKey]?.let { runCatching { java.time.YearMonth.parse(it) }.getOrNull() }
+    }
+
+    suspend fun setTrackingStart(month: java.time.YearMonth?) {
+        settingsStore.edit { if (month == null) it.remove(trackingStartKey) else it[trackingStartKey] = month.toString() }
+    }
 }

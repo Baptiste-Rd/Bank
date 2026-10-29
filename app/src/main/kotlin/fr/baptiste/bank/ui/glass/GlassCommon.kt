@@ -133,13 +133,13 @@ internal fun Chevron() {
 
 /** Ligne de légende : pastille de couleur, libellé, valeur ; un détail facultatif dessous. */
 @Composable
-internal fun LegendRow(color: Color, label: String, value: String, detail: String? = null) {
+internal fun LegendRow(color: Color, label: String, value: String, detail: String? = null, detailColor: Color? = null) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
         Box(Modifier.size(10.dp).clip(CircleShape).background(color))
         Column(Modifier.weight(1f).padding(start = 10.dp)) {
             Text(label, style = MaterialTheme.typography.bodyMedium)
             if (detail != null) {
-                Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(detail, style = MaterialTheme.typography.bodySmall, color = detailColor ?: MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         Text(value, style = MaterialTheme.typography.titleSmall)
@@ -216,6 +216,26 @@ internal fun SegmentedToggle(options: List<String>, selected: Int, onSelect: (In
                     color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
+    }
+}
+
+/**
+ * Mois avant le début du suivi : rien n'y a été enregistré, donc ni bilan ni épargne à montrer
+ * (un mois vide passerait pour un mois « tout épargné »). On peut l'inclure au suivi.
+ */
+@Composable
+internal fun NotTrackedCard(month: java.time.YearMonth, start: java.time.YearMonth, onTrack: () -> Unit) {
+    GlassCard(contentPadding = 16.dp) {
+        Text("Mois non renseigné", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Ton suivi commence en ${start.month.getDisplayName(java.time.format.TextStyle.FULL_STANDALONE, Locale.FRANCE)} " +
+                "${start.year}. Ce mois-ci ne compte ni dans les bilans, ni dans les moyennes, ni dans l'épargne de l'année.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        androidx.compose.material3.TextButton(onClick = onTrack, modifier = Modifier.padding(top = 4.dp)) {
+            Text("Commencer le suivi en ${month.month.getDisplayName(java.time.format.TextStyle.FULL_STANDALONE, Locale.FRANCE)}")
         }
     }
 }

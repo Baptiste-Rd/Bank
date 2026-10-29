@@ -134,6 +134,9 @@ fun GlassBudgetContent(
     onSetBalance: () -> Unit = {},
     /** Viré vers mes livrets et placements le mois affiché (bilan). */
     monthTransfers: Money? = null,
+    /** Début du suivi : un mois avant lui est « non renseigné ». */
+    trackingStart: YearMonth? = null,
+    onTrackMonth: (YearMonth) -> Unit = {},
 ) {
     var view by rememberSaveable { mutableStateOf(initialView) }
     var showInfo by remember { mutableStateOf(false) }
@@ -161,7 +164,9 @@ fun GlassBudgetContent(
                         note = if (isCurrentMonth) null else "Mois terminé",
                     )
                 }
-                if (dashboard != null) {
+                if (trackingStart != null && month < trackingStart) {
+                    item(key = "not-tracked") { NotTrackedCard(month, trackingStart) { onTrackMonth(month) } }
+                } else if (dashboard != null) {
                     monthContent(
                         dashboard = dashboard,
                         parts = parts,
@@ -266,6 +271,8 @@ private fun LazyListScope.monthContent(
                         } else {
                             null
                         },
+                        // Du salaire que rien ne réclame : un bénéfice, en vert.
+                        detailColor = BankTheme.status.good,
                     )
                 }
             }
@@ -544,7 +551,11 @@ private fun ReviewLine(label: String, amount: Money) {
         Text(
             amount.signed(),
             style = MaterialTheme.typography.titleSmall,
-            color = if (amount.isNegative) BankTheme.status.warning else MaterialTheme.colorScheme.onSurface,
+            color = when {
+                amount.isNegative -> BankTheme.status.warning
+                amount.isPositive -> BankTheme.status.good
+                else -> MaterialTheme.colorScheme.onSurface
+            },
         )
     }
 }
@@ -581,7 +592,7 @@ private fun CurrentAccountCard(explained: CurrentAccountExplained?, onSetBalance
             if (explained.provisionsHeld.isPositive) AccountLine("Provisions mises de côté", explained.provisionsHeld)
             fr.baptiste.bank.ui.components.RowDivider(0.dp)
             val free = explained.free
-            AccountLine(if (free.isNegative) "Il manque" else "Libre sur le compte", free, strong = true)
+            AccountLine(if (free.isNegative) "Il manque" else "Libre sur le compte", free, strong = true, positiveGood = true)
         }
         val note = when {
             explained.free.isNegative -> buildString {
@@ -605,7 +616,7 @@ private fun CurrentAccountCard(explained: CurrentAccountExplained?, onSetBalance
 }
 
 @Composable
-private fun AccountLine(label: String, amount: Money, strong: Boolean = false) {
+private fun AccountLine(label: String, amount: Money, strong: Boolean = false, positiveGood: Boolean = false) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 3.dp)) {
         Text(
             label,
@@ -615,7 +626,11 @@ private fun AccountLine(label: String, amount: Money, strong: Boolean = false) {
         Text(
             amount.formatted(),
             style = MaterialTheme.typography.titleSmall,
-            color = if (amount.isNegative) BankTheme.status.warning else MaterialTheme.colorScheme.onSurface,
+            color = when {
+                amount.isNegative -> BankTheme.status.warning
+                positiveGood && amount.isPositive -> BankTheme.status.good
+                else -> MaterialTheme.colorScheme.onSurface
+            },
         )
     }
 }

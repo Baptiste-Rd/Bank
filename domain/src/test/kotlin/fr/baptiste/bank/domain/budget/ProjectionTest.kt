@@ -64,6 +64,19 @@ class ProjectionTest {
     }
 
     @Test
+    fun `a few cents of pace on a small envelope are not an alert`() {
+        // Parking : 6 € dépensés sur 6 € le 28 octobre, rythme projeté 6,65 €.
+        val result = project(
+            spent = Money.euros(6),
+            available = Money.euros(6),
+            period = october,
+            today = LocalDate.of(2026, 10, 28),
+        )
+        assertTrue(result.overrun.isPositive)
+        assertFalse(result.isAlert)
+    }
+
+    @Test
     fun `after the period the projection equals the actual spending`() {
         val result = project(
             spent = Money.euros(90),

@@ -5,6 +5,7 @@ import fr.baptiste.bank.domain.model.EnvelopeStatus
 import fr.baptiste.bank.domain.model.EnvelopeType
 import fr.baptiste.bank.domain.money.Money
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
@@ -128,15 +129,54 @@ class TransferTest {
         val spent = listOf(Spending(fuel.id, LocalDate.of(2026, 10, 3), Money.euros(250)))
         val board = dashboard(listOf(fuel, savings), spendings = spent, income = Money.euros(400))
         val plan = board.coveragePlan(board.envelopes.single { it.envelope.id == fuel.id })!!
-        // 150 € déjà dépassés ; le portefeuille n'a rien, l'épargne est protégée.
-        assertEquals(Money.euros(150), plan.needed)
+        // 150 € déjà dépassés, 417 € au rythme actuel d'ici la fin du mois : on couvre le prévu.
+        // Le portefeuille n'a rien, l'épargne est protégée.
+        assertEquals(Money.euros(417), plan.needed)
         assertTrue(plan.legs.isEmpty())
-        assertEquals(Money.euros(150), plan.shortfall)
+        assertEquals(Money.euros(417), plan.shortfall)
     }
 
     @Test
     fun `no plan for an envelope within its budget`() {
         val board = dashboard(listOf(food))
         assertEquals(null, board.coveragePlan(board.envelopes.single()))
+    }
+
+    @Test
+    fun `once covered, an envelope leaves the to-do list`() {
+        val spent = listOf(Spending(fuel.id, LocalDate.of(2026, 10, 3), Money.euros(95)))
+        val envelopes = listOf(fuel, outings, projects, savings)
+        val board = dashboard(envelopes, spendings = spent, income = Money.euros(610))
+        val plan = board.coveragePlan(board.envelopes.single { it.envelope.id == fuel.id })!!
+        val covered = dashboard(
+            envelopes,
+            plan.legs.map { leg -> transfer(leg.sourceEnvelopeId?.let { id -> envelopes.single { it.id == id } }, fuel, leg.amount.cents / 100) },
+            spent,
+            income = Money.euros(610),
+        )
+        assertFalse(covered.envelopes.single { it.envelope.id == fuel.id }.needsCover)
+    }
+
+    @Test
+    fun `month left after a transfer only moves when money leaves or enters the daily budget`() {
+        val envelopes = listOf(food, fuel, savings)
+        val board = dashboard(envelopes, income = Money.euros(1000))
+        val before = board.monthLeft
+        // Du non réparti vers l'épargne : le quotidien perd 200 €.
+        assertEquals(before - Money.euros(200), board.monthLeftAfterTransfer(null, savings.id, Money.euros(200)))
+        // Du non réparti vers une enveloppe du quotidien : rien ne change.
+        assertEquals(before, board.monthLeftAfterTransfer(null, fuel.id, Money.euros(200)))
+        // De l'épargne vers le non réparti : le quotidien gagne 50 €.
+        assertEquals(before + Money.euros(50), board.monthLeftAfterTransfer(savings.id, null, Money.euros(50)))
+    }
+
+    @Test
+    fun `the predicted month left matches the dashboard after the transfer`() {
+        val envelopes = listOf(food, fuel, savings)
+        val spent = listOf(Spending(food.id, LocalDate.of(2026, 10, 3), Money.euros(120)))
+        val board = dashboard(envelopes, spendings = spent, income = Money.euros(1000))
+        val predicted = board.monthLeftAfterTransfer(null, savings.id, Money.euros(200))
+        val after = dashboard(envelopes, listOf(transfer(null, savings, 200)), spent, income = Money.euros(1000))
+        assertEquals(after.monthLeft, predicted)
     }
 }

@@ -44,6 +44,7 @@ import fr.baptiste.bank.ui.OpenDialog
 import fr.baptiste.bank.ui.Tab
 import fr.baptiste.bank.ui.rememberAppController
 import fr.baptiste.bank.ui.rememberUpdateAvailable
+import fr.baptiste.bank.ui.format.label
 import fr.baptiste.bank.ui.theme.BankTheme
 import fr.baptiste.bank.ui.theme.GlassSurfaceColors
 import fr.baptiste.bank.update.UpdateViewModel
@@ -97,6 +98,7 @@ fun GlassMainScreen(
     val bankConnection by bankViewModel.connection.collectAsStateWithLifecycle()
     val currentAccount by viewModel.currentAccount.collectAsStateWithLifecycle()
     val savingsGoals by viewModel.savingsGoals.collectAsStateWithLifecycle()
+    val trackingStart by viewModel.trackingStart.collectAsStateWithLifecycle()
     val monthTransfers by remember(selectedMonth) { viewModel.transfersToAccounts(selectedMonth) }
         .collectAsStateWithLifecycle(null)
     val aliases by viewModel.aliases.collectAsStateWithLifecycle()
@@ -174,6 +176,11 @@ fun GlassMainScreen(
                             currentAccount = currentAccount,
                             onSetBalance = { controller.dialog = OpenDialog.CurrentBalance },
                             monthTransfers = monthTransfers,
+                            trackingStart = trackingStart,
+                            onTrackMonth = { month ->
+                                viewModel.setTrackingStart(month)
+                                controller.notify("Suivi depuis ${month.label}.")
+                            },
                         )
                     }
                     Tab.SAVINGS -> GlassSavingsContent(
@@ -192,6 +199,11 @@ fun GlassMainScreen(
                         onOpenAccount = { controller.dialog = OpenDialog.AccountEdit(it) },
                         goals = savingsGoals,
                         onEditGoals = { controller.dialog = OpenDialog.SavingsGoals },
+                        trackingStart = trackingStart,
+                        onTrackMonth = { month ->
+                            viewModel.setTrackingStart(month)
+                            controller.notify("Suivi depuis ${month.label}.")
+                        },
                     )
                     Tab.OPERATIONS -> GlassOperationsContent(
                         operations = operations,

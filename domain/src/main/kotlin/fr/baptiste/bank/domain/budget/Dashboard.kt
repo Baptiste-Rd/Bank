@@ -281,9 +281,11 @@ data class CoveragePlan(
  * Une enveloppe protégée n'est jamais sollicitée.
  */
 fun Dashboard.coveragePlan(target: EnvelopeLine): CoveragePlan? {
+    // Le dépassement prévu jusqu'à la fin de la période comprend le constaté (on ne dépense pas
+    // moins qu'on a déjà dépensé) : couvrir le prévu évite que l'enveloppe revienne dans « À faire ».
     val raw = when {
+        target.projection.isAlert -> maxOf(target.projection.overrun, -target.remaining)
         target.remaining.isNegative -> -target.remaining
-        target.projection.isAlert -> target.projection.overrun
         else -> return null
     }
     val needed = raw.divideCeil(100) * 100
@@ -311,4 +313,24 @@ fun Dashboard.coveragePlan(target: EnvelopeLine): CoveragePlan? {
         left -= taken
     }
     return CoveragePlan(target = target, needed = needed, legs = legs, shortfall = left)
+}
+
+/** Reste du mois du quotidien : son budget moins ce qui en est déjà dépensé. */
+val Dashboard.monthLeft: Money get() = dailyBudget - dailySpent
+
+/**
+ * Reste du mois après un transfert de [amount] de [sourceId] vers [targetId] (null = non réparti),
+ * fait aujourd'hui. Le quotidien réunit le non réparti (quand le salaire est connu) et les
+ * enveloppes du quotidien : un transfert à l'intérieur ne change rien, un transfert qui en sort
+ * (vers l'épargne, une charge...) le réduit d'autant, un transfert qui y entre l'augmente.
+ */
+fun Dashboard.monthLeftAfterTransfer(sourceId: Long?, targetId: Long?, amount: Money): Money {
+    fun inDaily(id: Long?): Boolean =
+        if (id == null) unallocated != null else envelopes.any { it.envelope.id == id && it.envelope.type == EnvelopeType.DAILY }
+    val delta = when {
+        inDaily(sourceId) == inDaily(targetId) -> Money.ZERO
+        inDaily(sourceId) -> Money.ZERO - amount
+        else -> amount
+    }
+    return monthLeft + delta
 }

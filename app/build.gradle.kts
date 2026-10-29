@@ -19,6 +19,7 @@ android {
         targetSdk = 37
         versionCode = ciBuildNumber ?: 1
         versionName = "0.1.${ciBuildNumber ?: 0}"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Dépôt GitHub dont les releases servent de source aux mises à jour intégrées.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"Baptiste-Rd/bank\"")
@@ -50,6 +51,13 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+
+    // Les schémas exportés par Room servent aux tests de migration (MigrationTestHelper).
+    sourceSets {
+        getByName("androidTest") {
+            assets.srcDir("$projectDir/schemas")
+        }
     }
 }
 
@@ -87,4 +95,8 @@ dependencies {
     implementation(libs.kyant.shapes)
 
     testImplementation(libs.junit)
+
+    androidTestImplementation(libs.androidx.room.testing)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
 }
