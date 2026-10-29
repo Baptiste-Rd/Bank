@@ -255,7 +255,7 @@ private fun GapTile(label: String, delta: Money, reference: String, modifier: Mo
         Text(
             delta.signed(),
             style = MaterialTheme.typography.titleLarge,
-            color = if (delta.isNegative) BankTheme.status.warning else BankTheme.status.good,
+            color = if (delta.isNegative) BankTheme.status.warning else BankTheme.status.gain,
         )
         Text(reference, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }

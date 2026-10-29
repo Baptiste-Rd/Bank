@@ -120,11 +120,11 @@ private fun ColorScheme.onGlassBackground(): ColorScheme = copy(
 
 /*
  * Statuts en verre, selon la convention des feux : bleu (dans le budget), ambre (à surveiller),
- * rouge (dépassé). Contrastes mesurés sur une carte (#19357D) : bleu 5,3:1, ambre 6,8:1,
+ * rouge (dépassé), et vert pour les montants favorables. Contrastes mesurés sur une carte (#19357D) : bleu 5,3:1, ambre 6,8:1,
  * rouge 5,1:1, tous au-dessus du seuil de 4,5:1 du texte courant (WCAG 2.2, critère 1.4.3).
  */
-private val GlassCardStatusDark = StatusColors(good = Color(0xFF7DB4FF), warning = Color(0xFFFBBF24), over = Color(0xFFFF8A97))
-private val GlassBackgroundStatus = StatusColors(good = Color(0xFFBFDBFF), warning = Color(0xFFFCD34D), over = Color(0xFFFFB3BD))
+private val GlassCardStatusDark = StatusColors(good = Color(0xFF7DB4FF), warning = Color(0xFFFBBF24), over = Color(0xFFFF8A97), gain = Color(0xFF6EE7A0))
+private val GlassBackgroundStatus = StatusColors(good = Color(0xFFBFDBFF), warning = Color(0xFFFCD34D), over = Color(0xFFFFB3BD), gain = Color(0xFFA7F3C8))
 
 /**
  * Applique les couleurs « sur fond » ([onBackground] = true) ou « sur verre » au contenu.
@@ -160,7 +160,11 @@ fun envelopeTypeColor(type: fr.baptiste.bank.domain.model.EnvelopeType): Color =
 
 /** Couleurs de statut qui n'existent pas dans le schéma Material. */
 @Immutable
-data class StatusColors(val good: Color, val warning: Color, val over: Color)
+/**
+ * [good] : statut « dans le budget » (jauges, pastilles). [gain] : montant favorable (reste
+ * positif, bilan excédentaire, revenu), en vert, distinct du statut pour se lire d'un coup d'œil.
+ */
+data class StatusColors(val good: Color, val warning: Color, val over: Color, val gain: Color = good)
 
 private val LocalStatusColors = staticCompositionLocalOf {
     StatusColors(good = Bleu, warning = RougeClair, over = Rouge)
@@ -247,8 +251,8 @@ fun BankTheme(
 ) {
     val status = when {
         glass -> GlassCardStatusDark
-        darkTheme -> StatusColors(good = BleuClair, warning = RougeClairNuit, over = RougeNuit)
-        else -> StatusColors(good = Bleu, warning = RougeClair, over = Rouge)
+        darkTheme -> StatusColors(good = BleuClair, warning = RougeClairNuit, over = RougeNuit, gain = Color(0xFF4ADE80))
+        else -> StatusColors(good = Bleu, warning = RougeClair, over = Rouge, gain = Color(0xFF15803D))
     }
     androidx.compose.runtime.CompositionLocalProvider(
         LocalStatusColors provides status,

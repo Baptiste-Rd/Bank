@@ -272,7 +272,7 @@ private fun LazyListScope.monthContent(
                             null
                         },
                         // Du salaire que rien ne réclame : un bénéfice, en vert.
-                        detailColor = BankTheme.status.good,
+                        detailColor = BankTheme.status.gain,
                     )
                 }
             }
@@ -416,7 +416,7 @@ private fun LazyListScope.yearContent(overview: YearOverview) {
             Text(
                 "${gap.signed()} par rapport à l'objectif (${target.formatted()} sur ${overview.monthsCounted} mois)",
                 style = MaterialTheme.typography.bodyMedium,
-                color = if (gap.isNegative) BankTheme.status.warning else BankTheme.status.good,
+                color = if (gap.isNegative) BankTheme.status.warning else BankTheme.status.gain,
             )
             if (overview.months.size > 1) {
                 SavingsBarsChart(overview.months, board.savings.target, accent, legend = null)
@@ -553,7 +553,7 @@ private fun ReviewLine(label: String, amount: Money) {
             style = MaterialTheme.typography.titleSmall,
             color = when {
                 amount.isNegative -> BankTheme.status.warning
-                amount.isPositive -> BankTheme.status.good
+                amount.isPositive -> BankTheme.status.gain
                 else -> MaterialTheme.colorScheme.onSurface
             },
         )
@@ -628,7 +628,7 @@ private fun AccountLine(label: String, amount: Money, strong: Boolean = false, p
             style = MaterialTheme.typography.titleSmall,
             color = when {
                 amount.isNegative -> BankTheme.status.warning
-                positiveGood && amount.isPositive -> BankTheme.status.good
+                positiveGood && amount.isPositive -> BankTheme.status.gain
                 else -> MaterialTheme.colorScheme.onSurface
             },
         )

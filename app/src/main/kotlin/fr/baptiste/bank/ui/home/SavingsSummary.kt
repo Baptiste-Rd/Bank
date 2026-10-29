@@ -119,7 +119,7 @@ private fun Comparison(label: String, reference: Money, delta: Money, modifier: 
         Text(
             delta.signed(),
             style = MaterialTheme.typography.titleMedium,
-            color = if (delta.isNegative) status.warning else status.good,
+            color = if (delta.isNegative) status.warning else status.gain,
         )
     }
 }

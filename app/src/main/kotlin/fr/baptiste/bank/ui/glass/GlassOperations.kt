@@ -250,7 +250,7 @@ private fun GlassOperationRow(
         Text(
             Money(operation.amountCents).formatted(),
             style = MaterialTheme.typography.titleMedium,
-            color = if (operation.amountCents > 0) BankTheme.status.good else MaterialTheme.colorScheme.onSurface,
+            color = if (operation.amountCents > 0) BankTheme.status.gain else MaterialTheme.colorScheme.onSurface,
         )
     }
 }

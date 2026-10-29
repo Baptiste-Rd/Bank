@@ -134,7 +134,7 @@ fun EnvelopeRow(
                         // prévu) reste neutre : ce n'est pas un reste.
                         color = when {
                             display.value.isNegative -> status.over
-                            display.caption == "reste" && display.value.isPositive -> status.good
+                            display.caption == "reste" && display.value.isPositive -> status.gain
                             else -> MaterialTheme.colorScheme.onSurface
                         },
                     )

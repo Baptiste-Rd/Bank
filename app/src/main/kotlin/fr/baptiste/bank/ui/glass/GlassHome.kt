@@ -258,7 +258,7 @@ fun GlassHomeContent(
                         savings.forecast.formatted(),
                         style = MaterialTheme.typography.titleMedium,
                         color = when {
-                            savings.forecast > savings.target + margin -> BankTheme.status.good
+                            savings.forecast > savings.target + margin -> BankTheme.status.gain
                             savings.forecast < savings.target - margin -> BankTheme.status.over
                             else -> MaterialTheme.colorScheme.onSurface
                         },
