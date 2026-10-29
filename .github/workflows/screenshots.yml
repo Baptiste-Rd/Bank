@@ -42,6 +42,12 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: ./scripts/screenshots.sh app/build/outputs/apk/debug/app-debug.apk shots
 
+      # Schémas de la base exportés par Room : référence des tests de migration (app/schemas).
+      - name: Joindre les schémas de la base
+        run: |
+          mkdir -p shots
+          cp -r app/schemas shots/schemas || true
+
       - name: Publier sur la branche screenshots
         uses: peaceiris/actions-gh-pages@v4
         with:
