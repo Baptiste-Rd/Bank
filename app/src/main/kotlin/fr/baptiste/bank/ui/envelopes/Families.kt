@@ -1,11 +1,7 @@
 package fr.baptiste.bank.ui.envelopes
 
 import androidx.compose.ui.graphics.Color
-import fr.baptiste.bank.domain.budget.EnvelopeLine
-import fr.baptiste.bank.domain.budget.convert
 import fr.baptiste.bank.domain.model.EnvelopeType
-import fr.baptiste.bank.domain.money.Money
-import fr.baptiste.bank.domain.period.Frequency
 import fr.baptiste.bank.ui.theme.envelopeTypeColor
 
 /**
@@ -28,5 +24,3 @@ val EnvelopeType.family: EnvelopeFamily
         EnvelopeType.SAVINGS -> EnvelopeFamily.SAVINGS
     }
 
-/** Part mensuelle d'une enveloppe : ce qu'elle prend au salaire chaque mois. */
-val EnvelopeLine.monthlyShare: Money get() = allocated.convert(envelope.frequency, Frequency.MONTHLY)

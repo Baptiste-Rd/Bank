@@ -21,7 +21,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         BalanceEntity::class,
         TransferRuleEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -41,7 +41,7 @@ abstract class BankDatabase : RoomDatabase() {
         /** [name] permet au mode démo d'utiliser une base séparée, sans toucher aux vraies données. */
         fun create(context: Context, name: String = "bank.db"): BankDatabase =
             Room.databaseBuilder(context, BankDatabase::class.java, name)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                 .build()
     }
 }
@@ -116,5 +116,12 @@ val MIGRATION_7_8 = object : Migration(7, 8) {
                 "FOREIGN KEY(account_id) REFERENCES account(id) ON UPDATE NO ACTION ON DELETE CASCADE)",
         )
         db.execSQL("CREATE INDEX IF NOT EXISTS index_transfer_rule_account_id ON transfer_rule (account_id)")
+    }
+}
+
+/** Version 9 : début de mise de côté d'une provision (rattrapage sur les mois restants). */
+val MIGRATION_8_9 = object : Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE envelope ADD COLUMN funding_start TEXT")
     }
 }

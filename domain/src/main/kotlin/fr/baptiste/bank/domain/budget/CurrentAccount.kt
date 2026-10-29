@@ -53,19 +53,15 @@ fun Dashboard.explainCurrentAccount(
         .filter { it.envelope.type != EnvelopeType.DAILY && it.envelope.type != EnvelopeType.SAVINGS }
         .filter { !it.period.endInclusive.isAfter(monthEnd) }
         .fold(Money.ZERO) { sum, line -> if (line.remaining.isPositive) sum + line.remaining else sum }
-    // Provisions qui courent au-delà du mois : leur part mensuelle, mois après mois depuis le début
-    // de leur période (ou des données), moins ce qui en est déjà dépensé.
+    // Provisions qui courent au-delà du mois : ce qui en est mis de côté depuis le début de leur
+    // période (ou du suivi, ou de leur mise de côté), moins ce qui en est déjà dépensé.
+    val sinceMonth = since?.let { java.time.YearMonth.from(it) }
     val provisionsHeld = envelopes
         .filter { it.envelope.type in setOf(EnvelopeType.ANNUAL, EnvelopeType.RECURRING, EnvelopeType.PLANNED) }
         .filter { it.period.endInclusive.isAfter(monthEnd) }
         .fold(Money.ZERO) { sum, line ->
-            val start = listOfNotNull(line.period.start, since).max()
-            val months = java.time.temporal.ChronoUnit.MONTHS.between(
-                java.time.YearMonth.from(start),
-                java.time.YearMonth.from(today),
-            ) + 1
-            val share = line.allocated.convert(line.envelope.frequency, fr.baptiste.bank.domain.period.Frequency.MONTHLY)
-            val held = share * months - line.spent
+            val funded = line.envelope.fundedThrough(java.time.YearMonth.from(today), line.period, line.allocated, sinceMonth)
+            val held = funded - line.spent
             if (held.isPositive) sum + held else sum
         }
     val pending = savings.secured - transferredToAccounts

@@ -85,6 +85,8 @@ data class EnvelopeEntity(
     @ColumnInfo(name = "anchor_date") val anchorDate: LocalDate? = null,
     /** Groupe d'affichage, sans budget propre (NULL : hors groupe). */
     @ColumnInfo(name = "group_name") val groupName: String? = null,
+    /** Provision : mois (« 2026-10 ») à partir duquel elle met de côté ; NULL : part habituelle. */
+    @ColumnInfo(name = "funding_start") val fundingStart: String? = null,
 )
 
 @Entity(

@@ -43,6 +43,7 @@ import fr.baptiste.bank.domain.budget.Dashboard
 import fr.baptiste.bank.domain.budget.monthLeft
 import fr.baptiste.bank.domain.budget.monthLeftAfterTransfer
 import fr.baptiste.bank.domain.budget.EnvelopeLine
+import fr.baptiste.bank.domain.budget.isProvision
 import fr.baptiste.bank.domain.budget.TransferLeg
 import fr.baptiste.bank.domain.money.Money
 import fr.baptiste.bank.domain.money.parseMoney
@@ -237,6 +238,8 @@ fun EnvelopeSheet(
     operations: List<OperationRow> = emptyList(),
     /** Toucher une dépense : la déplacer vers une autre enveloppe. */
     onMoveOperation: (OperationRow) -> Unit = {},
+    /** Accepte le rattrapage proposé (provision suivie depuis moins longtemps que sa période). */
+    onCatchUp: ((java.time.YearMonth) -> Unit)? = null,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -265,6 +268,29 @@ fun EnvelopeSheet(
             }
             if (onCover != null) {
                 Button(onClick = onCover, modifier = Modifier.fillMaxWidth()) { Text("Couvrir le dépassement") }
+            }
+            // Provision : ce qui est déjà mis de côté, et le rattrapage s'il en faut un.
+            if (line.envelope.type.isProvision && line.envelope.type != fr.baptiste.bank.domain.model.EnvelopeType.PLANNED &&
+                line.period.endInclusive.isAfter(line.period.start.plusMonths(1))
+            ) {
+                Text(
+                    "${line.funded.formatted()} mis de côté sur ${line.allocated.formatted()} · ${line.monthlyShare.formatted()} ce mois-ci",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                val proposal = line.catchUp
+                if (proposal != null && onCatchUp != null) {
+                    Text(
+                        "Ton suivi commence en ${proposal.from.label} : rien n'était mis de côté avant. Pour avoir " +
+                            "${line.allocated.formatted()} à la fin de la période, il faut ${proposal.monthlyShare.formatted()} par mois " +
+                            "sur ${proposal.months} mois, au lieu de ${proposal.currentShare.formatted()}. Ton budget du quotidien " +
+                            "baisse d'autant.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    OutlinedButton(onClick = { onCatchUp(proposal.from) }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Rattraper : ${proposal.monthlyShare.formatted()} par mois")
+                    }
+                }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 OutlinedButton(onClick = onAdd, modifier = Modifier.weight(1f)) { Text("Ajouter") }

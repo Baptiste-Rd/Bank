@@ -5,7 +5,6 @@ import fr.baptiste.bank.domain.model.EnvelopeType
 import fr.baptiste.bank.domain.model.category
 import fr.baptiste.bank.domain.money.Money
 import fr.baptiste.bank.domain.money.sumOfMoney
-import fr.baptiste.bank.domain.period.Frequency
 import java.time.LocalDate
 import java.time.YearMonth
 
@@ -41,8 +40,9 @@ data class MonthSpending(
     val budget: Money get() = categories.sumOfMoney { it.budget }
 }
 
-/** Part mensuelle du budget d'une enveloppe. */
-fun Envelope.monthlyBudget(): Money = amount.convert(frequency, Frequency.MONTHLY)
+/** Part du budget d'une enveloppe pour [month] (rattrapage compris pour une provision). */
+fun Envelope.monthlyBudget(month: YearMonth): Money =
+    monthShare(month, periodContaining(month.atEndOfMonth()), amount)
 
 /** Dépenses de [month] par catégorie. [envelopes] : toutes, archivées comprises (leurs dépenses restent). */
 fun monthSpending(
@@ -60,7 +60,7 @@ fun monthSpending(
     val lines = envelopes
         .filter { it.type != EnvelopeType.SAVINGS }
         .map { envelope ->
-            val budget = if (!envelope.archived && envelope.existsOn(month.atEndOfMonth())) envelope.monthlyBudget() else Money.ZERO
+            val budget = if (!envelope.archived && envelope.existsOn(month.atEndOfMonth())) envelope.monthlyBudget(month) else Money.ZERO
             EnvelopeSpent(envelope, spentById[envelope.id] ?: Money.ZERO, budget)
         }
         .filter { it.spent != Money.ZERO || it.budget != Money.ZERO }

@@ -60,6 +60,8 @@ class MainActivity : ComponentActivity() {
             )
             // Fiche de la première enveloppe de la démo (Courses), avec ses dépenses.
             "ENVELOPE" -> OpenDialog.EnvelopeDetail(1)
+            // Fiche d'une provision annuelle de la démo (Vacances), avec sa proposition de rattrapage.
+            "PROVISION" -> OpenDialog.EnvelopeDetail(9)
             "UNSORT" -> OpenDialog.Unsort
             "RULES" -> OpenDialog.Rules
             "ASSISTED" -> OpenDialog.AssistedSort()

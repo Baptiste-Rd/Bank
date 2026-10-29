@@ -122,6 +122,7 @@ shot_budget glass-mois-non-renseigne --es tab BUDGET --ei monthsBack 7
 # Tri : fiche d'enveloppe avec ses dépenses, opérations (proposition, alias, outils), déclasser,
 # règles, nom en double, menu développeur du verre.
 shot_budget glass-fiche-enveloppe --es tab BUDGET --es dialog ENVELOPE
+shot_budget glass-fiche-provision --es tab BUDGET --es dialog PROVISION
 shot_budget glass-operations-tri --es tab OPERATIONS --es spendingView LIST
 # Analyse des dépenses : le mois (catégories), l'année (histogramme et tableau), un mois passé.
 shot_budget glass-analyse-mois --es tab OPERATIONS

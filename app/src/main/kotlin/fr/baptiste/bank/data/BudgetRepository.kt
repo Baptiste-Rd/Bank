@@ -101,8 +101,8 @@ class BudgetRepository(
                 .map { rows -> rows.map { Spending(it.envelopeId, it.date, Money(it.amountCents), it.wholePeriod) } }
             val transfers = transferDao.observeActive(range.start, range.endInclusive)
                 .map { rows -> rows.map { it.toDomain() } }
-            combine(allocations, spendings, transfers, settings.monthlyIncome) { allocs, spent, moves, income ->
-                computeDashboard(envelopes, allocs, spent, income, today, transfers = moves)
+            combine(allocations, spendings, transfers, settings.monthlyIncome, trackingStart(today)) { allocs, spent, moves, income, start ->
+                computeDashboard(envelopes, allocs, spent, income, today, transfers = moves, trackingStart = start)
             }
         }
     }
@@ -138,7 +138,7 @@ class BudgetRepository(
                 dates.filter { YearMonth.from(it) >= start || YearMonth.from(it) == YearMonth.now() }.map { date ->
                     MonthSavings(
                         month = YearMonth.from(date),
-                        outlook = computeDashboard(active, allocs, spent, income, date, transfers = moves).savings,
+                        outlook = computeDashboard(active, allocs, spent, income, date, transfers = moves, trackingStart = start).savings,
                     )
                 }
             }
@@ -510,6 +510,8 @@ class BudgetRepository(
                             status = type.defaultStatus,
                             anchor = if (type.defaultFrequency.isCalendar) null else LocalDate.now(),
                             group = (target as? ProposalTarget.New)?.category,
+                            // Une provision créée maintenant met de côté à partir de ce mois.
+                            fundingStart = if (type == EnvelopeType.ANNUAL || type == EnvelopeType.RECURRING) YearMonth.now() else null,
                         )
                         val id = saveEnvelope(draft)
                         created += name
@@ -617,6 +619,12 @@ class BudgetRepository(
         return combine(all, spendings, unsorted, trackingStart(today)) { envelopes, spent, toSort, start ->
             yearSpending(year, today, start, envelopes, spent, toSort)
         }
+    }
+
+    /** Rattrapage d'une provision : elle met de côté tout son montant à partir de [from]. */
+    suspend fun startFunding(envelopeId: Long, from: YearMonth?) {
+        val envelope = envelopeDao.active().firstOrNull { it.id == envelopeId }?.toDomain() ?: return
+        saveEnvelope(envelope.copy(fundingStart = from))
     }
 
     /** Opérations d'une enveloppe sur un mois, avec la part qui lui revient (analyse des dépenses). */
@@ -789,6 +797,7 @@ private fun EnvelopeEntity.toDomain() = Envelope(
     archived = archived,
     anchor = anchorDate,
     group = groupName,
+    fundingStart = fundingStart?.let { runCatching { YearMonth.parse(it) }.getOrNull() },
 )
 
 private fun Envelope.toEntity() = EnvelopeEntity(
@@ -804,4 +813,5 @@ private fun Envelope.toEntity() = EnvelopeEntity(
     every = frequency.every,
     anchorDate = anchor,
     groupName = group?.trim()?.takeIf { it.isNotEmpty() },
+    fundingStart = fundingStart?.toString(),
 )

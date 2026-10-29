@@ -126,6 +126,11 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
         .flatMapLatest { repository.spendingYear(it) }
         .asState(null)
 
+    /** Rattrapage d'une provision à partir de [from]. */
+    fun startFunding(envelopeId: Long, from: YearMonth) {
+        viewModelScope.launch { repository.startFunding(envelopeId, from) }
+    }
+
     /** Opérations d'une enveloppe sur un mois, pour la descente de l'analyse. */
     fun envelopeMonthOperations(envelopeId: Long, month: YearMonth): Flow<List<OperationRow>> =
         repository.envelopeMonthOperations(envelopeId, month)

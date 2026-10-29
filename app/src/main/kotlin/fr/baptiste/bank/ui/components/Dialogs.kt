@@ -26,6 +26,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import fr.baptiste.bank.domain.bank.isNameTaken
 import fr.baptiste.bank.domain.budget.convert
+import fr.baptiste.bank.domain.budget.monthShare
 import fr.baptiste.bank.domain.budget.monthsUntil
 import fr.baptiste.bank.domain.budget.purchaseMonth
 import fr.baptiste.bank.domain.model.DEFAULT_CATEGORY
@@ -45,6 +46,7 @@ import fr.baptiste.bank.ui.format.label
 import fr.baptiste.bank.ui.format.unitName
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.temporal.ChronoUnit
 
 /** Montant de départ d'un champ : vide pour zéro, sinon « 12,50 ». */
 internal fun Money.toFieldText(): String =
@@ -56,6 +58,10 @@ internal fun Money.toFieldText(): String =
  * La période se règle librement : par mois, toutes les 6 semaines, tous les 10 jours...
  */
 private const val NEW_CATEGORY = "Nouvelle catégorie…"
+
+/** Une provision annuelle ou récurrente créée maintenant met de côté à partir de ce mois. */
+private fun newFundingStart(type: EnvelopeType, today: LocalDate): YearMonth? =
+    if (type == EnvelopeType.ANNUAL || type == EnvelopeType.RECURRING) YearMonth.from(today) else null
 
 @Composable
 fun EnvelopeDialog(
@@ -242,6 +248,22 @@ fun EnvelopeDialog(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                // Provision créée en cours de période : elle rattrape sur les mois qui restent.
+                val fundingStart = if (isExisting) initial?.fundingStart else newFundingStart(type, today)
+                if (frequency != null && amount != null && amount.isPositive && fundingStart != null) {
+                    val draft = Envelope(id = 0, name = name, type = type, frequency = frequency, amount = amount, status = status, anchor = if (frequency.isCalendar) null else anchor, fundingStart = fundingStart)
+                    val period = draft.periodContaining(today)
+                    val share = draft.monthShare(YearMonth.from(today), period, amount)
+                    if (share != amount.convert(frequency, Frequency.MONTHLY)) {
+                        val months = ChronoUnit.MONTHS.between(fundingStart, YearMonth.from(period.endInclusive)) + 1
+                        Text(
+                            "Mise de côté à partir de ${fundingStart.label} : ${amount.formatted()} sur $months mois, " +
+                                "soit ${share.formatted()} par mois, pour être prêt à la fin de la période.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -284,6 +306,7 @@ fun EnvelopeDialog(
                                 frequency = frequency,
                                 amount = amount,
                                 status = status,
+                                fundingStart = if (isExisting) base.fundingStart else newFundingStart(type, today),
                                 group = storedCategory(newCategory?.takeIf { it.isNotBlank() } ?: category),
                                 anchor = when {
                                     type == EnvelopeType.PLANNED -> plannedStart

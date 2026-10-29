@@ -51,7 +51,6 @@ import fr.baptiste.bank.ui.envelopes.EnvelopeRow
 import fr.baptiste.bank.ui.envelopes.TemplateChips
 import fr.baptiste.bank.ui.envelopes.envelopeTemplates
 import fr.baptiste.bank.ui.envelopes.family
-import fr.baptiste.bank.ui.envelopes.monthlyShare
 import fr.baptiste.bank.ui.envelopes.template
 import fr.baptiste.bank.ui.format.formatted
 import fr.baptiste.bank.ui.format.label

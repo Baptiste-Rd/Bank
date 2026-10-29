@@ -32,6 +32,7 @@ import fr.baptiste.bank.ui.components.ExpenseSheet
 import fr.baptiste.bank.ui.components.IncomeDialog
 import fr.baptiste.bank.ui.bank.BankDialog
 import fr.baptiste.bank.ui.format.formatted
+import fr.baptiste.bank.ui.format.label
 import fr.baptiste.bank.domain.model.TransactionSource
 import fr.baptiste.bank.ui.assistant.AssistedSortDialog
 import fr.baptiste.bank.ui.accounts.AccountEditDialog
@@ -470,6 +471,10 @@ fun AppDialogs(
                         null
                     },
                     onEdit = { controller.dialog = OpenDialog.EnvelopeEditor(line.envelope) },
+                    onCatchUp = { from ->
+                        viewModel.startFunding(line.envelope.id, from)
+                        controller.notify("${line.envelope.name} : rattrapage depuis ${from.label}.")
+                    },
                 )
             }
         }

@@ -77,6 +77,12 @@ data class Envelope(
      * toujours imputée à une enveloppe, jamais au groupe, et n'est donc comptée qu'une fois.
      */
     val group: String? = null,
+    /**
+     * Provision : mois à partir duquel on met de côté. Rien ne l'a été avant ; le montant se
+     * répartit sur les mois qui restent jusqu'à la fin de la période (Noël créé en octobre : le
+     * montant sur trois mois). Null : la part habituelle (un douzième pour une annuelle).
+     */
+    val fundingStart: java.time.YearMonth? = null,
 ) {
     val scale: Scale get() = frequency.scale
 

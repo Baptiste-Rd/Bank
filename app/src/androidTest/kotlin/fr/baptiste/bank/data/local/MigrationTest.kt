@@ -51,6 +51,28 @@ class MigrationTest {
         database.close()
     }
 
+    @Test
+    fun migrate8To9KeepsEnvelopesWithoutCatchUp() {
+        createDatabase(version = 8) { db ->
+            db.execSQL(
+                "INSERT INTO envelope (id, name, type, scale, amount_cents, status, priority, carry_over, archived, every, group_name) " +
+                    "VALUES (1, 'Vacances', 'ANNUAL', 'YEAR', 180000, 'FLEXIBLE', 0, 0, 0, 1, 'Voyages')",
+            )
+        }
+        val database = open()
+        val db = database.openHelper.writableDatabase
+        db.query("SELECT name, amount_cents, group_name, funding_start FROM envelope WHERE id = 1").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals("Vacances", cursor.getString(0))
+            assertEquals(180000L, cursor.getLong(1))
+            assertEquals("Voyages", cursor.getString(2))
+            // Une enveloppe existante garde sa part habituelle : pas de rattrapage imposé.
+            assertEquals(true, cursor.isNull(3))
+        }
+        db.execSQL("UPDATE envelope SET funding_start = '2026-10' WHERE id = 1")
+        database.close()
+    }
+
     /** Recrée une base de [version] à partir de son schéma exporté, puis y écrit [fill]. */
     private fun createDatabase(version: Int, fill: (SQLiteDatabase) -> Unit) {
         val assets = InstrumentationRegistry.getInstrumentation().context.assets
@@ -76,7 +98,7 @@ class MigrationTest {
     }
 
     private fun open(): BankDatabase = Room.databaseBuilder(context, BankDatabase::class.java, DB)
-        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
         .build()
 
     private companion object {

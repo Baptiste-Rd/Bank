@@ -97,6 +97,15 @@ fun EnvelopeRow(
             },
             value = line.remaining,
             caption = "reste",
+            // Provision sur plusieurs mois : ce qui est déjà mis de côté pour la fin de la période.
+            extra = if ((line.envelope.type == EnvelopeType.ANNUAL || line.envelope.type == EnvelopeType.RECURRING) &&
+                line.period.endInclusive.isAfter(line.period.start.plusMonths(1))
+            ) {
+                "${line.funded.formatted()} mis de côté sur ${line.allocated.formatted()}" +
+                    if (line.catchUp != null) " · à rattraper" else ""
+            } else {
+                null
+            },
             ratio = when {
                 line.available.isPositive -> (line.spent.cents.toFloat() / line.available.cents).coerceIn(0f, 1f)
                 line.spent.isPositive -> 1f
@@ -124,6 +133,15 @@ fun EnvelopeRow(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    display.extra?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(horizontalAlignment = Alignment.End) {
@@ -189,4 +207,4 @@ fun CategoryAvatar(name: String, color: Color, modifier: Modifier = Modifier) {
 }
 
 /** Ce qu'une ligne d'enveloppe affiche : détail, valeur à droite et sa légende, avancement (null : pas de barre). */
-private data class RowDisplay(val detail: String, val value: Money, val caption: String, val ratio: Float?)
+private data class RowDisplay(val detail: String, val value: Money, val caption: String, val ratio: Float?, val extra: String? = null)

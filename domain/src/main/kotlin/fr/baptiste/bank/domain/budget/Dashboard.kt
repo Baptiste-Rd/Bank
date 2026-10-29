@@ -55,6 +55,12 @@ data class EnvelopeLine(
     val spent: Money,
     val remaining: Money,
     val projection: Projection,
+    /** Part du mois réservée par l'enveloppe (rattrapage compris pour une provision). */
+    val monthlyShare: Money = Money.ZERO,
+    /** Ce qui est déjà mis de côté sur la période, ce mois compris (provisions). */
+    val funded: Money = Money.ZERO,
+    /** Rattrapage proposé (provision suivie depuis moins longtemps que sa période). */
+    val catchUp: CatchUpProposal? = null,
 ) {
     val needsCover: Boolean get() = remaining.isNegative || projection.isAlert
 }
@@ -115,10 +121,13 @@ fun computeDashboard(
     today: LocalDate,
     alertThresholdPercent: Int = 10,
     transfers: List<Transfer> = emptyList(),
+    /** Début du suivi : rien n'a été mis de côté avant (provisions). */
+    trackingStart: java.time.YearMonth? = null,
 ): Dashboard {
     val active = envelopes.filter { !it.archived && it.existsOn(today) }
     val spendingsByEnvelope = spendings.groupBy { it.envelopeId }
     val month = Scale.MONTH.periodContaining(today)
+    val currentMonth = java.time.YearMonth.from(today)
 
     /** Solde des transferts d'une enveloppe dont la date tombe dans [window]. */
     fun netTransfers(envelopeId: Long, window: Period): Money =
@@ -141,6 +150,9 @@ fun computeDashboard(
             available = available,
             spent = spent,
             remaining = available - spent,
+            monthlyShare = envelope.monthShare(currentMonth, period, allocated),
+            funded = envelope.fundedThrough(currentMonth, period, allocated, trackingStart),
+            catchUp = envelope.catchUpProposal(period, allocated, currentMonth, trackingStart),
             // Seul le quotidien se dépense au fil des jours : on prolonge son rythme. Une charge, une
             // provision ou un achat se paie en une fois ; prolonger son rythme annoncerait à tort un
             // dépassement (un prêt payé le 5 « prévu » à 442 € pour 400). Tout y compte comme ponctuel.
@@ -159,12 +171,12 @@ fun computeDashboard(
     // Part du mois rangée dans les enveloppes quotidiennes, transferts du mois compris.
     // Un transfert n'est pas converti : c'est un montant ponctuel.
     val dailyAssigned = dailyLines.sumOfMoney {
-        it.allocated.convert(it.envelope.frequency, Frequency.MONTHLY) + netTransfers(it.envelope.id, month)
+        it.monthlyShare + netTransfers(it.envelope.id, month)
     }
     // Portefeuille : le salaire moins la part mensuelle de chaque enveloppe, plus ce qui lui a
     // été rendu ce mois-ci, moins ce qui en est sorti.
     val wallet = monthlyIncome?.let { income ->
-        val reserved = lines.sumOfMoney { it.allocated.convert(it.envelope.frequency, Frequency.MONTHLY) }
+        val reserved = lines.sumOfMoney { it.monthlyShare }
         val walletIn = transfers.filter { it.date in month && it.targetEnvelopeId == null }.sumOfMoney { it.amount }
         val walletOut = transfers.filter { it.date in month && it.sourceEnvelopeId == null }.sumOfMoney { it.amount }
         income - reserved + walletIn - walletOut
