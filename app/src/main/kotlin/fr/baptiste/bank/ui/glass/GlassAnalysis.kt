@@ -107,6 +107,7 @@ fun GlassAnalysisContent(
     var period by rememberSaveable { mutableStateOf(if (initialYear) AnalysisPeriod.YEAR else AnalysisPeriod.MONTH) }
     var expanded by rememberSaveable { mutableStateOf<String?>(null) }
     var opened by remember { mutableStateOf<EnvelopeSpent?>(null) }
+    var info by remember { mutableStateOf<MonthSpending?>(null) }
     val current = YearMonth.now()
 
     LazyColumn(
@@ -140,6 +141,7 @@ fun GlassAnalysisContent(
                         onToggle = { name -> expanded = if (expanded == name) null else name },
                         onOpenEnvelope = { opened = it },
                         onSort = onSort,
+                        onInfo = { info = it },
                     )
                 }
             }
@@ -162,6 +164,21 @@ fun GlassAnalysisContent(
                 }
             }
         }
+    }
+
+    // Ce que le total compte, et ce qu'il laisse de côté (pour vérifier qu'il est complet).
+    info?.let { report ->
+        InfoSheet(
+            title = "Ce qui est compté",
+            lines = listOf(InfoLine("Dépenses rangées (quotidien, charges, provisions)", report.total.formatted())) +
+                listOfNotNull(
+                    report.unsorted.takeIf { it.isPositive }?.let { InfoLine("Pas compté : encore à trier", it.formatted()) },
+                    report.outOfBudget.takeIf { it.isPositive }?.let { InfoLine("Pas compté : hors budget", it.formatted()) },
+                    report.toAccounts.takeIf { it.isPositive }?.let { InfoLine("Pas compté : viré vers tes comptes", it.formatted()) },
+                ),
+            note = "L'épargne n'est pas une dépense. Une dépense rangée hors budget par erreur se reclasse dans la liste.",
+            onDismiss = { info = null },
+        )
     }
 
     opened?.let { line ->
@@ -193,14 +210,19 @@ private fun LazyListScope.monthAnalysis(
     onToggle: (String) -> Unit,
     onOpenEnvelope: (EnvelopeSpent) -> Unit,
     onSort: () -> Unit,
+    onInfo: (MonthSpending) -> Unit,
 ) {
     item(key = "analysis-month-total") {
         GlassCard(strong = true) {
-            Text(
-                "Dépensé en ${monthName(report.month)}",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "Dépensé en ${monthName(report.month)}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                fr.baptiste.bank.ui.components.InfoButton(onClick = { onInfo(report) }, contentDescription = "Ce qui est compté")
+            }
             Text(report.total.formatted(), style = MaterialTheme.typography.displaySmall)
             if (report.budget.isPositive) {
                 val gap = report.budget - report.total
@@ -214,13 +236,7 @@ private fun LazyListScope.monthAnalysis(
                     color = if (gap.isNegative) BankTheme.status.over else BankTheme.status.gain,
                 )
             }
-            Text(
-                "Quotidien, charges et provisions ; hors épargne et virements vers tes comptes.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
             if (report.unsorted.isPositive) UnsortedLine(report.unsorted, onSort)
-            ExcludedLine(report)
         }
     }
     if (report.categories.isEmpty()) {
@@ -263,25 +279,6 @@ private fun UnsortedLine(amount: Money, onSort: () -> Unit) {
         )
         TextButton(onClick = onSort) { Text("Trier") }
     }
-}
-
-/**
- * Ce qui est sorti du compte sans compter ici : le hors budget (à vérifier s'il cache une vraie
- * dépense) et les virements vers mes comptes (de l'épargne).
- */
-@Composable
-private fun ExcludedLine(report: MonthSpending) {
-    val parts = listOfNotNull(
-        report.outOfBudget.takeIf { it.isPositive }?.let { "${it.formatted()} hors budget" },
-        report.toAccounts.takeIf { it.isPositive }?.let { "${it.formatted()} virés vers tes comptes" },
-    )
-    if (parts.isEmpty()) return
-    Text(
-        "Pas comptés : ${parts.joinToString(" · ")}. Une dépense rangée hors budget par erreur se reclasse dans la liste.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 4.dp),
-    )
 }
 
 /** Une catégorie : nom, dépensé sur budget, barre (le trait marque le budget). */
