@@ -215,7 +215,7 @@ private fun LazyListScope.monthAnalysis(
                 )
             }
             Text(
-                "Tout compris : quotidien, charges et provisions. Sans l'épargne, les virements vers tes comptes ni le hors budget.",
+                "Quotidien, charges et provisions ; hors épargne et virements vers tes comptes.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -256,7 +256,7 @@ private fun UnsortedLine(amount: Money, onSort: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
         Box(Modifier.padding(end = 8.dp).size(8.dp).clip(CircleShape).background(BankTheme.status.warning))
         Text(
-            "${amount.formatted()} encore à trier, pas comptés ici",
+            "${amount.formatted()} encore à trier",
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.weight(1f),
         )
@@ -417,9 +417,17 @@ private fun LazyListScope.yearAnalysis(report: YearSpending, onSort: () -> Unit,
                     if (category.budget.isPositive) {
                         val gap = category.gap
                         Text(
-                            if (gap.isPositive) "+${gap.formatted()} sur le budget" else "${(-gap).formatted()} sous le budget",
+                            when {
+                                gap.isPositive -> "+${gap.formatted()} sur le budget"
+                                gap.isNegative -> "${(-gap).formatted()} sous le budget"
+                                else -> "pile dans le budget"
+                            },
                             style = MaterialTheme.typography.bodySmall,
-                            color = if (gap.isPositive) BankTheme.status.over else BankTheme.status.gain,
+                            color = when {
+                                gap.isPositive -> BankTheme.status.over
+                                gap.isNegative -> BankTheme.status.gain
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            },
                         )
                     } else {
                         Text("sans budget", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
