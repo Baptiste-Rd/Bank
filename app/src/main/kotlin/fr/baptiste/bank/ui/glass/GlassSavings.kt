@@ -346,9 +346,10 @@ private fun HoldingsLineChart(history: List<fr.baptiste.bank.domain.budget.Holdi
             Text(history.last().total.formatted(), style = MaterialTheme.typography.labelMedium)
         }
         androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(96.dp).padding(vertical = 8.dp)) {
-            val step = if (values.size > 1) size.width / (values.size - 1) else 0f
+            // Un point au centre de chaque colonne : aligné sur le nom du mois en dessous.
+            val slot = size.width / values.size
             fun point(index: Int) = androidx.compose.ui.geometry.Offset(
-                step * index,
+                slot * index + slot / 2,
                 size.height - size.height * (values[index] - low) / span,
             )
             drawLine(guide, androidx.compose.ui.geometry.Offset(0f, size.height), androidx.compose.ui.geometry.Offset(size.width, size.height), strokeWidth = 1.dp.toPx())
