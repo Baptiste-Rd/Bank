@@ -103,11 +103,18 @@ fun GlassAnalysisContent(
     onSort: () -> Unit,
     envelopeOperations: (Long, YearMonth) -> Flow<List<OperationRow>>,
     initialYear: Boolean = false,
+    /** Avis de Claude gardé avec un mois, et son enregistrement. */
+    monthReview: (YearMonth) -> Flow<String?> = { kotlinx.coroutines.flow.flowOf(null) },
+    onSaveReview: (YearMonth, String?) -> Unit = { _, _ -> },
+    /** Épargne du mois consulté (pour l'avis). */
+    savings: fr.baptiste.bank.domain.budget.SavingsOutlook? = null,
 ) {
     var period by rememberSaveable { mutableStateOf(if (initialYear) AnalysisPeriod.YEAR else AnalysisPeriod.MONTH) }
     var expanded by rememberSaveable { mutableStateOf<String?>(null) }
     var opened by remember { mutableStateOf<EnvelopeSpent?>(null) }
     var info by remember { mutableStateOf<MonthSpending?>(null) }
+    var asking by remember { mutableStateOf<MonthSpending?>(null) }
+    val review by remember(month) { monthReview(month) }.collectAsState(initial = null)
     val current = YearMonth.now()
 
     LazyColumn(
@@ -142,6 +149,9 @@ fun GlassAnalysisContent(
                         onOpenEnvelope = { opened = it },
                         onSort = onSort,
                         onInfo = { info = it },
+                        review = review,
+                        onAskReview = { asking = it },
+                        onClearReview = { onSaveReview(month, null) },
                     )
                 }
             }
@@ -181,6 +191,18 @@ fun GlassAnalysisContent(
         )
     }
 
+    asking?.let { report ->
+        val previous = monthYear?.months.orEmpty().filter { it.tracked && it.month < report.month }.takeLast(3)
+        MonthReviewDialog(
+            prompt = fr.baptiste.bank.domain.budget.monthReviewPrompt(report, previous, savings?.forecast, savings?.target),
+            onSave = { text ->
+                onSaveReview(report.month, text)
+                asking = null
+            },
+            onDismiss = { asking = null },
+        )
+    }
+
     opened?.let { line ->
         val operations by remember(line.envelope.id, month) { envelopeOperations(line.envelope.id, month) }
             .collectAsState(initial = null)
@@ -211,6 +233,9 @@ private fun LazyListScope.monthAnalysis(
     onOpenEnvelope: (EnvelopeSpent) -> Unit,
     onSort: () -> Unit,
     onInfo: (MonthSpending) -> Unit,
+    review: String?,
+    onAskReview: (MonthSpending) -> Unit,
+    onClearReview: () -> Unit,
 ) {
     item(key = "analysis-month-total") {
         GlassCard(strong = true) {
@@ -262,6 +287,36 @@ private fun LazyListScope.monthAnalysis(
                 if (expanded == category.name) {
                     category.envelopes.forEach { line -> EnvelopeSpentRow(line) { onOpenEnvelope(line) } }
                 }
+            }
+        }
+    }    reviewSection(report, review, onAskReview, onClearReview)
+}
+
+/** L'avis de Claude sur le mois : gardé avec lui, ou à demander. */
+private fun LazyListScope.reviewSection(report: MonthSpending, review: String?, onAsk: (MonthSpending) -> Unit, onClear: () -> Unit) {
+    sectionHeader(
+        "analysis-review-label",
+        "L'avis de Claude",
+        action = if (review != null) "Redemander" else null,
+        onAction = { onAsk(report) },
+    )
+    item(key = "analysis-review") {
+        GlassCard(contentPadding = 16.dp, onClick = if (review == null) ({ onAsk(report) }) else null) {
+            if (review == null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Demander un avis sur ce mois", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium))
+                        Text(
+                            "Ce qui va, ce qui dérive, une action pour le mois prochain",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Chevron()
+                }
+            } else {
+                Text(review, style = MaterialTheme.typography.bodyMedium)
+                TextButton(onClick = onClear) { Text("Effacer") }
             }
         }
     }
@@ -545,4 +600,41 @@ private fun YearBars(report: YearSpending, first: String?, second: String?, onSe
             }
         }
     }
+}
+
+/**
+ * Demander l'avis de Claude : le message ne contient que des totaux. On l'envoie dans l'app
+ * Claude, puis on colle la réponse, gardée avec le mois.
+ */
+@Composable
+private fun MonthReviewDialog(prompt: String, onSave: (String) -> Unit, onDismiss: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var reply by rememberSaveable { mutableStateOf("") }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("L'avis de Claude") },
+        text = {
+            fr.baptiste.bank.ui.components.BlurBehindWindow()
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "Ce qui part : tes totaux par catégorie, ton budget et ta moyenne. Aucun libellé, aucun compte, aucun solde.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                androidx.compose.material3.Button(
+                    onClick = { fr.baptiste.bank.ui.assistant.openClaudeWith(context, prompt) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Copier et ouvrir Claude") }
+                androidx.compose.material3.OutlinedTextField(
+                    value = reply,
+                    onValueChange = { reply = it },
+                    label = { Text("Colle ici la réponse de Claude") },
+                    minLines = 3,
+                    maxLines = 8,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = { onSave(reply) }, enabled = reply.isNotBlank()) { Text("Garder l'avis") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } },
+    )
 }

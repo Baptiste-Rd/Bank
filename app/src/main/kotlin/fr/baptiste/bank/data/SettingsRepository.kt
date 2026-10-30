@@ -90,6 +90,15 @@ class SettingsRepository(context: Context, storeName: String = "settings") {
         }
     }
 
+    /** Avis de Claude sur un mois, collé par l'utilisateur et gardé avec le mois. */
+    fun monthReview(month: java.time.YearMonth): Flow<String?> =
+        settingsStore.data.map { it[stringPreferencesKey("review_$month")] }
+
+    suspend fun setMonthReview(month: java.time.YearMonth, text: String?) {
+        val key = stringPreferencesKey("review_$month")
+        settingsStore.edit { if (text.isNullOrBlank()) it.remove(key) else it[key] = text.trim() }
+    }
+
     private val trackingStartKey = stringPreferencesKey("tracking_start")
 
     /** Début du suivi choisi par l'utilisateur (« 2026-09 »), ou null : le premier mois avec des opérations. */

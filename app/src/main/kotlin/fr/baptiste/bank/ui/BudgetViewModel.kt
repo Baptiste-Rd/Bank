@@ -138,6 +138,11 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
     fun applyPlan(name: String, project: Money, months: Int, monthlySavings: Money?, reductions: Map<Long, Money> = emptyMap()) =
         perform { repository.applyPlan(name, project, months, monthlySavings, reductions) }
 
+    /** Avis de Claude gardé avec un mois. */
+    fun monthReview(month: YearMonth): Flow<String?> = repository.monthReview(month)
+
+    fun saveMonthReview(month: YearMonth, text: String?) = perform { repository.setMonthReview(month, text) }
+
     /** Rattrapage d'une provision à partir de [from]. */
     fun startFunding(envelopeId: Long, from: YearMonth) {
         viewModelScope.launch { repository.startFunding(envelopeId, from) }

@@ -274,6 +274,12 @@ fun GlassMainScreen(
                             onSort = { spendingView = SpendingTabView.LIST },
                             envelopeOperations = viewModel::envelopeMonthOperations,
                             initialYear = initialBudgetView == BudgetView.YEAR,
+                            monthReview = viewModel::monthReview,
+                            onSaveReview = { month, text ->
+                                viewModel.saveMonthReview(month, text)
+                                if (text != null) controller.notify("Avis gardé avec ${month.label}.")
+                            },
+                            savings = monthDashboard?.savings,
                         )
                     } else GlassOperationsContent(
                         header = spendingHeader,

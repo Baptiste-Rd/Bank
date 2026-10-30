@@ -97,3 +97,25 @@ class SpendingReportTest {
         assertEquals(Money.euros(619), food.gap)
     }
 }
+
+class MonthReviewTest {
+
+    private fun month(month: YearMonth, vararg categories: Pair<String, Long>) = MonthSpending(
+        month,
+        tracked = true,
+        categories = categories.map { (name, euros) -> CategorySpent(name, Money.euros(euros), Money.euros(100), emptyList()) },
+    )
+
+    @Test
+    fun `the review prompt carries totals and averages only`() {
+        val october = month(YearMonth.of(2026, 10), "Loisirs" to 180, "Nourriture" to 320)
+        val previous = listOf(month(YearMonth.of(2026, 9), "Loisirs" to 100), month(YearMonth.of(2026, 8), "Loisirs" to 80))
+        val prompt = monthReviewPrompt(october, previous, Money.euros(300), Money.euros(300))
+        assertTrue(prompt.contains("octobre 2026"))
+        assertTrue(prompt.contains("- Loisirs : 180,00 € | 100,00 € | 90,00 €"))
+        // Une catégorie absente des mois précédents a une moyenne nulle, pas inconnue.
+        assertTrue(prompt.contains("- Nourriture : 320,00 € | 100,00 € | 0,00 €"))
+        assertTrue(prompt.contains("Épargne du mois : 300,00 € (objectif 300,00 €)."))
+        assertTrue(prompt.contains("UNE action"))
+    }
+}

@@ -685,6 +685,10 @@ class BudgetRepository(
 
     suspend fun setTrackingStart(month: YearMonth?) = settings.setTrackingStart(month)
 
+    fun monthReview(month: YearMonth): Flow<String?> = settings.monthReview(month)
+
+    suspend fun setMonthReview(month: YearMonth, text: String?) = settings.setMonthReview(month, text)
+
     /**
      * Dépenses réelles de [year], mois par mois, par catégorie et par enveloppe (archivées comprises :
      * leurs dépenses restent), avec ce qui reste à trier chaque mois. Voir [yearSpending].
