@@ -1,6 +1,7 @@
 package fr.baptiste.bank.ui.glass
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.CircularProgressIndicator
@@ -46,7 +48,8 @@ import java.util.Locale
  * Onglet Aujourd'hui : une seule question, « puis-je dépenser aujourd'hui ? ».
  * 1. Le reste du jour, en très grand, et l'action la plus fréquente.
  * 2. Le mois : dépensé sur budget, et la bande du rythme jour par jour.
- * 3. À faire : ce qui demande une décision (couvrir, trier), seulement s'il y en a.
+ * 3. Ma semaine : le rendez-vous qui garde les chiffres justes (trier, couvrir, vérifier le
+ *    solde), avec « tout est à jour » quand c'est fait.
  * 4. L'épargne prévue en une ligne, qui ouvre l'onglet Épargne.
  * Le détail des enveloppes vit dans l'onglet Budget.
  */
@@ -72,9 +75,13 @@ fun GlassHomeContent(
     onShowsDayChange: (Boolean) -> Unit = {},
     /** Solde du compte courant lu à la banque, s'il est connu. */
     accountBalance: Money? = null,
+    /** Dernière lecture du solde (synchronisation ou saisie), ou null. */
+    balanceCheckedAt: java.time.Instant? = null,
+    /** Banque reliée : on synchronise ; sinon on saisit le solde. */
+    bankConnected: Boolean = false,
+    onSync: () -> Unit = {},
+    onSetBalance: () -> Unit = {},
 ) {
-    // Lu ici : le contenu d'une LazyColumn se construit hors composition.
-    val warning = BankTheme.status.warning
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = glassContentPadding(),
@@ -174,58 +181,63 @@ fun GlassHomeContent(
             }
         }
 
-        // 3. À faire : n'apparaît que s'il y a une décision à prendre.
+        // 3. Ma semaine : trois étapes, cochées quand elles sont faites. Rien à faire : une ligne.
         val watched = dashboard.alerts
         // La première semaine du mois, le bilan du mois dernier attend d'être lu.
         val lastMonth = savingsHistory.dropLast(1).lastOrNull()?.takeIf { dashboard.today.dayOfMonth <= 7 }
-        val todoCount = watched.size + (if (unsortedCount > 0) 1 else 0) + (if (lastMonth != null) 1 else 0)
-        if (todoCount > 0) {
-            sectionHeader("todo-label", "À faire", trailing = "$todoCount", dot = warning)
-            item(key = "todo") {
-                GlassCard(contentPadding = 16.dp, verticalPadding = 4.dp) {
-                    watched.forEachIndexed { index, line ->
-                        if (index > 0) fr.baptiste.bank.ui.components.RowDivider()
-                        TodoEnvelopeRow(line, onOpen = { onOpenEnvelope(line) }, onCover = { onCover(line) })
-                    }
-                    if (lastMonth != null) {
-                        if (watched.isNotEmpty()) fr.baptiste.bank.ui.components.RowDivider()
-                        Row(
-                            modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenReview).padding(vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            CategoryAvatar("B", envelopeTypeColor(fr.baptiste.bank.domain.model.EnvelopeType.SAVINGS))
-                            Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                                Text(
-                                    "Bilan de ${lastMonth.month.month.getDisplayName(TextStyle.FULL_STANDALONE, Locale.FRANCE)}",
-                                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-                                )
-                                Text(
-                                    "${lastMonth.outlook.forecast.formatted()} épargnés",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            Chevron()
-                        }
-                    }
+        val balanceFresh = balanceCheckedAt?.let {
+            java.time.Duration.between(it, java.time.Instant.now()) < java.time.Duration.ofDays(if (bankConnected) 1 else 7)
+        } == true
+        val steps = listOf(unsortedCount == 0, watched.isEmpty(), balanceFresh)
+        val done = steps.count { it }
+        sectionHeader("week-label", "Ma semaine", trailing = if (done == steps.size) "à jour" else "$done sur ${steps.size}")
+        item(key = "week") {
+            GlassCard(contentPadding = 16.dp, verticalPadding = 4.dp) {
+                if (done == steps.size) {
+                    StepRow(done = true, title = "Tout est à jour", detail = "Opérations triées, aucun dépassement, solde vérifié.")
+                } else {
+                    // Trier.
                     if (unsortedCount > 0) {
-                        if (watched.isNotEmpty() || lastMonth != null) fr.baptiste.bank.ui.components.RowDivider()
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onOpenTab(Tab.OPERATIONS) }
-                                .padding(vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            CategoryAvatar("?", BankTheme.status.warning)
-                            Text(
-                                if (unsortedCount > 1) "$unsortedCount opérations à trier" else "1 opération à trier",
-                                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-                                modifier = Modifier.weight(1f).padding(start = 12.dp),
-                            )
-                            Chevron()
+                        StepRow(
+                            done = false,
+                            title = if (unsortedCount > 1) "$unsortedCount opérations à trier" else "1 opération à trier",
+                            detail = "Valide les propositions d'un geste",
+                            onClick = { onOpenTab(Tab.OPERATIONS) },
+                        )
+                    } else {
+                        StepRow(done = true, title = "Tout est trié")
+                    }
+                    fr.baptiste.bank.ui.components.RowDivider(0.dp)
+                    // Couvrir.
+                    if (watched.isEmpty()) {
+                        StepRow(done = true, title = "Aucun dépassement")
+                    } else {
+                        watched.forEachIndexed { index, line ->
+                            if (index > 0) fr.baptiste.bank.ui.components.RowDivider()
+                            TodoEnvelopeRow(line, onOpen = { onOpenEnvelope(line) }, onCover = { onCover(line) })
                         }
                     }
+                    fr.baptiste.bank.ui.components.RowDivider(0.dp)
+                    // Vérifier le solde.
+                    if (balanceFresh) {
+                        StepRow(done = true, title = "Solde à jour", detail = accountBalance?.let { "Compte courant : ${it.formatted()}" })
+                    } else {
+                        StepRow(
+                            done = false,
+                            title = if (bankConnected) "Synchroniser la banque" else "Mettre à jour le solde",
+                            detail = if (bankConnected) "Pour que les chiffres collent à ton compte" else "Le solde de ton compte courant",
+                            onClick = if (bankConnected) onSync else onSetBalance,
+                        )
+                    }
+                }
+                if (lastMonth != null) {
+                    fr.baptiste.bank.ui.components.RowDivider(0.dp)
+                    StepRow(
+                        done = false,
+                        title = "Bilan de ${lastMonth.month.month.getDisplayName(TextStyle.FULL_STANDALONE, Locale.FRANCE)}",
+                        detail = "${lastMonth.outlook.forecast.formatted()} épargnés",
+                        onClick = onOpenReview,
+                    )
                 }
             }
         }
@@ -272,6 +284,56 @@ fun GlassHomeContent(
 }
 
 private fun daysLabel(days: Int): String = if (days > 1) "$days jours restants" else "dernier jour du mois"
+
+/**
+ * Une étape de la semaine : une coche verte quand elle est faite (titre seul), sinon un cercle
+ * vide, le titre, ce qu'il y a à faire, et la ligne mène à l'action.
+ */
+@Composable
+private fun StepRow(done: Boolean, title: String, detail: String? = null, onClick: (() -> Unit)? = null) {
+    val gain = BankTheme.status.gain
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(28.dp)
+                .clip(CircleShape)
+                .then(
+                    if (done) {
+                        Modifier.background(gain.copy(alpha = 0.22f))
+                    } else {
+                        Modifier.border(2.dp, MaterialTheme.colorScheme.onSurfaceVariant, CircleShape)
+                    },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (done) {
+                androidx.compose.material3.Icon(
+                    androidx.compose.ui.res.painterResource(fr.baptiste.bank.R.drawable.ic_check),
+                    contentDescription = "Fait",
+                    tint = gain,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        }
+        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = if (done) FontWeight.Normal else FontWeight.Medium),
+                color = if (done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+            )
+            if (detail != null) {
+                Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        if (onClick != null) Chevron()
+    }
+}
 
 /** Une enveloppe à couvrir, en version courte : pastille, nom, statut, bouton Couvrir. */
 @Composable

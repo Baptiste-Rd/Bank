@@ -155,6 +155,15 @@ fun GlassMainScreen(
                         showsDay = homeShowsDay,
                         onShowsDayChange = viewModel::setHomeShowsDay,
                         accountBalance = currentBalance?.balance,
+                        // Dernière lecture du solde : synchronisation de la banque, ou saisie datée.
+                        balanceCheckedAt = bankConnection?.takeIf { it.isConnected }?.lastSync
+                            ?: currentBalance?.date?.atStartOfDay(java.time.ZoneId.systemDefault())?.toInstant(),
+                        bankConnected = bankConnection?.isConnected == true,
+                        onSync = {
+                            bankViewModel.syncNow()
+                            controller.notify("Synchronisation en cours…")
+                        },
+                        onSetBalance = { controller.dialog = OpenDialog.CurrentBalance },
                         onOpenReview = {
                             if (selectedMonth == YearMonth.now()) viewModel.previousMonth()
                             controller.tab = Tab.BUDGET
