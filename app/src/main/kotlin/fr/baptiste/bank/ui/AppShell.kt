@@ -33,7 +33,6 @@ import fr.baptiste.bank.ui.components.IncomeDialog
 import fr.baptiste.bank.ui.bank.BankDialog
 import fr.baptiste.bank.ui.format.formatted
 import fr.baptiste.bank.ui.format.label
-import fr.baptiste.bank.domain.model.TransactionSource
 import fr.baptiste.bank.ui.assistant.AssistedSortDialog
 import fr.baptiste.bank.ui.accounts.AccountEditDialog
 import fr.baptiste.bank.ui.plan.PlanSimulatorSheet
@@ -367,10 +366,9 @@ fun AppDialogs(
             onDismiss = ::close,
         )
         is OpenDialog.AssistedSort -> {
-            val operations by viewModel.operations.collectAsStateWithLifecycle()
-            val toSort = remember(operations) {
-                operations.filter { it.envelopeNames == null && !it.ignored && it.source != TransactionSource.MANUAL }
-            }
+            // La même liste que « À trier » : toutes les opérations à trier, pas seulement les 200 dernières
+            // (après la récupération de l'historique, les plus anciennes en étaient absentes : écran vide).
+            val toSort by viewModel.unsortedOperations.collectAsStateWithLifecycle()
             AssistedSortDialog(
                 toSort = toSort,
                 envelopes = envelopes,

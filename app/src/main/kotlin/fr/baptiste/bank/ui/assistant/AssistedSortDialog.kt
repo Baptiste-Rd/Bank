@@ -198,6 +198,13 @@ private fun ColumnScope.SendStep(
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 8.dp),
     )
+    if (byRef.isEmpty()) {
+        Text(
+            "Rien à trier pour l'instant : toutes les opérations de la banque sont rangées.",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(top = 16.dp),
+        )
+    }
     if (total > byRef.size) {
         Text(
             "Les ${byRef.size} plus récentes sur $total : les suivantes au prochain lot.",
