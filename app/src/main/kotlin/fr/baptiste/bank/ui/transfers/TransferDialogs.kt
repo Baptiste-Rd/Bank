@@ -339,7 +339,12 @@ fun EnvelopeSheet(
                             Column(Modifier.weight(1f)) {
                                 Text(operation.label, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
                                 Text(
-                                    operation.date.formatted(),
+                                    // Antérieure au départ : rangée ici, mais hors du reste (voir Envelope.start).
+                                    if (line.envelope.countsOn(operation.date)) {
+                                        operation.date.formatted()
+                                    } else {
+                                        "${operation.date.formatted()} · avant le départ, non comptée"
+                                    },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )

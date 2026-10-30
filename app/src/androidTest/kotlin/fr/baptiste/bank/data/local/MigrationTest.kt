@@ -113,6 +113,42 @@ class MigrationTest {
         database.close()
     }
 
+    @Test
+    fun migrate11To12ReadsTheBookingDayFromTheImportKey() {
+        createDatabase(version = 11) { db ->
+            db.execSQL("INSERT INTO account (id, name, type, archived) VALUES (1, 'Compte courant', 'CURRENT', 0)")
+            db.execSQL(
+                "INSERT INTO envelope (id, name, type, scale, amount_cents, status, priority, carry_over, archived, every) " +
+                    "VALUES (1, 'Vacances', 'ANNUAL', 'YEAR', 100000, 'FLEXIBLE', 0, 0, 0, 1)",
+            )
+            // 20756 = 30 octobre 2026 ; la clé porte le jour de comptabilisation.
+            db.execSQL(
+                "INSERT INTO transaction_record (id, account_id, date, amount_cents, raw_label, clean_label, import_hash, source, ignored) " +
+                    "VALUES (1, 1, 20756, -4500, 'PAIEMENT CB 2209 FNAC', 'Fnac', 'eb:uid-1:2026-10-30|-4500|PAIEMENT CB 2209 FNAC', 'API', 0)",
+            )
+            db.execSQL(
+                "INSERT INTO transaction_record (id, account_id, date, amount_cents, raw_label, clean_label, import_hash, source, ignored) " +
+                    "VALUES (2, 1, 20756, -900, 'CB 2810 CAFE', 'Cafe', 'eb:uid-1:ref:ABC', 'API', 0)",
+            )
+        }
+        val database = open()
+        val db = database.openHelper.writableDatabase
+        db.query("SELECT id, date, booking_date, bank_date FROM transaction_record ORDER BY id").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(20756L, cursor.getLong(1))
+            assertEquals(java.time.LocalDate.of(2026, 10, 30).toEpochDay(), cursor.getLong(2))
+            assertEquals(true, cursor.isNull(3))
+            cursor.moveToNext()
+            // Référence de la banque : le jour de comptabilisation n'est pas dans la clé.
+            assertEquals(true, cursor.isNull(2))
+        }
+        db.query("SELECT start_date FROM envelope WHERE id = 1").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(true, cursor.isNull(0))
+        }
+        database.close()
+    }
+
     /** Recrée une base de [version] à partir de son schéma exporté, puis y écrit [fill]. */
     private fun createDatabase(version: Int, fill: (SQLiteDatabase) -> Unit) {
         val assets = InstrumentationRegistry.getInstrumentation().context.assets
@@ -138,7 +174,7 @@ class MigrationTest {
     }
 
     private fun open(): BankDatabase = Room.databaseBuilder(context, BankDatabase::class.java, DB)
-        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
+        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
         .build()
 
     private companion object {

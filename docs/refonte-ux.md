@@ -100,9 +100,13 @@ notions vivent dans les ⓘ ou s'expriment par une action (« Mettre de côté �
 par écran : le + en haut à droite. Le verre est réservé à la navigation ; les cartes sont un matériau
 épais (flou fort, sans lentille, voile bleu nuit) pour garder 4,5:1 de contraste.
 
-## Six mots visibles
+## Dates
 
-L'écran se lit avec six mots : Reste, Dépensé, Enveloppe, Catégorie, Épargne, À trier. Les autres
-notions vivent dans les ⓘ ou s'expriment par une action (« Mettre de côté »). Une action principale
-par écran : le + en haut à droite. Le verre est réservé à la navigation ; les cartes sont un matériau
-épais (flou fort, sans lentille, voile bleu nuit) pour garder 4,5:1 de contraste.
+Une dépense porte le jour de l'achat : celui que donne la banque, sinon celui du libellé (« CB 2209 »)
+s'il tombe dans les 45 jours avant l'inscription pour une carte (débit différé) ou 10 jours sinon,
+sinon le jour d'inscription. L'app garde aussi le jour d'inscription et celui de la banque. Une
+correction de jour ne se fait jamais seule : « Vérifier les dates » (menu ⋮) liste les jours à
+corriger, dit si la carte est à débit immédiat ou différé, et applique ce qui est validé.
+
+Une enveloppe a un départ (1er du mois de sa création ; « depuis toujours » pour les anciennes, à
+choisir dans sa fiche). Une dépense antérieure peut y être rangée mais ne compte pas dans son reste.

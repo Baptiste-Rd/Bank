@@ -229,6 +229,13 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
     }
 
     /** Range les opérations à trier avec les règles ; [onDone] reçoit le nombre d'opérations rangées. */
+    /** Diagnostic des dates : lu seulement quand l'écran est ouvert. */
+    val dateCheck: StateFlow<fr.baptiste.bank.domain.bank.DateReport?> = repository.dateCheck.asState(null)
+
+    fun applyDateCorrections(corrections: List<fr.baptiste.bank.domain.bank.DateCorrection>, onDone: (Int) -> Unit) {
+        viewModelScope.launch { onDone(repository.applyDateCorrections(corrections)) }
+    }
+
     fun applyRules(onDone: (Int) -> Unit) {
         viewModelScope.launch { onDone(repository.applyRules()) }
     }

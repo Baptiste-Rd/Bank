@@ -86,6 +86,10 @@ fun EnvelopeDialog(
     var scale by rememberSaveable { mutableStateOf(initial?.frequency?.scale ?: type.defaultFrequency.scale) }
     var everyText by rememberSaveable { mutableStateOf((initial?.frequency?.every ?: 1).toString()) }
     var anchor by remember { mutableStateOf(initial?.anchor ?: today) }
+    // Départ : une nouvelle enveloppe part du 1er du mois ; une ancienne sans départ compte tout.
+    var start by remember {
+        mutableStateOf(initial?.start ?: if (initial != null && initial.id != 0L) null else today.withDayOfMonth(1))
+    }
     var status by rememberSaveable { mutableStateOf(initial?.status ?: type.defaultStatus) }
     var amountText by rememberSaveable { mutableStateOf(initial?.amount?.toFieldText().orEmpty()) }
 
@@ -266,6 +270,27 @@ fun EnvelopeDialog(
                 }
                 }
 
+                // Départ : ce qui a été payé avant ne vide pas l'enveloppe (un billet d'août dans Vacances créée en octobre).
+                val chosenStart = start
+                if (chosenStart == null) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "Compte toutes les dépenses rangées ici, même anciennes.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(onClick = { start = today.withDayOfMonth(1) }) { Text("Choisir un départ") }
+                    }
+                } else {
+                    DateField(label = "Départ", date = chosenStart, onDateChange = { start = it })
+                    Text(
+                        "Une dépense antérieure peut y être rangée, mais ne compte pas dans son reste.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text("Protégée", style = MaterialTheme.typography.bodyLarge)
@@ -307,6 +332,7 @@ fun EnvelopeDialog(
                                 amount = amount,
                                 status = status,
                                 fundingStart = if (isExisting) base.fundingStart else newFundingStart(type, today),
+                                start = start,
                                 group = storedCategory(newCategory?.takeIf { it.isNotBlank() } ?: category),
                                 anchor = when {
                                     type == EnvelopeType.PLANNED -> plannedStart

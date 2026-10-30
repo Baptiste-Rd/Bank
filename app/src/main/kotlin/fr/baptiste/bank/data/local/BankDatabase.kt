@@ -21,7 +21,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         BalanceEntity::class,
         TransferRuleEntity::class,
     ],
-    version = 11,
+    version = 12,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -41,7 +41,7 @@ abstract class BankDatabase : RoomDatabase() {
         /** [name] permet au mode démo d'utiliser une base séparée, sans toucher aux vraies données. */
         fun create(context: Context, name: String = "bank.db"): BankDatabase =
             Room.databaseBuilder(context, BankDatabase::class.java, name)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
                 .build()
     }
 }
@@ -138,5 +138,31 @@ val MIGRATION_9_10 = object : Migration(9, 10) {
 val MIGRATION_10_11 = object : Migration(10, 11) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE transfer ADD COLUMN from_reserve INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+/**
+ * Version 12 : dates fiables. Les opérations gardent le jour de comptabilisation et celui que la
+ * banque donne pour le paiement ; les enveloppes, leur départ. Le jour de comptabilisation des
+ * opérations déjà importées sans référence se lit dans leur clé (« eb:compte:2026-10-27|... »).
+ */
+val MIGRATION_11_12 = object : Migration(11, 12) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE transaction_record ADD COLUMN booking_date INTEGER")
+        db.execSQL("ALTER TABLE transaction_record ADD COLUMN bank_date INTEGER")
+        db.execSQL("ALTER TABLE envelope ADD COLUMN start_date INTEGER")
+        val day = Regex(""":(\d{4}-\d{2}-\d{2})\|""")
+        val found = mutableListOf<Pair<Long, Long>>()
+        db.query("SELECT id, import_hash FROM transaction_record WHERE import_hash LIKE 'eb:%'").use { cursor ->
+            while (cursor.moveToNext()) {
+                val hash = cursor.getString(1) ?: continue
+                val match = day.find(hash) ?: continue
+                val epochDay = runCatching { java.time.LocalDate.parse(match.groupValues[1]).toEpochDay() }.getOrNull() ?: continue
+                found += cursor.getLong(0) to epochDay
+            }
+        }
+        for ((id, epochDay) in found) {
+            db.execSQL("UPDATE transaction_record SET booking_date = ? WHERE id = ?", arrayOf<Any>(epochDay, id))
+        }
     }
 }

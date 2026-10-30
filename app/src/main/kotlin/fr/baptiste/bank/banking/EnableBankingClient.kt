@@ -191,12 +191,14 @@ class EnableBankingClient(
         val label = remittance.ifBlank { counterpart }.ifBlank { optString("note") }.ifBlank { "Opération bancaire" }
         val reference = listOf("entry_reference", "transaction_id")
             .firstNotNullOfOrNull { key -> optString(key).takeIf { it.isNotBlank() && it != "null" } }
+        val bankDate = dateOf("transaction_date")
         return BankOperation(
             reference = reference,
-            date = operationDate(label, bookingDate, dateOf("transaction_date")),
+            date = operationDate(label, bookingDate, bankDate),
             amountCents = signed,
             rawLabel = label,
             bookingDate = bookingDate,
+            bankDate = bankDate,
         )
     }
 

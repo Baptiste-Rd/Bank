@@ -212,4 +212,31 @@ class DashboardTest {
         assertEquals(LocalDate.of(2026, 12, 28), range.start)
         assertEquals(LocalDate.of(2027, 12, 31), range.endInclusive)
     }
+
+    @Test
+    fun `a spending before the envelope start stays out of its remainder`() {
+        // Vacances créée le 15 octobre : le billet d'août y est rangé mais ne la vide pas.
+        val holidays = projects.copy(start = LocalDate.of(2026, 10, 15))
+        val dashboard = computeDashboard(
+            envelopes = listOf(holidays),
+            allocations = emptyMap(),
+            spendings = listOf(
+                spending(holidays, LocalDate.of(2026, 8, 20), 450),
+                spending(holidays, LocalDate.of(2026, 10, 16), 30),
+            ),
+            monthlyIncome = null,
+            today = today,
+        )
+        val line = dashboard.envelopes.single()
+        assertEquals(Money.euros(30), line.spent)
+        assertEquals(Money.euros(1170), line.remaining)
+    }
+
+    @Test
+    fun `an envelope does not exist before its start`() {
+        val holidays = projects.copy(start = LocalDate.of(2026, 10, 15))
+        assertTrue(!holidays.existsOn(LocalDate.of(2026, 9, 30)))
+        assertTrue(holidays.existsOn(LocalDate.of(2026, 10, 15)))
+        assertTrue(projects.existsOn(LocalDate.of(2020, 1, 1)))
+    }
 }

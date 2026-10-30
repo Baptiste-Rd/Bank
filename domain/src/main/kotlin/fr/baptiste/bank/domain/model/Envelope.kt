@@ -83,6 +83,13 @@ data class Envelope(
      * montant sur trois mois). Null : la part habituelle (un douzième pour une annuelle).
      */
     val fundingStart: java.time.YearMonth? = null,
+    /**
+     * Départ : jour à partir duquel l'enveloppe existe. Une dépense antérieure peut y être rangée
+     * (elle reste dans les statistiques de son mois) mais ne compte pas dans son reste : un billet
+     * payé en août ne vide pas une enveloppe Vacances créée en octobre. Null : depuis toujours
+     * (enveloppes créées avant que l'app ne retienne ce jour).
+     */
+    val start: LocalDate? = null,
 ) {
     val scale: Scale get() = frequency.scale
 
@@ -90,7 +97,11 @@ data class Envelope(
      * Une enveloppe glissante commence à son ancre : avant, elle n'existait pas encore et ne
      * compte dans aucun calcul (un achat prévu créé en octobre ne pèse pas sur septembre).
      */
-    fun existsOn(date: LocalDate): Boolean = frequency.isCalendar || anchor == null || !anchor.isAfter(date)
+    fun existsOn(date: LocalDate): Boolean =
+        countsOn(date) && (frequency.isCalendar || anchor == null || !anchor.isAfter(date))
+
+    /** Une dépense de ce jour compte dans l'enveloppe : elle n'est pas antérieure à son départ. */
+    fun countsOn(date: LocalDate): Boolean = start == null || !date.isBefore(start)
 
     /** Période de cette enveloppe qui contient [date]. */
     fun periodContaining(date: LocalDate): Period =

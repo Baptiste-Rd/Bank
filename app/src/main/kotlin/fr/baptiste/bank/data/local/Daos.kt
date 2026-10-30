@@ -397,9 +397,22 @@ interface TransactionDao {
     @Query("SELECT amount_cents FROM transaction_record WHERE transfer_account_id IS NOT NULL AND date BETWEEN :from AND :to")
     fun observeTransfersToAccounts(from: LocalDate, to: LocalDate): Flow<List<Long>>
 
-    /** Corrige le jour d'une opération déjà importée (jour du paiement plutôt que de comptabilisation). */
-    @Query("UPDATE transaction_record SET date = :date WHERE import_hash = :importHash AND date != :date")
-    suspend fun updateDateByImportHash(importHash: String, date: LocalDate)
+    /**
+     * Complète les jours donnés par la banque pour une opération déjà importée. Son jour retenu ne
+     * change pas ici : une correction passe par « Vérifier les dates », sous le contrôle de l'utilisateur.
+     */
+    @Query("UPDATE transaction_record SET booking_date = :bookingDate, bank_date = COALESCE(:bankDate, bank_date) WHERE import_hash = :importHash")
+    suspend fun updateBankDates(importHash: String, bookingDate: LocalDate, bankDate: LocalDate?)
+
+    /** Opérations bancaires et leurs jours, pour le diagnostic des dates. */
+    @Query(
+        "SELECT id, raw_label AS rawLabel, amount_cents AS amountCents, date, booking_date AS bookingDate, bank_date AS bankDate " +
+            "FROM transaction_record WHERE source = 'API'",
+    )
+    fun observeDatedOperations(): Flow<List<DatedOperationRow>>
+
+    @Query("UPDATE transaction_record SET date = :date WHERE id = :id")
+    suspend fun setDate(id: Long, date: LocalDate)
 
     /** Rend le libellé de la banque aux opérations nommées [alias]. */
     @Query("UPDATE transaction_record SET alias = NULL WHERE alias = :alias")
@@ -524,3 +537,13 @@ interface TransferDao {
     @Query("UPDATE transfer SET cancelled = 1 WHERE id = :id")
     suspend fun cancel(id: Long)
 }
+
+/** Une opération bancaire et ses jours (voir [TransactionDao.observeDatedOperations]). */
+data class DatedOperationRow(
+    val id: Long,
+    val rawLabel: String,
+    val amountCents: Long,
+    val date: LocalDate,
+    val bookingDate: LocalDate?,
+    val bankDate: LocalDate?,
+)

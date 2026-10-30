@@ -67,6 +67,7 @@ class MainActivity : ComponentActivity() {
             // Mettre de côté sur l'épargne de la démo : la réserve est proposée en premier.
             "RESERVE" -> OpenDialog.Move(10, incoming = true)
             "UNSORT" -> OpenDialog.Unsort
+            "DATES" -> OpenDialog.DateCheck
             "RULES" -> OpenDialog.Rules
             "ASSISTED" -> OpenDialog.AssistedSort()
             "ACCOUNTS" -> OpenDialog.Accounts

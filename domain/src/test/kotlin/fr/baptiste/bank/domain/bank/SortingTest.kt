@@ -97,4 +97,34 @@ class SortingTest {
         val keys = listOf(BankOperation(null, LocalDate.of(2026, 10, 25), -5000, "RETRAIT DAB", bookingDate = booked)).importKeys("a")
         assertEquals(listOf("eb:a:2026-10-27|-5000|RETRAIT DAB"), keys)
     }
+
+    @Test
+    fun `a deferred card payment keeps the purchase day`() {
+        // Arrêté le 20, débit le 30 du mois suivant : achat du 22 septembre comptabilisé le 30 octobre.
+        val debit = LocalDate.of(2026, 10, 30)
+        assertEquals(LocalDate.of(2026, 9, 22), operationDate("PAIEMENT CB 2209 PARIS FNAC", debit))
+        assertEquals(LocalDate.of(2026, 9, 16), operationDate("CARTE 16/09 AMAZON", debit))
+        // Au-delà de 45 jours, ce n'est plus le jour du paiement.
+        assertEquals(debit, operationDate("PAIEMENT CB 0109 PARIS", debit))
+        // Hors carte, la fenêtre reste courte : un prélèvement garde son jour.
+        assertEquals(debit, operationDate("PRLV SEPA ECH 01/10", debit))
+        // Fin d'année avec débit différé : achat du 22 décembre débité le 30 janvier.
+        assertEquals(LocalDate.of(2026, 12, 22), operationDate("CB 2212 CADEAU", LocalDate.of(2027, 1, 30)))
+    }
+
+    @Test
+    fun `the origin of the day is reported`() {
+        val booked = LocalDate.of(2026, 10, 30)
+        assertEquals(DateSource.LABEL, operationDateDetail("CB 2209 FNAC", booked).source)
+        assertEquals(DateSource.BOOKING, operationDateDetail("PRLV SEPA FREE", booked).source)
+        val fromBank = operationDateDetail("CB 2209 FNAC", booked, transactionDate = LocalDate.of(2026, 9, 21))
+        assertEquals(DateSource.BANK, fromBank.source)
+        assertEquals(LocalDate.of(2026, 9, 22), fromBank.labelDate)
+    }
+
+    @Test
+    fun `a pending payment and its booked line get the same day`() {
+        val label = "PAIEMENT CB 2810 PARIS CARREFOUR"
+        assertEquals(operationDate(label, LocalDate.of(2026, 10, 29)), operationDate(label, LocalDate.of(2026, 11, 30)))
+    }
 }

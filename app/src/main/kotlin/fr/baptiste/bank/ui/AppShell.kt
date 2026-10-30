@@ -44,6 +44,7 @@ import fr.baptiste.bank.domain.budget.HoldingLine
 import fr.baptiste.bank.ui.operations.RenameOperationDialog
 import fr.baptiste.bank.ui.operations.RulesDialog
 import fr.baptiste.bank.ui.operations.SortOperationDialog
+import fr.baptiste.bank.ui.operations.DateCheckDialog
 import fr.baptiste.bank.ui.operations.UnsortDialog
 import fr.baptiste.bank.ui.transfers.CoverDialog
 import fr.baptiste.bank.ui.transfers.EnvelopeSheet
@@ -89,6 +90,9 @@ sealed interface OpenDialog {
     data class SortOperation(val operation: OperationRow, val preselectedEnvelopeId: Long? = null) : OpenDialog
     data class RenameOperation(val operation: OperationRow, val selectedEnvelopeId: Long? = null) : OpenDialog
     data object Unsort : OpenDialog
+
+    /** « Vérifier les dates » : débit de la carte, jours à corriger. */
+    data object DateCheck : OpenDialog
 
     /** Livrets et investissements : la liste, puis un compte (null : nouveau). */
     data object Accounts : OpenDialog
@@ -172,6 +176,13 @@ fun AppMenuItems(
         onClick = {
             onClose()
             controller.dialog = OpenDialog.Income
+        },
+    )
+    DropdownMenuItem(
+        text = { Text("Vérifier les dates") },
+        onClick = {
+            onClose()
+            controller.dialog = OpenDialog.DateCheck
         },
     )
     DropdownMenuItem(
@@ -326,6 +337,19 @@ fun AppDialogs(
             },
             onDismiss = { controller.dialog = OpenDialog.SortOperation(current.operation, current.selectedEnvelopeId) },
         )
+        OpenDialog.DateCheck -> {
+            val report by viewModel.dateCheck.collectAsStateWithLifecycle()
+            DateCheckDialog(
+                report = report,
+                onApply = { corrections ->
+                    viewModel.applyDateCorrections(corrections) { count ->
+                        controller.notify("$count date(s) corrigée(s). Les dépenses ont suivi leur nouveau jour.")
+                    }
+                    close()
+                },
+                onDismiss = ::close,
+            )
+        }
         OpenDialog.Unsort -> UnsortDialog(
             envelopes = envelopes,
             onUnsort = { scope ->

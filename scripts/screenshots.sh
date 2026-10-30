@@ -140,6 +140,7 @@ adb exec-out screencap -p > "$OUT/glass-analyse-annee-suite.png"
 shot_budget glass-analyse-mois-precedent --es tab OPERATIONS --ei monthsBack 1
 shot_budget glass-declasser --es tab OPERATIONS --es dialog UNSORT
 shot_budget glass-regles --es tab OPERATIONS --es dialog RULES
+shot_budget glass-verifier-dates --es tab OPERATIONS --es dialog DATES
 shot_budget glass-nom-en-double --es tab BUDGET --es dialog DUPLICATE
 shot_budget glass-reglages-verre --es tab HOME --ez tuning true
 shot_budget glass-claude-envoi --es tab OPERATIONS --es dialog ASSISTED

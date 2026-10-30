@@ -26,6 +26,10 @@ import fr.baptiste.bank.domain.bank.aliasFor
 import fr.baptiste.bank.domain.bank.ManualEntry
 import fr.baptiste.bank.domain.bank.cleanBankLabel
 import fr.baptiste.bank.domain.bank.findManualMatch
+import fr.baptiste.bank.domain.bank.DateCorrection
+import fr.baptiste.bank.domain.bank.DateReport
+import fr.baptiste.bank.domain.bank.DatedOperation
+import fr.baptiste.bank.domain.bank.dateReport
 import fr.baptiste.bank.domain.bank.importKeys
 import fr.baptiste.bank.domain.bank.matching
 import fr.baptiste.bank.domain.bank.normalizeLabel
@@ -215,7 +219,9 @@ class BudgetRepository(
 
     /** Crée ou met à jour une enveloppe ; renvoie son identifiant. */
     suspend fun saveEnvelope(envelope: Envelope): Long {
-        val rowId = envelopeDao.upsert(envelope.toEntity())
+        // Une nouvelle enveloppe part du 1er du mois : une dépense plus ancienne n'y compte pas.
+        val toSave = if (envelope.id == 0L && envelope.start == null) envelope.copy(start = LocalDate.now().withDayOfMonth(1)) else envelope
+        val rowId = envelopeDao.upsert(toSave.toEntity())
         // Upsert renvoie -1 pour une mise à jour : l'identifiant est alors celui qu'on avait.
         return if (envelope.id != 0L) envelope.id else rowId
     }
@@ -331,16 +337,16 @@ class BudgetRepository(
                         importHash = key,
                         source = TransactionSource.API,
                         alias = aliases.aliasFor(cleanBankLabel(operation.rawLabel))?.alias,
+                        bookingDate = operation.bookingDate,
+                        bankDate = operation.bankDate,
                     )
                 },
             )
-            // Déjà importées : seul leur jour peut changer (jour du paiement plutôt que de
-            // comptabilisation, depuis la build-71). Le reste (enveloppe, nom) ne bouge pas.
+            // Déjà importées : on complète les jours donnés par la banque, sans toucher au jour retenu.
+            // Un jour à corriger est proposé dans « Vérifier les dates » et ne change qu'une fois validé.
             ids.forEachIndexed { index, id ->
-                if (id <= 0) transactionDao.updateDateByImportHash(keys[index], operations[index].date)
+                if (id <= 0) transactionDao.updateBankDates(keys[index], operations[index].bookingDate, operations[index].bankDate)
             }
-            // Un jour corrigé peut changer de mois : la dépense suit son jour, pas sa première période.
-            if (ids.any { it <= 0 }) realignImputationPeriods()
             val added = transactionDao.byIds(ids.filter { it > 0 })
             if (added.isEmpty()) return@withTransaction ImportResult(0, 0, 0)
 
@@ -420,6 +426,17 @@ class BudgetRepository(
      * tri (jour du paiement plutôt que de comptabilisation) restait sinon dans la période de son
      * premier jour : une dépense d'août listée dans l'enveloppe d'octobre. Renvoie le nombre recalé.
      */
+    /** Diagnostic des dates des opérations bancaires (voir [dateReport]). */
+    val dateCheck: Flow<DateReport> = transactionDao.observeDatedOperations()
+        .map { rows -> dateReport(rows.map { DatedOperation(it.id, it.rawLabel, it.amountCents, it.date, it.bookingDate, it.bankDate) }) }
+
+    /** Applique les jours validés, puis replace chaque dépense dans la période de son nouveau jour. */
+    suspend fun applyDateCorrections(corrections: List<DateCorrection>): Int = database.withTransaction {
+        corrections.forEach { transactionDao.setDate(it.operation.id, it.newDate) }
+        realignImputationPeriods()
+        corrections.size
+    }
+
     suspend fun realignImputationPeriods(): Int {
         val envelopes = (envelopeDao.active() + envelopeDao.archived()).map { it.toDomain() }.associateBy { it.id }
         var fixed = 0
@@ -953,6 +970,7 @@ private fun EnvelopeEntity.toDomain() = Envelope(
     anchor = anchorDate,
     group = groupName,
     fundingStart = fundingStart?.let { runCatching { YearMonth.parse(it) }.getOrNull() },
+    start = startDate,
 )
 
 private fun Envelope.toEntity() = EnvelopeEntity(
@@ -969,4 +987,5 @@ private fun Envelope.toEntity() = EnvelopeEntity(
     anchorDate = anchor,
     groupName = group?.trim()?.takeIf { it.isNotEmpty() },
     fundingStart = fundingStart?.toString(),
+    startDate = start,
 )

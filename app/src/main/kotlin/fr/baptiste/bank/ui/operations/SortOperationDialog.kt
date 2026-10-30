@@ -114,7 +114,8 @@ fun SortOperationDialog(
                     )
                 }
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    envelopes.forEach { envelope ->
+                    // Une enveloppe créée après cette dépense passe en dernier : elle ne la compterait pas.
+                    envelopes.sortedBy { !it.countsOn(operation.date) }.forEach { envelope ->
                         FilterChip(
                             selected = envelope.id == selectedId,
                             onClick = { selectedId = envelope.id },
@@ -123,6 +124,15 @@ fun SortOperationDialog(
                     }
                     // Aucune enveloppe ne convient : on la crée sans quitter le tri.
                     AssistChip(onClick = onCreateEnvelope, label = { Text("+ Nouvelle enveloppe") })
+                }
+                val selectedStart = selected?.start
+                if (selected != null && selectedStart != null && !selected.countsOn(operation.date)) {
+                    Text(
+                        "${selected.name} part du ${selectedStart.format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy", java.util.Locale.FRANCE))} : " +
+                            "cette dépense y sera rangée, mais ne comptera pas dans son reste.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = fr.baptiste.bank.ui.theme.BankTheme.status.warning,
+                    )
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = createRule, onCheckedChange = { createRule = it })

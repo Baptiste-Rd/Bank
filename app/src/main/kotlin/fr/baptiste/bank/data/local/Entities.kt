@@ -71,6 +71,10 @@ data class TransactionEntity(
     val alias: String? = null,
     /** Virement vers un de mes comptes (livret, investissement) : ce compte. Hors budget. */
     @ColumnInfo(name = "transfer_account_id") val transferAccountId: Long? = null,
+    /** Jour de comptabilisation par la banque (null : inconnu, saisie ou import antérieur). */
+    @ColumnInfo(name = "booking_date") val bookingDate: LocalDate? = null,
+    /** Jour du paiement quand la banque le donne (null : non fourni). */
+    @ColumnInfo(name = "bank_date") val bankDate: LocalDate? = null,
 )
 
 @Entity(tableName = "envelope")
@@ -92,6 +96,8 @@ data class EnvelopeEntity(
     @ColumnInfo(name = "group_name") val groupName: String? = null,
     /** Provision : mois (« 2026-10 ») à partir duquel elle met de côté ; NULL : part habituelle. */
     @ColumnInfo(name = "funding_start") val fundingStart: String? = null,
+    /** Départ : une dépense antérieure ne compte pas dans son reste (NULL : depuis toujours). */
+    @ColumnInfo(name = "start_date") val startDate: LocalDate? = null,
 )
 
 @Entity(

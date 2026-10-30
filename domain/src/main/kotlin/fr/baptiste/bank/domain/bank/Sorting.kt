@@ -77,6 +77,8 @@ data class BankOperation(
      * dédoublonnage, qui doit rester celle des imports déjà faits.
      */
     val bookingDate: LocalDate = date,
+    /** Jour du paiement quand la banque le donne. */
+    val bankDate: LocalDate? = null,
 )
 
 private val labelDayMonth = listOf(
@@ -86,13 +88,41 @@ private val labelDayMonth = listOf(
     Regex("""\b(\d{2})/(\d{2})(?:/\d{2,4})?\b"""),
 )
 
+/** D'où vient le jour retenu pour une opération. */
+enum class DateSource {
+    /** Jour du paiement donné par la banque. */
+    BANK,
+
+    /** Jour écrit dans le libellé (« CB 2510 »). */
+    LABEL,
+
+    /** Jour de comptabilisation, à défaut d'autre chose. */
+    BOOKING,
+}
+
+/** Jour retenu, son origine, et le jour lu dans le libellé (null : aucun, ou invraisemblable). */
+data class DateDetail(val date: LocalDate, val source: DateSource, val labelDate: LocalDate? = null)
+
 /**
- * Jour de l'opération : celui donné par la banque ([transactionDate]), sinon celui écrit dans le
- * libellé (« CB 2510 » = le 25 octobre), à condition qu'il tombe dans les 10 jours avant la
- * comptabilisation ; sinon la date de comptabilisation.
+ * Délai maximal entre un paiement par carte et sa comptabilisation : jusqu'à 45 jours avec une
+ * carte à débit différé (arrêté vers le 20, débit le 30 du mois suivant), 1 à 3 jours sinon.
  */
-fun operationDate(rawLabel: String, bookingDate: LocalDate, transactionDate: LocalDate? = null): LocalDate {
-    if (transactionDate != null && !transactionDate.isAfter(bookingDate)) return transactionDate
+const val CARD_DELAY_DAYS = 45L
+
+/** Délai maximal pour le reste (retrait, prélèvement) : un jour lu au-delà n'est pas celui de l'opération. */
+const val OTHER_DELAY_DAYS = 10L
+
+private val cardLabel = Regex("""\b(?:CB|CARTE|PSC)\b""", RegexOption.IGNORE_CASE)
+
+/** Paiement par carte (« PAIEMENT CB », « CARTE X1234 ») : il peut être comptabilisé longtemps après. */
+fun isCardLabel(rawLabel: String): Boolean = cardLabel.containsMatchIn(rawLabel)
+
+/**
+ * Jour écrit dans [rawLabel] (« CB 2510 », « DAB 25/10 »), placé dans l'année qui le met au plus
+ * près avant [bookingDate], s'il tombe dans le délai plausible (45 jours pour une carte, 10 sinon).
+ */
+fun labelDate(rawLabel: String, bookingDate: LocalDate): LocalDate? {
+    val window = if (isCardLabel(rawLabel)) CARD_DELAY_DAYS else OTHER_DELAY_DAYS
     for (pattern in labelDayMonth) {
         val match = pattern.find(rawLabel) ?: continue
         val day = match.groupValues[1].toInt()
@@ -101,10 +131,25 @@ fun operationDate(rawLabel: String, bookingDate: LocalDate, transactionDate: Loc
         val candidate = listOf(bookingDate.year, bookingDate.year - 1)
             .mapNotNull { year -> runCatching { LocalDate.of(year, month, day) }.getOrNull() }
             .firstOrNull { !it.isAfter(bookingDate) } ?: continue
-        if (ChronoUnit.DAYS.between(candidate, bookingDate) <= 10) return candidate
+        if (ChronoUnit.DAYS.between(candidate, bookingDate) <= window) return candidate
     }
-    return bookingDate
+    return null
 }
+
+/**
+ * Jour de l'opération : celui donné par la banque ([transactionDate]), sinon celui écrit dans le
+ * libellé, sinon la date de comptabilisation. Un paiement par carte à débit différé, comptabilisé
+ * le 30 du mois suivant, garde ainsi le jour de l'achat et compte dans son mois.
+ */
+fun operationDateDetail(rawLabel: String, bookingDate: LocalDate, transactionDate: LocalDate? = null): DateDetail {
+    val fromLabel = labelDate(rawLabel, bookingDate)
+    if (transactionDate != null && !transactionDate.isAfter(bookingDate)) return DateDetail(transactionDate, DateSource.BANK, fromLabel)
+    if (fromLabel != null) return DateDetail(fromLabel, DateSource.LABEL, fromLabel)
+    return DateDetail(bookingDate, DateSource.BOOKING)
+}
+
+fun operationDate(rawLabel: String, bookingDate: LocalDate, transactionDate: LocalDate? = null): LocalDate =
+    operationDateDetail(rawLabel, bookingDate, transactionDate).date
 
 /**
  * Clé de dédoublonnage de chaque opération : elle doit rester la même d'une synchronisation à

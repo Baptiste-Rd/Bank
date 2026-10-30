@@ -42,6 +42,8 @@ object DemoData {
                 amount = Money.euros(euros),
                 status = type.defaultStatus,
                 anchor = if (frequency.isCalendar) null else today.minusDays(20),
+                // Les enveloppes de la démo existent depuis le début de son historique.
+                start = today.minusYears(2).withDayOfYear(1),
             )
         listOf(
             // Une catégorie partagée : Courses et Bar sont réunis sous « Nourriture ».

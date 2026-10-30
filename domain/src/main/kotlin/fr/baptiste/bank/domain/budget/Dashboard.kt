@@ -134,7 +134,11 @@ fun computeDashboard(
     trackingStart: java.time.YearMonth? = null,
 ): Dashboard {
     val active = envelopes.filter { !it.archived && it.existsOn(today) }
-    val spendingsByEnvelope = spendings.groupBy { it.envelopeId }
+    // Une dépense antérieure au départ de son enveloppe ne compte pas dans son reste (un rattrapage,
+    // qui porte sur la période choisie, compte toujours).
+    val byId = envelopes.associateBy { it.id }
+    val counted = spendings.filter { it.wholePeriod || byId[it.envelopeId]?.countsOn(it.date) != false }
+    val spendingsByEnvelope = counted.groupBy { it.envelopeId }
     val month = Scale.MONTH.periodContaining(today)
     val currentMonth = java.time.YearMonth.from(today)
 
@@ -198,7 +202,7 @@ fun computeDashboard(
     // Sans salaire, seules les enveloppes quotidiennes sont connues.
     val dailyBudget = if (wallet != null) wallet + dailyAssigned else dailyAssigned
     val dailyIds = dailyLines.map { it.envelope.id }.toSet()
-    val dailyThisMonth = spendings.filter { it.envelopeId in dailyIds && it.date in month }
+    val dailyThisMonth = counted.filter { it.envelopeId in dailyIds && it.date in month }
     val (catchUps, dated) = dailyThisMonth.partition { it.wholePeriod }
 
     val allowance = dailyAllowance(
@@ -238,7 +242,7 @@ fun computeDashboard(
         .filter { it.envelope.type != EnvelopeType.DAILY && it.envelope.type != EnvelopeType.SAVINGS }
         .filter { it.period.endInclusive in month }
         .sumOfMoney { if (it.remaining.isNegative) -it.remaining else Money.ZERO }
-    val savingsSpent = spendings.filter { it.envelopeId in savingsIds && it.date in month }.sumOfMoney { it.amount }
+    val savingsSpent = counted.filter { it.envelopeId in savingsIds && it.date in month }.sumOfMoney { it.amount }
     // Le reste d'une enveloppe dont la période est terminée va à l'épargne (voir SavingsOutlook).
     val surpluses = lines
         .filter { it.envelope.type != EnvelopeType.DAILY && it.envelope.type != EnvelopeType.SAVINGS }
