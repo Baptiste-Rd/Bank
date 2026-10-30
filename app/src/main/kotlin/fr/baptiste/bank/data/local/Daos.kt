@@ -165,6 +165,9 @@ interface EnvelopeDao {
 
     @Query("SELECT * FROM envelope WHERE archived = 0")
     suspend fun active(): List<EnvelopeEntity>
+
+    @Query("SELECT * FROM envelope WHERE archived = 1")
+    suspend fun archived(): List<EnvelopeEntity>
 }
 
 @Dao
@@ -178,6 +181,14 @@ data class ExcludedAmount(
     val date: LocalDate,
     @ColumnInfo(name = "amount_cents") val amountCents: Long,
     @ColumnInfo(name = "to_account") val toAccount: Boolean,
+)
+
+/** Une imputation et le jour de son opération. */
+data class DatedImputation(
+    val id: Long,
+    @ColumnInfo(name = "envelope_id") val envelopeId: Long,
+    @ColumnInfo(name = "period_key") val periodKey: String,
+    val date: LocalDate,
 )
 
 /** Un montant daté (positif), pour des totaux par mois. */
@@ -269,6 +280,20 @@ interface TransactionDao {
         """,
     )
     fun observeEnvelopeOperations(envelopeId: Long, periodKey: String): Flow<List<OperationRow>>
+
+    /** Imputations datées (hors rattrapages), pour recaler leur période sur le jour de l'opération. */
+    @Query(
+        """
+        SELECT i.id AS id, i.envelope_id AS envelope_id, i.period_key AS period_key, t.date AS date
+        FROM imputation i
+        INNER JOIN transaction_record t ON t.id = i.transaction_id
+        WHERE i.whole_period = 0
+        """,
+    )
+    suspend fun datedImputations(): List<DatedImputation>
+
+    @Query("UPDATE imputation SET period_key = :periodKey WHERE id = :id")
+    suspend fun setPeriodKey(id: Long, periodKey: String)
 
     /**
      * Opérations d'une enveloppe entre deux dates (analyse des dépenses), avec la part imputée à

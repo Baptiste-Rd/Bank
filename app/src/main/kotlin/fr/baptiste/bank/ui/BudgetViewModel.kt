@@ -50,6 +50,11 @@ import java.time.YearMonth
  */
 class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
 
+    init {
+        // Les dépenses suivent le jour de leur opération (réparation unique des anciennes données).
+        viewModelScope.launch { repository.realignImputationPeriods() }
+    }
+
     private fun <T> Flow<T>.asState(initial: T): StateFlow<T> =
         stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initial)
 

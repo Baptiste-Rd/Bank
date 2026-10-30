@@ -87,7 +87,7 @@ sealed interface OpenDialog {
     data class EnvelopeEditor(val envelope: Envelope?, val returnToSort: OperationRow? = null) : OpenDialog
     data object Bank : OpenDialog
     data class SortOperation(val operation: OperationRow, val preselectedEnvelopeId: Long? = null) : OpenDialog
-    data class RenameOperation(val operation: OperationRow) : OpenDialog
+    data class RenameOperation(val operation: OperationRow, val selectedEnvelopeId: Long? = null) : OpenDialog
     data object Unsort : OpenDialog
 
     /** Livrets et investissements : la liste, puis un compte (null : nouveau). */
@@ -300,7 +300,7 @@ fun AppDialogs(
             preselectedId = current.preselectedEnvelopeId,
             suggestedId = remember(current.operation.id) { viewModel.suggestedEnvelopeId(current.operation) }
                 ?.takeIf { id -> envelopes.any { it.id == id } },
-            onRename = { controller.dialog = OpenDialog.RenameOperation(current.operation) },
+            onRename = { selected -> controller.dialog = OpenDialog.RenameOperation(current.operation, selected) },
             accounts = holdingAccounts,
             onTransferToAccount = { accountId, keyword ->
                 val name = holdingAccounts.firstOrNull { it.id == accountId }?.name.orEmpty()
@@ -327,10 +327,11 @@ fun AppDialogs(
                     )
                 }
                 // Retour au tri, avec le nouveau nom.
+                // L'enveloppe choisie avant de renommer est gardée : il ne reste qu'à valider.
                 val renamed = current.operation.copy(label = alias.trim().ifEmpty { current.operation.bankLabel })
-                controller.dialog = OpenDialog.SortOperation(renamed)
+                controller.dialog = OpenDialog.SortOperation(renamed, current.selectedEnvelopeId)
             },
-            onDismiss = { controller.dialog = OpenDialog.SortOperation(current.operation) },
+            onDismiss = { controller.dialog = OpenDialog.SortOperation(current.operation, current.selectedEnvelopeId) },
         )
         OpenDialog.Unsort -> UnsortDialog(
             envelopes = envelopes,

@@ -339,6 +339,8 @@ class BudgetRepository(
             ids.forEachIndexed { index, id ->
                 if (id <= 0) transactionDao.updateDateByImportHash(keys[index], operations[index].date)
             }
+            // Un jour corrigé peut changer de mois : la dépense suit son jour, pas sa première période.
+            if (ids.any { it <= 0 }) realignImputationPeriods()
             val added = transactionDao.byIds(ids.filter { it > 0 })
             if (added.isEmpty()) return@withTransaction ImportResult(0, 0, 0)
 
@@ -411,6 +413,26 @@ class BudgetRepository(
                 .onEach { imputationDao.insert(it.imputationIn(envelope, ImputationMode.RULE)) }
                 .size
         }
+
+    /**
+     * Recale la période de chaque dépense sur le jour de son opération (les rattrapages, qui portent
+     * sur une période choisie, ne bougent pas). Une opération dont le jour a été corrigé après son
+     * tri (jour du paiement plutôt que de comptabilisation) restait sinon dans la période de son
+     * premier jour : une dépense d'août listée dans l'enveloppe d'octobre. Renvoie le nombre recalé.
+     */
+    suspend fun realignImputationPeriods(): Int {
+        val envelopes = (envelopeDao.active() + envelopeDao.archived()).map { it.toDomain() }.associateBy { it.id }
+        var fixed = 0
+        for (row in transactionDao.datedImputations()) {
+            val envelope = envelopes[row.envelopeId] ?: continue
+            val key = envelope.periodContaining(row.date).key
+            if (key != row.periodKey) {
+                transactionDao.setPeriodKey(row.id, key)
+                fixed++
+            }
+        }
+        return fixed
+    }
 
     /** Règles de tri et alias, pour l'écran qui les liste. */
     val rules: Flow<List<RuleRow>> = database.ruleDao().observeAll()

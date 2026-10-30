@@ -58,7 +58,8 @@ fun SortOperationDialog(
     preselectedId: Long? = null,
     /** Enveloppe proposée d'après les opérations déjà rangées qui se ressemblent. */
     suggestedId: Long? = null,
-    onRename: () -> Unit = {},
+    /** Renommer : reçoit l'enveloppe déjà choisie, pour la retrouver au retour. */
+    onRename: (selectedEnvelopeId: Long?) -> Unit = {},
     /** Mes livrets et investissements : un virement vers l'un d'eux n'est pas une dépense. */
     accounts: List<HoldingAccount> = emptyList(),
     /** Le compte choisi, et le texte qui reconnaîtra les suivants (si la case est cochée). */
@@ -97,7 +98,7 @@ fun SortOperationDialog(
                 if (operation.source != TransactionSource.MANUAL) {
                     val context = LocalContext.current
                     Row {
-                        TextButton(onClick = onRename) { Text("Renommer") }
+                        TextButton(onClick = { onRename(selectedId) }) { Text("Renommer") }
                         // Un libellé obscur : Claude dit qui est derrière (libellé anonymisé, montant, date).
                         TextButton(onClick = {
                             openClaudeWith(context, labelQuestion(operation.bankLabel, operation.amountCents, operation.date))
