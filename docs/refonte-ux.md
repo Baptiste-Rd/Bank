@@ -23,7 +23,7 @@ La fiche d'une enveloppe liste les dépenses de sa période ; toucher une dépen
 | --- | --- |
 | Ce qui se dépense encore aujourd'hui | Reste du jour |
 | Ce qui se dépense au jour le jour dans le mois | Budget du quotidien |
-| Salaire rangé dans aucune enveloppe | Non réparti |
+| Salaire rangé dans aucune enveloppe | À répartir |
 | Ce qui reste dans une enveloppe | Reste |
 | Dépassement constaté / prévu | Dépassé · Prévu + |
 | Épargne de fin de mois | Épargne prévue |
@@ -31,8 +31,8 @@ La fiche d'une enveloppe liste les dépenses de sa période ; toucher une dépen
 | Ce que l'on budgète et où l'on range une dépense | Enveloppe |
 | Ce qui réunit des enveloppes pour les statistiques | Catégorie (« Autres » par défaut) ; jamais « groupe » |
 | Ce qu'une provision a déjà réuni pour sa période | Mis de côté (« 900 € mis de côté sur 1 800 € ») |
-| Répartir une provision sur les mois restants | Rattraper |
-| Ce qui est sur le compte courant hors budget du mois | Réserve |
+| Répartir une provision sur les mois restants | « Mettre X € de côté par mois » (action) ; une provision qui n'y suffit pas est « en retard » |
+| Ce qui est sur le compte courant hors budget du mois | Disponible sur le compte |
 | Mois avant le début du suivi | Non renseigné |
 | Valeur d'un placement après l'impôt estimé | Net (toujours précédé de « ≈ ») |
 
@@ -85,10 +85,17 @@ chaque synchronisation). Un virement vers l'un d'eux est hors budget et compté 
 placement peut porter son total versé et son enveloppe fiscale : l'app affiche alors un net estimé
 (« ≈ »), aux taux 2026.
 
-## Réserve et provisions
+## Disponible sur le compte, et provisions
 
-- La réserve est ce qui reste sur le compte courant une fois le mois, les charges, l'épargne à virer
-  et les provisions mises de côté retirés. « Ajouter » sur une enveloppe la propose en premier pour
+- « Disponible sur le compte » (la réserve, dans le code) est ce qui reste sur le compte courant une fois le mois, les charges, l'épargne à virer
+  et les provisions mises de côté retirés. « Ajouter » sur une enveloppe le propose en premier pour
   l'épargne et les provisions : y prendre ne change ni le budget ni l'épargne du mois.
 - Une provision créée en cours de période répartit son montant sur les mois restants ; une ancienne
   garde sa part, et sa fiche propose de rattraper quand le suivi a commencé après sa période.
+
+## Six mots visibles
+
+L'écran se lit avec six mots : Reste, Dépensé, Enveloppe, Catégorie, Épargne, À trier. Les autres
+notions vivent dans les ⓘ ou s'expriment par une action (« Mettre de côté »). Une action principale
+par écran : le + en haut à droite. Le verre est réservé à la navigation ; les cartes sont un matériau
+épais (flou fort, sans lentille, voile bleu nuit) pour garder 4,5:1 de contraste.

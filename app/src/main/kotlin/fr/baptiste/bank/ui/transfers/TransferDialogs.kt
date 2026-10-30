@@ -53,7 +53,7 @@ import fr.baptiste.bank.ui.format.formatted
 import fr.baptiste.bank.ui.format.label
 import fr.baptiste.bank.ui.theme.BankTheme
 
-private const val WALLET = "Non réparti"
+private const val WALLET = "À répartir ce mois-ci"
 private const val WALLET_ID = -1L
 private const val RESERVE_ID = -2L
 
@@ -93,7 +93,7 @@ fun CoverDialog(
                 )
                 if (plan.legs.isEmpty()) {
                     Text(
-                        "Aucune source disponible : le portefeuille est vide et les autres enveloppes " +
+                        "Aucune source disponible : rien n'est à répartir et les autres enveloppes " +
                             "sont protégées, épuisées ou elles-mêmes à surveiller.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = BankTheme.status.over,
@@ -168,7 +168,7 @@ fun TransferDialog(
     val amount = parseMoney(amountText)
 
     fun optionLabel(id: Long): String {
-        if (id == RESERVE_ID) return "Réserve, déjà sur le compte (${reserve?.formatted()})"
+        if (id == RESERVE_ID) return "Disponible sur le compte (${reserve?.formatted()})"
         if (id == WALLET_ID) {
             return dashboard.unallocated?.let { "$WALLET (${it.formatted()})" } ?: WALLET
         }
@@ -216,7 +216,7 @@ fun TransferDialog(
                     if (fromReserve) {
                         Text(
                             if (reserve != null && amount > reserve) {
-                                "C'est plus que ta réserve (${reserve.formatted()}) : le compte ne contient pas tout ça hors budget du mois."
+                                "C'est plus que ce qui est disponible (${reserve.formatted()}) : le compte ne contient pas tout ça hors budget du mois."
                             } else {
                                 "Pris sur l'argent déjà sur le compte : ton budget du mois et ton épargne du mois ne changent pas."
                             },
@@ -312,7 +312,7 @@ fun EnvelopeSheet(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     OutlinedButton(onClick = { onCatchUp(proposal.from) }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Rattraper : ${proposal.monthlyShare.formatted()} par mois")
+                        Text("Mettre ${proposal.monthlyShare.formatted()} de côté par mois")
                     }
                 }
             }
@@ -412,7 +412,7 @@ fun JournalDialog(
             if (transfers.isEmpty()) {
                 Text(
                     "Aucun transfert. Depuis une enveloppe, Ajouter ou Retirer déplace de l'argent " +
-                        "entre elle, le portefeuille et les autres enveloppes.",
+                        "entre elle, ce qui est à répartir et les autres enveloppes.",
                 )
             } else {
                 LazyColumn(modifier = Modifier.heightIn(max = 420.dp)) {

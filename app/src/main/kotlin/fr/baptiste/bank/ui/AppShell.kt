@@ -242,7 +242,7 @@ fun AppDialogs(
         controller.dialog = null
     }
     fun nameOf(envelopeId: Long?): String =
-        envelopeId?.let { id -> envelopes.firstOrNull { it.id == id }?.name } ?: "Non réparti"
+        envelopeId?.let { id -> envelopes.firstOrNull { it.id == id }?.name } ?: "À répartir"
 
     when (val current = controller.dialog) {
         null -> Unit
@@ -514,7 +514,7 @@ fun AppDialogs(
                         // Dire d'où vient l'argent : un dépassement couvert ne disparaît pas, il est
                         // payé par le non réparti ou par d'autres enveloppes.
                         val sources = legs.joinToString(", ") { leg ->
-                            "${leg.amount.formatted()} de ${leg.sourceEnvelopeId?.let(::nameOf) ?: "Non réparti"}"
+                            "${leg.amount.formatted()} de ${leg.sourceEnvelopeId?.let(::nameOf) ?: "À répartir"}"
                         }
                         // Pris sur le non réparti pour une enveloppe hors quotidien : le budget du quotidien
                         // baisse. Pour une enveloppe du quotidien, rien ne bouge : le dépassement le
@@ -560,7 +560,7 @@ fun AppDialogs(
                                 reason = reason,
                             )
                         }
-                        val from = if (fromReserve) "ta réserve" else if (current.incoming) nameOf(counterpart) else line.envelope.name
+                        val from = if (fromReserve) "ton compte" else if (current.incoming) nameOf(counterpart) else line.envelope.name
                         val to = if (current.incoming) line.envelope.name else nameOf(counterpart)
                         controller.notify("${amount.formatted()} déplacés de $from vers $to.")
                         close()

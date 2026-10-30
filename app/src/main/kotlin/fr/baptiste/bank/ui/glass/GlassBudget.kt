@@ -257,7 +257,7 @@ private fun LazyListScope.monthContent(
                         label = part.family.label,
                         value = part.amount.formatted(),
                         detail = if (part.family == EnvelopeFamily.DAILY && unallocated != null && unallocated.isPositive) {
-                            "dont ${unallocated.formatted()} non réparti"
+                            "dont ${unallocated.formatted()} à répartir"
                         } else {
                             null
                         },
@@ -586,7 +586,7 @@ internal fun CurrentAccountCard(explained: CurrentAccountExplained?, onSetBalanc
             if (explained.provisionsHeld.isPositive) AccountLine("Provisions mises de côté", explained.provisionsHeld)
             fr.baptiste.bank.ui.components.RowDivider(0.dp)
             val free = explained.free
-            AccountLine(if (free.isNegative) "Il manque" else "Réserve, libre sur le compte", free, strong = true, positiveGood = true)
+            AccountLine(if (free.isNegative) "Il manque" else "Disponible sur le compte", free, strong = true, positiveGood = true)
         }
         val note = when {
             explained.free.isNegative -> buildString {
@@ -597,7 +597,7 @@ internal fun CurrentAccountCard(explained: CurrentAccountExplained?, onSetBalanc
             }
             explained.free.isPositive ->
                 "Hors budget du mois. Pour la mettre de côté sans toucher au mois : ouvre une enveloppe d'épargne " +
-                    "ou une provision, Ajouter, puis « Réserve »."
+                    "ou une provision, Ajouter, puis « Disponible sur le compte »."
             else -> null
         }
         if (note != null) {

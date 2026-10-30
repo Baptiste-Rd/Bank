@@ -203,7 +203,7 @@ fun EnvelopeDialog(
                         Text(
                             "${amount.convert(frequency, Frequency.MONTHLY).formatted()} réservés chaque mois pendant " +
                                 "$plannedMonths mois, de ${YearMonth.from(plannedStart).label} à ${purchaseMonth.label}. " +
-                                "Ils sortent de ton portefeuille, donc de ton budget du quotidien.",
+                                "Ils sortent de ce qui est à répartir ce mois-ci, donc de ton budget du quotidien.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
