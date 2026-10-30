@@ -505,7 +505,7 @@ private fun CompactTopBar(title: String, visible: Boolean, modifier: Modifier = 
             .fillMaxWidth()
             .height(top + 64.dp)
             .graphicsLayer { this.alpha = alpha }
-            .background(Glass.BaseTop.copy(alpha = 0.94f)),
+            .background(Glass.BaseTop),
     ) {
         Text(
             title,
