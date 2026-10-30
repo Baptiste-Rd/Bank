@@ -88,13 +88,15 @@ fun EnvelopeRow(
         }
         else -> RowDisplay(
             // Un transfert (couverture, ajout) se lit à part : « 550 € sur 400 € +150 € ».
-            detail = if (line.transferred.cents == 0L) {
-                "${line.spent.formatted()} sur ${line.available.formatted()} · ${line.period.shortLabel}"
-            } else {
-                val sign = if (line.transferred.isNegative) "−" else "+"
-                "${line.spent.formatted()} sur ${line.allocated.formatted()} $sign${Money(kotlin.math.abs(line.transferred.cents)).formatted()} · " +
-                    line.period.shortLabel
-            },
+            // La période n'est écrite que si elle n'est pas le mois affiché (l'écran le dit déjà).
+            detail = (
+                if (line.transferred.cents == 0L) {
+                    "${line.spent.formatted()} sur ${line.available.formatted()}"
+                } else {
+                    val sign = if (line.transferred.isNegative) "−" else "+"
+                    "${line.spent.formatted()} sur ${line.allocated.formatted()} $sign${Money(kotlin.math.abs(line.transferred.cents)).formatted()}"
+                }
+            ) + if (line.period is fr.baptiste.bank.domain.period.Period.Month) "" else " · ${line.period.shortLabel}",
             value = line.remaining,
             caption = "reste",
             // Provision sur plusieurs mois : ce qui est déjà mis de côté pour la fin de la période.

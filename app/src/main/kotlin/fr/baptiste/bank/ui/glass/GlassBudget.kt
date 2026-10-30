@@ -284,7 +284,14 @@ private fun LazyListScope.monthContent(
         val familyLines = byFamily[family].orEmpty()
         if (familyLines.isEmpty()) return@forEach
         val total = familyLines.fold(Money.ZERO) { sum, line -> sum + line.monthlyShare }
-        sectionHeader("label-$family", family.label, trailing = "${total.formatted()} / mois", dot = family.color)
+        // Au quotidien, le plan compte aussi ce qui est à répartir : l'en-tête dit « en enveloppes »
+        // pour ne pas afficher deux totaux différents sous le même nom.
+        sectionHeader(
+            "label-$family",
+            family.label,
+            trailing = if (family == EnvelopeFamily.DAILY) "${total.formatted()} en enveloppes" else "${total.formatted()} / mois",
+            dot = family.color,
+        )
         item(key = "group-$family") {
             GlassRowsCard(familyLines.entries()) { entry ->
                 when (entry) {
