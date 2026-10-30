@@ -301,7 +301,8 @@ private fun LazyListScope.monthAnalysis(
                 }
             }
         }
-    }    reviewSection(report, review, onAskReview, onClearReview)
+    }
+    reviewSection(report, review, onAskReview, onClearReview)
 }
 
 /** L'avis de Claude sur le mois : gardé avec lui, ou à demander. */
