@@ -98,6 +98,7 @@ fun GlassSavingsContent(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
+        state = rememberTabListState(),
         contentPadding = glassContentPadding(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {

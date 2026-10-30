@@ -1,6 +1,10 @@
 package fr.baptiste.bank.ui.glass
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -114,14 +118,24 @@ fun GlassMainScreen(
     val updateAvailable = rememberUpdateAvailable(updateViewModel)
     var menuOpen by remember { mutableStateOf(false) }
     var spendingView by rememberSaveable { mutableStateOf(initialSpendingView) }
+    var analysisYear by rememberSaveable { mutableStateOf(initialBudgetView == BudgetView.YEAR) }
     // En-tête de l'onglet Dépenses, commun aux deux vues.
     val spendingHeader: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {
         largeTitle("Dépenses")
+        // Une seule bascule : Mois · Année (l'analyse) · Liste (les opérations, avec ce qui est à trier).
         item(key = "spending-view") {
+            val selected = when {
+                spendingView == SpendingTabView.LIST -> 2
+                analysisYear -> 1
+                else -> 0
+            }
             SegmentedToggle(
-                listOf("Analyse", if (unsortedCount > 0) "Liste · $unsortedCount à trier" else "Liste"),
-                spendingView.ordinal,
-            ) { spendingView = SpendingTabView.entries[it] }
+                listOf("Mois", "Année", if (unsortedCount > 0) "Liste · $unsortedCount" else "Liste"),
+                selected,
+            ) { index ->
+                spendingView = if (index == 2) SpendingTabView.LIST else SpendingTabView.ANALYSIS
+                if (index < 2) analysisYear = index == 1
+            }
         }
     }
 
@@ -132,6 +146,15 @@ fun GlassMainScreen(
     var draftTuning by remember { mutableStateOf<GlassTuning?>(null) }
     val tuning = if (tuningOpen) draftTuning ?: savedTuning else savedTuning
 
+    // Un état de défilement par écran (et par vue de Dépenses) : le titre compact suit l'écran affiché.
+    val listStates = remember { mutableMapOf<String, androidx.compose.foundation.lazy.LazyListState>() }
+    val screenKey = if (controller.tab == Tab.OPERATIONS) "${controller.tab}-$spendingView" else controller.tab.name
+    val listState = listStates.getOrPut(screenKey) { androidx.compose.foundation.lazy.LazyListState() }
+    // Le grand titre est passé sous la barre du haut : on affiche le titre compact.
+    val collapsed by remember(listState) {
+        androidx.compose.runtime.derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 160 }
+    }
+
     val backgroundBackdrop = rememberLayerBackdrop()
     val screenBackdrop = rememberLayerBackdrop()
 
@@ -139,6 +162,7 @@ fun GlassMainScreen(
         LocalBackgroundBackdrop provides backgroundBackdrop,
         LocalScreenBackdrop provides screenBackdrop,
         LocalGlassTuning provides tuning,
+        LocalTabListState provides listState,
     ) {
         GlassSurfaceColors(onBackground = true) {
         Column(Modifier.fillMaxSize()) {
@@ -274,7 +298,8 @@ fun GlassMainScreen(
                             },
                             onSort = { spendingView = SpendingTabView.LIST },
                             envelopeOperations = viewModel::envelopeMonthOperations,
-                            initialYear = initialBudgetView == BudgetView.YEAR,
+                            showYear = analysisYear,
+                            onShowMonth = { analysisYear = false },
                             monthReview = viewModel::monthReview,
                             onSaveReview = { month, text ->
                                 viewModel.saveMonthReview(month, text)
@@ -344,6 +369,13 @@ fun GlassMainScreen(
             StatusBarScrim(
                 modifier = Modifier.align(Alignment.TopCenter),
                 height = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 24.dp,
+            )
+            // Barre du haut compacte, comme iOS : quand le grand titre a défilé, un fond opaque
+            // couvre la barre d'état et le titre de l'écran s'y affiche en petit.
+            CompactTopBar(
+                title = controller.tab.title,
+                visible = collapsed,
+                modifier = Modifier.align(Alignment.TopCenter),
             )
 
             // En haut à droite : l'action de l'onglet (+) et le menu ⋮, comme dans les apps iOS.
@@ -459,5 +491,34 @@ private fun GlassSnackbar(data: SnackbarData) {
         } else {
             TextButton(onClick = { data.dismiss() }) { Text("OK") }
         }
+    }
+}
+
+/** Titre compact de l'écran, sur un fond opaque, quand le grand titre a défilé. */
+@Composable
+private fun CompactTopBar(title: String, visible: Boolean, modifier: Modifier = Modifier) {
+    val alpha by androidx.compose.animation.core.animateFloatAsState(if (visible) 1f else 0f, label = "barre du haut")
+    if (alpha == 0f) return
+    val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    Box(
+        modifier
+            .fillMaxWidth()
+            .height(top + 64.dp)
+            .graphicsLayer { this.alpha = alpha }
+            .background(Glass.BaseTop.copy(alpha = 0.94f)),
+    ) {
+        Text(
+            title,
+            style = MaterialTheme.typography.titleMedium,
+            color = Color.White,
+            modifier = Modifier.align(Alignment.BottomStart).padding(start = 24.dp, bottom = 20.dp),
+        )
+        Box(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(Color.White.copy(alpha = 0.10f)),
+        )
     }
 }

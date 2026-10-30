@@ -84,6 +84,7 @@ fun GlassHomeContent(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
+        state = rememberTabListState(),
         contentPadding = glassContentPadding(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -228,7 +229,6 @@ fun GlassHomeContent(
 
         // 4. L'épargne en une ligne.
         val savings = dashboard.savings
-        val previous = savingsHistory.dropLast(1).lastOrNull()
         sectionHeader("savings-label", "Épargne", action = "Détail", onAction = { onOpenTab(Tab.SAVINGS) })
         item(key = "savings") {
             GlassCard(contentPadding = 16.dp, onClick = { onOpenTab(Tab.SAVINGS) }) {
@@ -239,14 +239,13 @@ fun GlassHomeContent(
                             if (savings.isFinal) "Épargné ce mois-ci" else "Épargne prévue",
                             style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
                         )
-                        if (previous != null) {
-                            val delta = savings.forecast - previous.outlook.forecast
-                            StatusChip(
-                                "${delta.signed()} vs ${previous.month.month.getDisplayName(TextStyle.SHORT_STANDALONE, Locale.FRANCE)}",
-                                if (delta.isNegative) StatusKind.WARNING else StatusKind.GOOD,
-                                modifier = Modifier.padding(top = 4.dp),
-                            )
-                        }
+                        // Un seul signal : le montant, coloré face à l'objectif. L'écart au mois précédent
+                        // est dans l'onglet Épargne (barres mois par mois).
+                        Text(
+                            "objectif ${savings.target.formatted()}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                     // Comparée à l'objectif : vert au-dessus, blanc à 5 % près, rouge en dessous.
                     val margin = savings.target.divideFloor(20)

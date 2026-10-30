@@ -133,7 +133,7 @@ shot_budget glass-analyse-mois --es tab OPERATIONS
 adb shell input swipe 540 1900 540 800 900
 sleep 2
 adb exec-out screencap -p > "$OUT/glass-analyse-mois-suite.png"
-shot_budget glass-analyse-annee --es tab OPERATIONS --es budgetView YEAR
+shot_budget glass-analyse-annee --es tab OPERATIONS --es budgetView YEAR --es spendingView ANALYSIS
 adb shell input swipe 540 1900 540 800 900
 sleep 2
 adb exec-out screencap -p > "$OUT/glass-analyse-annee-suite.png"

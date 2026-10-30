@@ -108,6 +108,7 @@ fun GlassOperationsContent(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
+        state = rememberTabListState(),
         contentPadding = glassContentPadding(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -168,10 +169,7 @@ fun GlassOperationsContent(
                         )
                         RowDivider(0.dp)
                     }
-                    if (toSort.isNotEmpty()) {
-                        ToolRow("Appliquer les règles", "Ranger ce que tes règles reconnaissent", onApplyRules)
-                        RowDivider(0.dp)
-                    }
+                    // Les règles s'appliquent seules (à l'import, et dès qu'une est retenue) : plus de bouton.
                     ToolRow("Règles et alias", rulesSummary, onOpenRules)
                     RowDivider(0.dp)
                     ToolRow("Déclasser ce mois-ci", "Tout, une enveloppe ou un libellé", onUnsort)

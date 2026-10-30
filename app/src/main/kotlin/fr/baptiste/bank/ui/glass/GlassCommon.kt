@@ -41,6 +41,16 @@ import java.util.Locale
  * par un filet fin, décalé après la pastille.
  */
 
+/**
+ * État de défilement de l'écran affiché, fourni par l'écran principal : il sait ainsi quand le
+ * grand titre est passé sous la barre du haut et affiche alors le titre compact (comme iOS).
+ */
+val LocalTabListState = androidx.compose.runtime.staticCompositionLocalOf<androidx.compose.foundation.lazy.LazyListState?> { null }
+
+@Composable
+internal fun rememberTabListState(): androidx.compose.foundation.lazy.LazyListState =
+    LocalTabListState.current ?: androidx.compose.foundation.lazy.rememberLazyListState()
+
 /** Le contenu défile sous la barre d'état et sous la barre d'onglets flottante, comme sur iOS. */
 @Composable
 internal fun glassContentPadding(): PaddingValues {

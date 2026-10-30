@@ -102,7 +102,10 @@ fun GlassAnalysisContent(
     /** Ouvre la liste, pour trier ce qui reste. */
     onSort: () -> Unit,
     envelopeOperations: (Long, YearMonth) -> Flow<List<OperationRow>>,
-    initialYear: Boolean = false,
+    /** Vue Année plutôt que Mois (choisie dans la bascule de l'en-tête). */
+    showYear: Boolean = false,
+    /** Passe à la vue Mois (après avoir touché un mois de l'histogramme). */
+    onShowMonth: () -> Unit = {},
     /** Avis de Claude gardé avec un mois, et son enregistrement. */
     monthReview: (YearMonth) -> Flow<String?> = { kotlinx.coroutines.flow.flowOf(null) },
     onSaveReview: (YearMonth, String?) -> Unit = { _, _ -> },
@@ -111,7 +114,7 @@ fun GlassAnalysisContent(
     /** Dépenses qui reviennent chaque mois. */
     recurring: List<fr.baptiste.bank.domain.budget.RecurringExpense> = emptyList(),
 ) {
-    var period by rememberSaveable { mutableStateOf(if (initialYear) AnalysisPeriod.YEAR else AnalysisPeriod.MONTH) }
+    val period = if (showYear) AnalysisPeriod.YEAR else AnalysisPeriod.MONTH
     var expanded by rememberSaveable { mutableStateOf<String?>(null) }
     var opened by remember { mutableStateOf<EnvelopeSpent?>(null) }
     var info by remember { mutableStateOf<MonthSpending?>(null) }
@@ -121,13 +124,11 @@ fun GlassAnalysisContent(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
+        state = rememberTabListState(),
         contentPadding = glassContentPadding(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         header()
-        item(key = "analysis-period") {
-            SegmentedToggle(listOf("Mois", "Année"), period.ordinal) { period = AnalysisPeriod.entries[it] }
-        }
         when (period) {
             AnalysisPeriod.MONTH -> {
                 item(key = "analysis-month-switch") {
@@ -179,7 +180,7 @@ fun GlassAnalysisContent(
                 if (yearSpending != null && yearSpending.year == year) {
                     yearAnalysis(yearSpending, onSort, recurring) { selected ->
                         onSelectMonth(selected)
-                        period = AnalysisPeriod.MONTH
+                        onShowMonth()
                     }
                 }
             }
