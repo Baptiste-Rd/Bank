@@ -658,6 +658,36 @@ class BudgetRepository(
         saveEnvelope(envelope.copy(fundingStart = from))
     }
 
+    /** Dépense du quotidien des trois derniers mois terminés et renseignés (référence du simulateur). */
+    fun dailySpendingHistory(today: LocalDate = LocalDate.now()): Flow<List<fr.baptiste.bank.domain.budget.MonthDailySpending>> {
+        val current = YearMonth.from(today)
+        val from = current.minusMonths(3).atDay(1)
+        val to = current.minusMonths(1).atEndOfMonth()
+        val all = combine(envelopes, archivedEnvelopes) { active, archived -> active + archived }
+        val spendings = imputationDao.observeSpendings(from, to)
+            .map { rows -> rows.map { Spending(it.envelopeId, it.date, Money(it.amountCents), it.wholePeriod) } }
+        return combine(all, spendings, trackingStart(today)) { envelopes, spent, start ->
+            fr.baptiste.bank.domain.budget.dailySpendingHistory(envelopes, spent, current, start)
+        }
+    }
+
+    /**
+     * Applique un plan essayé : le projet devient un achat prévu (s'il y en a un), et l'épargne
+     * mensuelle change si elle tient dans une seule enveloppe d'épargne.
+     */
+    suspend fun applyPlan(name: String, project: Money, months: Int, monthlySavings: Money?) = database.withTransaction {
+        val today = LocalDate.now()
+        if (project.isPositive && name.isNotBlank()) {
+            saveEnvelope(fr.baptiste.bank.domain.budget.plannedPurchase(name.trim(), project, YearMonth.from(today).plusMonths(months.coerceAtLeast(1) - 1L), today))
+        }
+        if (monthlySavings != null) {
+            val savings = envelopeDao.active().map { it.toDomain() }.filter { it.type == EnvelopeType.SAVINGS }
+            savings.singleOrNull()?.let { envelope ->
+                saveEnvelope(envelope.copy(amount = monthlySavings, frequency = fr.baptiste.bank.domain.period.Frequency.MONTHLY))
+            }
+        }
+    }
+
     /** Opérations d'une enveloppe sur un mois, avec la part qui lui revient (analyse des dépenses). */
     fun envelopeMonthOperations(envelopeId: Long, month: YearMonth): Flow<List<OperationRow>> =
         transactionDao.observeEnvelopeOperationsBetween(envelopeId, month.atDay(1), month.atEndOfMonth())

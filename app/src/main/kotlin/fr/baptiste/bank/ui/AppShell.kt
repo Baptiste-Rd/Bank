@@ -36,6 +36,7 @@ import fr.baptiste.bank.ui.format.label
 import fr.baptiste.bank.domain.model.TransactionSource
 import fr.baptiste.bank.ui.assistant.AssistedSortDialog
 import fr.baptiste.bank.ui.accounts.AccountEditDialog
+import fr.baptiste.bank.ui.plan.PlanSimulatorSheet
 import fr.baptiste.bank.ui.accounts.AccountsDialog
 import fr.baptiste.bank.ui.accounts.CurrentBalanceDialog
 import fr.baptiste.bank.ui.accounts.SavingsGoalsDialog
@@ -94,6 +95,9 @@ sealed interface OpenDialog {
     data object CurrentBalance : OpenDialog
     data object SavingsGoals : OpenDialog
     data class AccountEdit(val line: HoldingLine?) : OpenDialog
+
+    /** Essayer un plan (projet, épargne) sur le plan du mois, sans rien changer. */
+    data class TryPlan(val name: String = "", val project: Money? = null) : OpenDialog
 
     /** Tri assisté par Claude ; [demoReply] ouvre directement la validation (captures). */
     data class AssistedSort(val demoReply: String? = null) : OpenDialog
@@ -403,6 +407,28 @@ fun AppDialogs(
                 onAdd = { controller.dialog = OpenDialog.AccountEdit(null) },
                 onDismiss = ::close,
             )
+        }
+        is OpenDialog.TryPlan -> {
+            val history by viewModel.dailySpendingHistory.collectAsStateWithLifecycle()
+            val board = dashboard
+            val loaded = history
+            if (board != null && loaded != null) {
+                PlanSimulatorSheet(
+                    dashboard = board,
+                    history = loaded,
+                    initialName = current.name,
+                    initialProject = current.project,
+                    savingsEditable = envelopes.count { it.type == fr.baptiste.bank.domain.model.EnvelopeType.SAVINGS } == 1,
+                    onApply = { name, project, months, savings ->
+                        viewModel.applyPlan(name, project, months, savings)
+                        controller.notify(
+                            if (project.isPositive && name.isNotBlank()) "${name.trim()} : achat prévu créé." else "Épargne mensuelle mise à jour.",
+                        )
+                        close()
+                    },
+                    onDismiss = ::close,
+                )
+            }
         }
         is OpenDialog.AccountEdit -> AccountEditDialog(
             line = current.line,

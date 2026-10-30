@@ -126,6 +126,13 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
         .flatMapLatest { repository.spendingYear(it) }
         .asState(null)
 
+    /** Dépense du quotidien des derniers mois terminés : la référence du simulateur. */
+    val dailySpendingHistory: StateFlow<List<fr.baptiste.bank.domain.budget.MonthDailySpending>?> =
+        repository.dailySpendingHistory().asState(null)
+
+    fun applyPlan(name: String, project: Money, months: Int, monthlySavings: Money?) =
+        perform { repository.applyPlan(name, project, months, monthlySavings) }
+
     /** Rattrapage d'une provision à partir de [from]. */
     fun startFunding(envelopeId: Long, from: YearMonth) {
         viewModelScope.launch { repository.startFunding(envelopeId, from) }

@@ -198,6 +198,7 @@ fun GlassMainScreen(
                                 viewModel.setTrackingStart(month)
                                 controller.notify("Suivi depuis ${month.label}.")
                             },
+                            onTryPlan = { controller.dialog = OpenDialog.TryPlan() },
                         )
                     }
                     Tab.SAVINGS -> GlassSavingsContent(

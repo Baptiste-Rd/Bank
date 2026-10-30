@@ -140,6 +140,7 @@ fun GlassBudgetContent(
     /** Début du suivi : un mois avant lui est « non renseigné ». */
     trackingStart: YearMonth? = null,
     onTrackMonth: (YearMonth) -> Unit = {},
+    onTryPlan: () -> Unit = {},
 ) {
     var view by rememberSaveable { mutableStateOf(initialView) }
     var showInfo by remember { mutableStateOf(false) }
@@ -186,6 +187,7 @@ fun GlassBudgetContent(
                         showAccountCard = isCurrentMonth,
                         onSetBalance = onSetBalance,
                         monthTransfers = monthTransfers,
+                        onTryPlan = if (isCurrentMonth) onTryPlan else null,
                     )
                 }
             }
@@ -238,6 +240,7 @@ private fun LazyListScope.monthContent(
     showAccountCard: Boolean,
     onSetBalance: () -> Unit,
     monthTransfers: Money?,
+    onTryPlan: (() -> Unit)? = null,
 ) {
     val byFamily = dashboard.envelopes.groupBy { it.envelope.type.family }
     val usedNames = dashboard.envelopes.map { it.envelope.name.lowercase() }.toSet()
@@ -277,6 +280,10 @@ private fun LazyListScope.monthContent(
                         // Du salaire que rien ne réclame : un bénéfice, en vert.
                         detailColor = BankTheme.status.gain,
                     )
+                }
+                // Essayer un projet ou une autre épargne, sans rien changer tant qu'on n'applique pas.
+                if (onTryPlan != null) {
+                    RowActionButton("Essayer un plan", onClick = onTryPlan, modifier = Modifier.padding(top = 8.dp))
                 }
             }
         }
