@@ -38,6 +38,8 @@ data class PlanInput(
     val months: Int,
     /** Épargne mensuelle voulue. */
     val monthlySavings: Money,
+    /** Ce que je compte dépenser de moins chaque mois au quotidien (sorties, bar...), le temps du projet. */
+    val reductions: Money = Money.ZERO,
 )
 
 data class PlanResult(
@@ -48,7 +50,7 @@ data class PlanResult(
     val dailyAfter: Money,
     /** Le même, par jour (sur 30 jours). */
     val perDayAfter: Money,
-    /** Dépense du quotidien habituelle (moyenne des mois de référence), ou null. */
+    /** Dépense du quotidien attendue : l'habituelle (moyenne des mois de référence) moins les réductions, ou null. */
     val reference: Money?,
     val verdict: PlanVerdict,
     /** Serré : ce qu'il faudrait dépenser de moins par jour. */
@@ -63,14 +65,16 @@ private const val DAYS_PER_MONTH = 30L
  * Simule [input] sur le tableau de bord du mois. [currentSavings] : l'épargne mensuelle actuelle
  * (objectif des enveloppes d'épargne). Le projet est un achat prévu : sa part est montant ÷ mois.
  */
-fun simulatePlan(dashboard: Dashboard, input: PlanInput, currentSavings: Money, reference: Money?): PlanResult {
+fun simulatePlan(dashboard: Dashboard, input: PlanInput, currentSavings: Money, usual: Money?): PlanResult {
+    // Les réductions promises baissent la dépense attendue : c'est elle que le quotidien doit couvrir.
+    val reference = usual?.let { (it - input.reductions).let { adjusted -> if (adjusted.isNegative) Money.ZERO else adjusted } }
     val months = input.months.coerceAtLeast(1)
     val share = if (input.project.isPositive) input.project.divideCeil(months.toLong()) else Money.ZERO
     val savingsChange = input.monthlySavings - currentSavings
     val before = dashboard.dailyBudget
     val after = before - share - savingsChange
     val perDay = after.divideFloor(DAYS_PER_MONTH)
-    if (reference == null || !reference.isPositive) {
+    if (usual == null || reference == null || !usual.isPositive) {
         return PlanResult(share, before, after, perDay, reference, PlanVerdict.UNKNOWN)
     }
     val tightFloor = reference - reference.divideCeil(10)

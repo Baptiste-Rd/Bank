@@ -413,10 +413,14 @@ fun AppDialogs(
                     initialName = current.name,
                     initialProject = current.project,
                     savingsEditable = envelopes.count { it.type == fr.baptiste.bank.domain.model.EnvelopeType.SAVINGS } == 1,
-                    onApply = { name, project, months, savings ->
-                        viewModel.applyPlan(name, project, months, savings)
+                    onApply = { name, project, months, savings, reductions ->
+                        viewModel.applyPlan(name, project, months, savings, reductions)
                         controller.notify(
-                            if (project.isPositive && name.isNotBlank()) "${name.trim()} : achat prévu créé." else "Épargne mensuelle mise à jour.",
+                            when {
+                                project.isPositive && name.isNotBlank() -> "${name.trim()} : achat prévu créé."
+                                reductions.isNotEmpty() -> "Enveloppes réduites pour $months mois."
+                                else -> "Épargne mensuelle mise à jour."
+                            },
                         )
                         close()
                     },

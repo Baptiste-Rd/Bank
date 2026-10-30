@@ -174,6 +174,12 @@ interface EnvelopeDao {
 interface AllocationDao {
     @Query("SELECT * FROM allocation")
     fun observeAll(): Flow<List<AllocationEntity>>
+
+    @Query("DELETE FROM allocation WHERE envelope_id = :envelopeId AND period_key = :periodKey")
+    suspend fun delete(envelopeId: Long, periodKey: String)
+
+    @Insert
+    suspend fun insert(allocation: AllocationEntity): Long
 }
 
 /** Une sortie écartée du budget : [toAccount] vrai pour un virement vers un de mes comptes. */

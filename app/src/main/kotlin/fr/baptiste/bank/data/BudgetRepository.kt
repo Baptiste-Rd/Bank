@@ -730,8 +730,30 @@ class BudgetRepository(
      * Applique un plan essayé : le projet devient un achat prévu (s'il y en a un), et l'épargne
      * mensuelle change si elle tient dans une seule enveloppe d'épargne.
      */
-    suspend fun applyPlan(name: String, project: Money, months: Int, monthlySavings: Money?) = database.withTransaction {
+    suspend fun applyPlan(
+        name: String,
+        project: Money,
+        months: Int,
+        monthlySavings: Money?,
+        reductions: Map<Long, Money> = emptyMap(),
+    ) = database.withTransaction {
         val today = LocalDate.now()
+        // Réductions : un montant plus bas pour chacune des périodes du projet, pas pour toujours.
+        if (reductions.isNotEmpty()) {
+            val byId = envelopeDao.active().map { it.toDomain() }.associateBy { it.id }
+            val allocationDao = database.allocationDao()
+            for ((id, cut) in reductions) {
+                val envelope = byId[id] ?: continue
+                val keys = (0 until months.coerceAtLeast(1)).map { offset ->
+                    envelope.periodContaining(YearMonth.from(today).plusMonths(offset.toLong()).atDay(15)).key
+                }.distinct()
+                for (key in keys) {
+                    allocationDao.delete(id, key)
+                    val amount = (envelope.amount - cut).let { if (it.isNegative) Money.ZERO else it }
+                    allocationDao.insert(fr.baptiste.bank.data.local.AllocationEntity(envelopeId = id, periodKey = key, amountCents = amount.cents))
+                }
+            }
+        }
         if (project.isPositive && name.isNotBlank()) {
             saveEnvelope(fr.baptiste.bank.domain.budget.plannedPurchase(name.trim(), project, YearMonth.from(today).plusMonths(months.coerceAtLeast(1) - 1L), today))
         }

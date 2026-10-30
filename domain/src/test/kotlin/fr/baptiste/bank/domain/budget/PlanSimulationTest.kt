@@ -55,6 +55,21 @@ class PlanSimulationTest {
     }
 
     @Test
+    fun `reducing some spending makes the same plan realistic`() {
+        // 1 033 € de quotidien pour 1 100 € d'habitude : serré ; avec 80 € de sorties en moins, réaliste.
+        val tight = simulatePlan(board, PlanInput(Money.euros(2000), 3, Money.euros(300)), Money.euros(300), Money.euros(1100))
+        assertEquals(PlanVerdict.TIGHT, tight.verdict)
+        val reduced = simulatePlan(
+            board,
+            PlanInput(Money.euros(2000), 3, Money.euros(300), reductions = Money.euros(80)),
+            Money.euros(300),
+            Money.euros(1100),
+        )
+        assertEquals(PlanVerdict.REALISTIC, reduced.verdict)
+        assertEquals(Money.euros(1020), reduced.reference)
+    }
+
+    @Test
     fun `the reference is the daily spending of finished tracked months`() {
         val spendings = listOf(
             Spending(courses.id, LocalDate.of(2026, 9, 3), Money.euros(600)),

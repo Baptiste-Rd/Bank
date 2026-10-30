@@ -135,8 +135,8 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
     val dailySpendingHistory: StateFlow<List<fr.baptiste.bank.domain.budget.MonthDailySpending>?> =
         repository.dailySpendingHistory().asState(null)
 
-    fun applyPlan(name: String, project: Money, months: Int, monthlySavings: Money?) =
-        perform { repository.applyPlan(name, project, months, monthlySavings) }
+    fun applyPlan(name: String, project: Money, months: Int, monthlySavings: Money?, reductions: Map<Long, Money> = emptyMap()) =
+        perform { repository.applyPlan(name, project, months, monthlySavings, reductions) }
 
     /** Rattrapage d'une provision à partir de [from]. */
     fun startFunding(envelopeId: Long, from: YearMonth) {

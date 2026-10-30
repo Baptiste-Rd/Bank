@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -63,7 +64,8 @@ fun PlanSimulatorSheet(
     history: List<MonthDailySpending>,
     /** Une seule enveloppe d'épargne : l'épargne mensuelle peut être appliquée. */
     savingsEditable: Boolean,
-    onApply: (name: String, project: Money, months: Int, monthlySavings: Money?) -> Unit,
+    /** Reçoit aussi les réductions par enveloppe (identifiant → euros de moins par mois). */
+    onApply: (name: String, project: Money, months: Int, monthlySavings: Money?, reductions: Map<Long, Money>) -> Unit,
     onDismiss: () -> Unit,
     initialName: String = "",
     initialProject: Money? = null,
@@ -75,13 +77,30 @@ fun PlanSimulatorSheet(
     var savingsText by rememberSaveable { mutableStateOf(currentSavings.toFieldText()) }
     // Un mois exceptionnel (vacances, Noël) peut fausser la moyenne : on peut l'exclure.
     var excluded by remember { mutableStateOf(emptySet<YearMonth>()) }
+    // 3. Réduire des dépenses : par enveloppe du quotidien, le temps du projet.
+    val flexible = dashboard.envelopes.filter { it.envelope.type == fr.baptiste.bank.domain.model.EnvelopeType.DAILY }
+    var reductionTexts by remember { mutableStateOf(emptyMap<Long, String>()) }
+    val reductions = reductionTexts.mapNotNull { (id, text) ->
+        parseMoney(text)?.takeIf { it.isPositive }?.let { id to it }
+    }.toMap()
+    // Les provisions (Noël, vacances) ne bougent pas : on les montre, protégées.
+    val provisions = dashboard.envelopes.filter {
+        it.envelope.type == fr.baptiste.bank.domain.model.EnvelopeType.ANNUAL ||
+            it.envelope.type == fr.baptiste.bank.domain.model.EnvelopeType.RECURRING ||
+            it.envelope.type == fr.baptiste.bank.domain.model.EnvelopeType.PLANNED
+    }
 
     val project = if (projectText.isBlank()) Money.ZERO else parseMoney(projectText)
     val savings = if (savingsText.isBlank()) Money.ZERO else parseMoney(savingsText)
     val kept = history.filter { it.month !in excluded }
     val reference = kept.average()
     val result = if (project != null && savings != null) {
-        simulatePlan(dashboard, PlanInput(project, months, savings), currentSavings, reference)
+        simulatePlan(
+            dashboard,
+            PlanInput(project, months, savings, reductions.values.fold(Money.ZERO) { sum, it -> sum + it }),
+            currentSavings,
+            reference,
+        )
     } else {
         null
     }
@@ -137,7 +156,44 @@ fun PlanSimulatorSheet(
                 )
             }
 
-            // 3. Le résultat, en direct.
+            // 3. Réduire des dépenses : où l'effort portera, enveloppe par enveloppe.
+            if (flexible.isNotEmpty()) {
+                Text("Dépenser moins, le temps du projet", style = MaterialTheme.typography.titleSmall)
+                flexible.forEach { line ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(line.envelope.name, style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                "${line.allocated.formatted()} par mois",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        OutlinedTextField(
+                            value = reductionTexts[line.envelope.id].orEmpty(),
+                            onValueChange = { text -> reductionTexts = reductionTexts + (line.envelope.id to text) },
+                            placeholder = { Text("0") },
+                            prefix = { Text("−") },
+                            suffix = { Text("€") },
+                            singleLine = true,
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal,
+                            ),
+                            modifier = Modifier.width(120.dp),
+                        )
+                    }
+                }
+            }
+            if (provisions.isNotEmpty()) {
+                Text(
+                    "Protégées, elles ne changent pas : " +
+                        provisions.joinToString(", ") { "${it.envelope.name} (${it.monthlyShare.formatted()} par mois)" } + ".",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            // 4. Le résultat, en direct.
             if (result != null) {
                 fr.baptiste.bank.ui.components.RowDivider(0.dp)
                 PlanLine("Projet", "${result.projectShare.formatted()} / mois")
@@ -175,7 +231,10 @@ fun PlanSimulatorSheet(
                 // La référence du verdict, et les mois qui la font (touche un mois pour l'exclure).
                 if (history.isNotEmpty()) {
                     Text(
-                        reference?.let { "Comparé à ta dépense au quotidien : ${it.formatted()} par mois en moyenne." }
+                        reference?.let {
+                            "Comparé à ta dépense au quotidien : ${it.formatted()} par mois en moyenne" +
+                                (result.reference?.takeIf { adjusted -> adjusted != it }?.let { adjusted -> ", ${adjusted.formatted()} avec tes réductions." } ?: ".")
+                        }
                             ?: "Aucun mois retenu pour comparer.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -200,9 +259,9 @@ fun PlanSimulatorSheet(
             }
 
             val canApply = result != null && project != null &&
-                ((project.isPositive && name.isNotBlank()) || (savingsEditable && savings != currentSavings))
+                ((project.isPositive && name.isNotBlank()) || (savingsEditable && savings != currentSavings) || reductions.isNotEmpty())
             Button(
-                onClick = { if (project != null) onApply(name, project, months, savings?.takeIf { savingsEditable && it != currentSavings }) },
+                onClick = { if (project != null) onApply(name, project, months, savings?.takeIf { savingsEditable && it != currentSavings }, reductions) },
                 enabled = canApply,
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Appliquer") }
