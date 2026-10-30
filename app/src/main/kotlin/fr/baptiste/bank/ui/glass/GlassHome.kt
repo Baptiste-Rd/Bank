@@ -132,30 +132,14 @@ fun GlassHomeContent(
                         if (showsDay) {
                             "sur ${allowance.allowance.formatted()} aujourd'hui · ${daysLabel(dashboard.daysRemaining)}"
                         } else {
-                            val perDay = if (dashboard.daysRemaining > 0 && monthLeft.isPositive) {
-                                " · ${monthLeft.divideFloor(dashboard.daysRemaining.toLong()).formatted()} par jour"
-                            } else {
-                                ""
-                            }
-                            "sur ${dashboard.dailyBudget.formatted()} · ${daysLabel(dashboard.daysRemaining)}$perDay"
+                            // Une ligne, deux faits : le budget et le temps qui reste. Le par-jour est
+                            // dans « Jour », le compte courant dans Épargne › Mes comptes.
+                            "sur ${dashboard.dailyBudget.formatted()} · ${daysLabel(dashboard.daysRemaining)}"
                         },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    if (accountBalance != null) {
-                        Text(
-                            "Compte courant : ${accountBalance.formatted()}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 2.dp),
-                        )
-                    }
-                    GlassPillButton(
-                        text = "Ajouter une dépense",
-                        onClick = onAddExpense,
-                        icon = painterResource(R.drawable.ic_add),
-                        modifier = Modifier.padding(top = 16.dp),
-                    )
+                    // Une seule action « ajouter » par écran : le + en haut à droite, comme sur iOS.
                 }
             }
 
@@ -166,7 +150,7 @@ fun GlassHomeContent(
                     Row(verticalAlignment = Alignment.Bottom) {
                         Text(dashboard.dailySpent.formatted(), style = MaterialTheme.typography.titleLarge)
                         Text(
-                            "  dépensés sur ${dashboard.dailyBudget.formatted()}",
+                            "  dépensés",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(bottom = 3.dp),

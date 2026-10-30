@@ -34,7 +34,7 @@ fun MonthStrip(
     averageShare: Money,
     modifier: Modifier = Modifier,
 ) {
-    val status = BankTheme.status
+    val bar = fr.baptiste.bank.ui.theme.envelopeTypeColor(fr.baptiste.bank.domain.model.EnvelopeType.DAILY)
     val future = MaterialTheme.colorScheme.outlineVariant
     val guide = MaterialTheme.colorScheme.outline
     val today = MaterialTheme.colorScheme.onSurface
@@ -68,12 +68,9 @@ fun MonthStrip(
                 } else {
                     val ratio = day.spent.cents.toFloat() / maxSpent
                     val height = maxOf(usable * ratio, 3.dp.toPx())
-                    val color = when {
-                        !averageShare.isPositive -> guide
-                        day.spent > averageShare * 2 -> status.over
-                        day.spent > averageShare -> status.warning
-                        else -> status.good
-                    }
+                    // Une seule couleur : la hauteur dit tout, le pointillé sert de repère. Les
+                    // couleurs de statut restent réservées aux enveloppes (dans le budget, dépassé).
+                    val color = if (averageShare.isPositive) bar else guide
                     drawRoundRect(
                         color = color,
                         topLeft = Offset(x, baseline - height),

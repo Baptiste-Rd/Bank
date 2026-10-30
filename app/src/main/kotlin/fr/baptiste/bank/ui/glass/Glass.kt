@@ -193,7 +193,16 @@ private class GlassOptics(
  * au même tiers de la hauteur (16 dp pour 48 dp, 21 dp pour 64 dp). Les valeurs sont dans
  * GlassTuning, réglables depuis le menu développeur.
  */
-private val GlassTuning.cardOptics get() = GlassOptics(cardBlur.dp, cardLensHeight.dp, cardLensAmount.dp)
+/*
+ * Cartes de contenu : un matériau épais, pas du verre. Le Liquid Glass d'Apple est réservé à la
+ * couche de navigation (barre d'onglets, boutons flottants, bandeaux) : « Don't use Liquid Glass
+ * in the content layer ». Les cartes floutent donc fort, sans lentille, et un voile bleu nuit
+ * stabilise leur teinte quel que soit le fond : le texte y garde un contraste de 4,5:1 au moins.
+ */
+private val GlassTuning.cardOptics get() = GlassOptics(maxOf(cardBlur, 24f).dp, 0.dp, 0.dp)
+
+/** Voile des cartes de contenu (matériau épais). */
+private val CardDim = Color(0xFF0A1A45).copy(alpha = 0.45f)
 private val GlassTuning.barOptics get() = GlassOptics(barBlur.dp, barLensHeight.dp, barLensAmount.dp)
 private val GlassTuning.buttonOptics get() = GlassOptics(buttonBlur.dp, buttonLensHeight.dp, buttonLensAmount.dp)
 
@@ -210,6 +219,8 @@ private fun Modifier.glass(
     tuning: GlassTuning,
     cornerRadius: Dp? = null,
     accent: Color? = null,
+    /** Voile posé sous la teinte (matériau épais des cartes). */
+    dim: Color? = null,
 ): Modifier =
     drawBackdrop(
         backdrop = backdrop,
@@ -232,6 +243,7 @@ private fun Modifier.glass(
                 drawRect(accent, blendMode = BlendMode.Hue)
                 drawRect(accent.copy(alpha = tuning.accentAlpha))
             } else {
+                if (dim != null) drawRect(dim)
                 drawRect(tint)
             }
         },
@@ -259,6 +271,7 @@ fun GlassCard(
                 backdrop = backdrop,
                 tint = tint ?: tuning.surface(strong),
                 optics = tuning.cardOptics,
+                dim = CardDim,
                 tuning = tuning,
                 cornerRadius = tuning.corner,
             )
