@@ -46,6 +46,7 @@ import fr.baptiste.bank.ui.Tab
 import fr.baptiste.bank.ui.rememberAppController
 import fr.baptiste.bank.ui.rememberUpdateAvailable
 import fr.baptiste.bank.ui.format.label
+import fr.baptiste.bank.domain.bank.suggestedRuleKeyword
 import fr.baptiste.bank.ui.theme.BankTheme
 import fr.baptiste.bank.ui.theme.GlassSurfaceColors
 import fr.baptiste.bank.update.UpdateViewModel
@@ -81,6 +82,7 @@ fun GlassMainScreen(
     val controller = rememberAppController(initialTab, initialDialog)
     val dashboard by viewModel.dashboard.collectAsStateWithLifecycle()
     val operations by viewModel.operations.collectAsStateWithLifecycle()
+    val unsortedOperations by viewModel.unsortedOperations.collectAsStateWithLifecycle()
     val archived by viewModel.archivedEnvelopes.collectAsStateWithLifecycle()
     val envelopes by viewModel.envelopes.collectAsStateWithLifecycle()
     val unsortedCount by viewModel.unsortedCount.collectAsStateWithLifecycle()
@@ -255,8 +257,39 @@ fun GlassMainScreen(
                         onDelete = viewModel::deleteExpense,
                         onSort = { controller.dialog = OpenDialog.SortOperation(it) },
                         onOpenBank = { controller.dialog = OpenDialog.Bank },
-                        suggestion = { operation ->
-                            viewModel.suggestedEnvelopeId(operation, sortedHistory)?.let { id -> envelopes.firstOrNull { it.id == id }?.name }
+                        toValidate = unsortedOperations,
+                        // Proposition : l'enveloppe de ce libellé d'après l'historique ; une rentrée
+                        // d'argent sans historique (salaire, remboursement) va hors budget.
+                        proposal = { operation ->
+                            viewModel.suggestedEnvelopeId(operation, sortedHistory)
+                                ?.let { id -> envelopes.firstOrNull { it.id == id } }
+                                ?.let { SortProposal(it, it.name) }
+                                ?: if (operation.amountCents > 0) SortProposal(null, "Hors budget") else null
+                        },
+                        onAccept = { operation, proposal ->
+                            viewModel.acceptProposals(listOf(operation.id to proposal.envelope))
+                            val envelope = proposal.envelope
+                            if (envelope != null) {
+                                // Apprendre : « Toujours » retient la règle pour les prochaines.
+                                controller.notify("${operation.label} → ${envelope.name}", "Toujours") {
+                                    viewModel.sortOperation(operation.id, envelope, suggestedRuleKeyword(operation.bankLabel)) { others ->
+                                        controller.notify(
+                                            if (others > 0) "Règle retenue, $others autre(s) rangée(s)." else "Règle retenue pour les prochaines.",
+                                        )
+                                    }
+                                }
+                            } else {
+                                controller.notify("${operation.label} : hors budget", "Annuler") {
+                                    viewModel.unsortOperations(listOf(operation.id))
+                                }
+                            }
+                        },
+                        onAcceptAll = { ready ->
+                            viewModel.acceptProposals(ready.map { (operation, proposal) -> operation.id to proposal.envelope }) { done ->
+                                controller.notify("$done opération(s) rangée(s).", "Annuler") {
+                                    viewModel.unsortOperations(ready.map { it.first.id })
+                                }
+                            }
                         },
                         onApplyRules = {
                             viewModel.applyRules { sorted ->
@@ -335,7 +368,14 @@ fun GlassMainScreen(
             GlassTabBar(
                 items = Tab.entries.map { GlassTabItem(it.title, painterResource(it.icon)) },
                 selectedIndex = controller.tab.ordinal,
-                onSelect = { controller.tab = Tab.entries[it] },
+                onSelect = {
+                    val tab = Tab.entries[it]
+                    // Avec des opérations à valider, Dépenses s'ouvre sur la file.
+                    if (tab == Tab.OPERATIONS && controller.tab != Tab.OPERATIONS && unsortedCount > 0) {
+                        spendingView = SpendingTabView.LIST
+                    }
+                    controller.tab = tab
+                },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()

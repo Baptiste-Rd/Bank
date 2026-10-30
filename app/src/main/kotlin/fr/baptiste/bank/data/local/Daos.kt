@@ -444,6 +444,21 @@ interface TransactionDao {
         """,
     )
     fun observeRecentOperations(limit: Int): Flow<List<OperationRow>>
+
+    /** Toutes les opérations de la banque à trier (pas seulement les plus récentes), les plus récentes d'abord. */
+    @Query(
+        """
+        SELECT t.id AS id, t.date AS date, t.amount_cents AS amount_cents,
+               COALESCE(t.alias, t.clean_label) AS display_label, t.clean_label AS clean_label,
+               t.source AS source, t.ignored AS ignored, NULL AS envelope_names,
+               0 AS whole_period, NULL AS period_key, NULL AS transfer_account
+        FROM transaction_record t
+        WHERE t.ignored = 0 AND t.source != 'MANUAL'
+          AND NOT EXISTS (SELECT 1 FROM imputation i WHERE i.transaction_id = t.id)
+        ORDER BY t.date DESC, t.id DESC
+        """,
+    )
+    fun observeUnsortedOperations(): Flow<List<OperationRow>>
 }
 
 /** Une ligne du journal des transferts, avec le nom des enveloppes (NULL = portefeuille). */

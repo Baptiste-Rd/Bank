@@ -191,6 +191,17 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
 
     fun ignoreOperation(transactionId: Long) = perform { repository.ignoreOperation(transactionId) }
 
+    /** Opérations de la banque à trier, toutes (la file « À valider »). */
+    val unsortedOperations: StateFlow<List<OperationRow>> = repository.unsortedOperations.asState(emptyList())
+
+    /** Valide des propositions (enveloppe null : hors budget) ; [onDone] reçoit le nombre rangé. */
+    fun acceptProposals(choices: List<Pair<Long, Envelope?>>, onDone: (Int) -> Unit = {}) {
+        viewModelScope.launch { onDone(repository.acceptProposals(choices)) }
+    }
+
+    /** Annule une validation : les opérations redeviennent à trier. */
+    fun unsortOperations(ids: List<Long>) = perform { repository.unsortOperations(ids) }
+
     val sortedHistory: StateFlow<List<SortedLabel<Long>>> = repository.sortedHistory
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList()) // lu hors composition
 

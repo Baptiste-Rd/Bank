@@ -564,6 +564,39 @@ class BudgetRepository(
     }
 
     /** Met une opération hors budget : elle reste visible mais n'est comptée dans aucune enveloppe. */
+    /** Opérations de la banque à trier, toutes. */
+    val unsortedOperations: Flow<List<OperationRow>> = transactionDao.observeUnsortedOperations()
+
+    /**
+     * Valide plusieurs propositions d'un coup : chaque opération va dans son enveloppe, ou hors budget
+     * (enveloppe null). Renvoie le nombre d'opérations rangées.
+     */
+    suspend fun acceptProposals(choices: List<Pair<Long, Envelope?>>): Int = database.withTransaction {
+        var done = 0
+        for ((transactionId, envelope) in choices) {
+            val transaction = transactionDao.byId(transactionId) ?: continue
+            imputationDao.deleteForTransaction(transactionId)
+            transactionDao.setTransferAccount(transactionId, null)
+            if (envelope == null) {
+                transactionDao.setIgnored(transactionId, true)
+            } else {
+                transactionDao.setIgnored(transactionId, false)
+                imputationDao.insert(transaction.imputationIn(envelope, ImputationMode.MANUAL))
+            }
+            done++
+        }
+        done
+    }
+
+    /** Remet des opérations « à trier » (annulation d'une validation). */
+    suspend fun unsortOperations(ids: List<Long>) = database.withTransaction {
+        for (id in ids) {
+            imputationDao.deleteForTransaction(id)
+            transactionDao.setIgnored(id, false)
+            transactionDao.setTransferAccount(id, null)
+        }
+    }
+
     suspend fun ignoreOperation(transactionId: Long) {
         database.withTransaction {
             imputationDao.deleteForTransaction(transactionId)

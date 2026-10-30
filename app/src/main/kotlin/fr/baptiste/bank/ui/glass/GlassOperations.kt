@@ -1,6 +1,15 @@
 package fr.baptiste.bank.ui.glass
 
 import androidx.compose.foundation.clickable
+import fr.baptiste.bank.R
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.draw.clip
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -54,8 +63,14 @@ fun GlassOperationsContent(
     onDelete: (Long) -> Unit,
     onSort: (OperationRow) -> Unit,
     onOpenBank: () -> Unit,
-    /** Enveloppe proposée d'après l'historique, pour une opération à trier. */
-    suggestion: (OperationRow) -> String? = { null },
+    /** Toutes les opérations à trier (la file « À valider »), pas seulement les récentes. */
+    toValidate: List<OperationRow> = emptyList(),
+    /** Ce que l'app propose pour une opération à trier (null : rien à proposer). */
+    proposal: (OperationRow) -> SortProposal? = { null },
+    /** Valide la proposition d'une opération, d'un geste. */
+    onAccept: (OperationRow, SortProposal) -> Unit = { _, _ -> },
+    /** Valide toutes les propositions. */
+    onAcceptAll: (List<Pair<OperationRow, SortProposal>>) -> Unit = {},
     /** Range ce qui est à trier avec les règles existantes. */
     onApplyRules: () -> Unit = {},
     onUnsort: () -> Unit = {},
@@ -73,9 +88,13 @@ fun GlassOperationsContent(
     val quiet = MaterialTheme.colorScheme.onSurfaceVariant
     val today = LocalDate.now()
     val typeByName = remember(envelopes) { envelopes.associate { it.name to it.type } }
-    val (toSort, sorted) = operations.partition {
+    val sorted = operations.filterNot {
         it.envelopeNames == null && !it.ignored && it.source != TransactionSource.MANUAL
     }
+    val toSort = toValidate
+    // Une proposition par opération, calculée une fois par liste.
+    val proposals = remember(toValidate, proposal) { toValidate.associate { it.id to proposal(it) } }
+    val ready = toValidate.mapNotNull { operation -> proposals[operation.id]?.let { operation to it } }
 
     fun colorOf(operation: OperationRow): Color =
         operation.envelopeNames?.split(", ")?.firstOrNull()?.let { typeByName[it] }?.let(::envelopeTypeColor) ?: quiet
@@ -106,22 +125,33 @@ fun GlassOperationsContent(
                 }
             }
         }
+        // À valider : chaque opération arrive avec sa proposition ; une coche la valide, toucher la
+        // ligne permet de corriger. « Tout valider » prend toutes les propositions d'un coup.
         if (toSort.isNotEmpty()) {
             sectionHeader(
                 "to-sort-label",
                 "À trier · ${toSort.size}",
                 dot = toSortColor,
-                action = "Appliquer les règles",
-                onAction = onApplyRules,
+                action = if (ready.size > 1) "Tout valider (${ready.size})" else null,
+                onAction = { onAcceptAll(ready) },
             )
             item(key = "to-sort") {
-                GlassRowsCard(toSort) { operation ->
-                    GlassOperationRow(
-                        operation,
-                        toSortColor,
-                        onClick = clickOf(operation),
-                        showDate = true,
-                        suggestion = suggestion(operation),
+                GlassRowsCard(toSort.take(QUEUE_LIMIT)) { operation ->
+                    QueueRow(
+                        operation = operation,
+                        proposal = proposals[operation.id],
+                        onAccept = { proposals[operation.id]?.let { onAccept(operation, it) } },
+                        onOpen = clickOf(operation),
+                    )
+                }
+            }
+            if (toSort.size > QUEUE_LIMIT) {
+                item(key = "to-sort-more") {
+                    Text(
+                        "Et ${toSort.size - QUEUE_LIMIT} plus anciennes : valide celles-ci, les suivantes apparaissent.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = quiet,
+                        modifier = Modifier.padding(horizontal = 8.dp),
                     )
                 }
             }
@@ -130,8 +160,16 @@ fun GlassOperationsContent(
         if (operations.any { it.source != TransactionSource.MANUAL }) {
             item(key = "sort-tools") {
                 GlassCard(contentPadding = 16.dp, verticalPadding = 4.dp) {
+                    if (toSort.size > ready.size) {
+                        ToolRow(
+                            "Trier avec Claude",
+                            "${toSort.size - ready.size} sans proposition : Claude identifie et propose",
+                            onAssistedSort,
+                        )
+                        RowDivider(0.dp)
+                    }
                     if (toSort.isNotEmpty()) {
-                        ToolRow("Trier avec Claude", "Identifier et proposer, tu valides", onAssistedSort)
+                        ToolRow("Appliquer les règles", "Ranger ce que tes règles reconnaissent", onApplyRules)
                         RowDivider(0.dp)
                     }
                     ToolRow("Règles et alias", rulesSummary, onOpenRules)
@@ -187,6 +225,77 @@ fun GlassOperationsContent(
             },
             dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("Annuler") } },
         )
+    }
+}
+
+/** Opérations montrées à la fois dans la file : au-delà, la liste deviendrait une corvée. */
+private const val QUEUE_LIMIT = 30
+
+/** Ce que l'app propose pour une opération à trier : une enveloppe, ou hors budget ([envelope] null). */
+data class SortProposal(val envelope: Envelope?, val label: String)
+
+/**
+ * Une opération à valider : sa proposition sous le libellé, une coche pour l'accepter. Sans
+ * proposition, la ligne mène au choix. Toucher la ligne permet toujours de corriger.
+ */
+@Composable
+private fun QueueRow(operation: OperationRow, proposal: SortProposal?, onAccept: () -> Unit, onOpen: () -> Unit) {
+    val quiet = MaterialTheme.colorScheme.onSurfaceVariant
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClickLabel = "Choisir l'enveloppe", onClick = onOpen)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                operation.label,
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    proposal?.label ?: "À choisir",
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                    color = if (proposal != null) MaterialTheme.colorScheme.onSurface else BankTheme.status.warning,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    " · ${dayTitle(operation.date, LocalDate.now()).lowercase()}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = quiet,
+                    maxLines = 1,
+                )
+            }
+        }
+        Text(
+            Money(operation.amountCents).formatted(),
+            style = MaterialTheme.typography.titleMedium,
+            color = if (operation.amountCents > 0) BankTheme.status.gain else MaterialTheme.colorScheme.onSurface,
+        )
+        if (proposal != null) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f))
+                    .clickable(onClickLabel = "Valider : ${proposal.label}", role = Role.Button, onClick = onAccept),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painterResource(R.drawable.ic_check),
+                    contentDescription = "Valider : ${proposal.label}",
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+        } else {
+            Chevron()
+        }
     }
 }
 
