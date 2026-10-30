@@ -175,13 +175,6 @@ fun AppMenuItems(
         },
     )
     DropdownMenuItem(
-        text = { Text("Banque") },
-        onClick = {
-            onClose()
-            controller.dialog = OpenDialog.Bank
-        },
-    )
-    DropdownMenuItem(
         text = { Text("Journal des transferts") },
         onClick = {
             onClose()

@@ -83,6 +83,8 @@ fun GlassMainScreen(
     val dashboard by viewModel.dashboard.collectAsStateWithLifecycle()
     val operations by viewModel.operations.collectAsStateWithLifecycle()
     val unsortedOperations by viewModel.unsortedOperations.collectAsStateWithLifecycle()
+    // Épargne depuis janvier (année en cours) : affichée dans Épargne.
+    val yearOverviewForSavings by viewModel.yearOverview.collectAsStateWithLifecycle()
     val archived by viewModel.archivedEnvelopes.collectAsStateWithLifecycle()
     val envelopes by viewModel.envelopes.collectAsStateWithLifecycle()
     val unsortedCount by viewModel.unsortedCount.collectAsStateWithLifecycle()
@@ -233,6 +235,20 @@ fun GlassMainScreen(
                             viewModel.setTrackingStart(month)
                             controller.notify("Suivi depuis ${month.label}.")
                         },
+                        bank = bankConnection?.let {
+                            BankStatus(
+                                connected = it.isConnected,
+                                bankName = it.bankName,
+                                lastSync = it.lastSync,
+                                validUntil = it.validUntil,
+                                expired = it.isExpired,
+                            )
+                        },
+                        onOpenBank = { controller.dialog = OpenDialog.Bank },
+                        currentAccount = currentAccount,
+                        onSetBalance = { controller.dialog = OpenDialog.CurrentBalance },
+                        yearSavings = yearOverviewForSavings?.takeIf { it.year == LocalDate.now().year }?.savings,
+                        onTryPlan = { controller.dialog = OpenDialog.TryPlan() },
                     )
                     Tab.OPERATIONS -> if (spendingView == SpendingTabView.ANALYSIS) {
                         val monthYearSpending by viewModel.monthYearSpending.collectAsStateWithLifecycle()

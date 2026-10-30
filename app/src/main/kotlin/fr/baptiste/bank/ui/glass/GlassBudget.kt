@@ -142,7 +142,6 @@ fun GlassBudgetContent(
     onTrackMonth: (YearMonth) -> Unit = {},
     onTryPlan: () -> Unit = {},
 ) {
-    var view by rememberSaveable { mutableStateOf(initialView) }
     var showInfo by remember { mutableStateOf(false) }
     val isCurrentMonth = month == YearMonth.now()
     val parts = dashboard?.let(::planParts).orEmpty()
@@ -153,11 +152,10 @@ fun GlassBudgetContent(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         largeTitle("Budget")
-        item(key = "view") {
-            SegmentedToggle(listOf("Mois", "Année"), view.ordinal) { view = BudgetView.entries[it] }
-        }
-        when (view) {
-            BudgetView.MONTH -> {
+        // Une seule vue : le mois. Les dépenses de l'année sont dans Dépenses, l'épargne de
+        // l'année dans Épargne (chaque information n'a qu'une maison).
+        run {
+            run {
                 item(key = "month-switch") {
                     PeriodSwitcher(
                         label = month.label.replaceFirstChar { it.titlecase() },
@@ -184,27 +182,13 @@ fun GlassBudgetContent(
                         onEdit = onEdit,
                         onRestore = onRestore,
                         currentAccount = if (isCurrentMonth) currentAccount else null,
-                        showAccountCard = isCurrentMonth,
+                        // Le compte courant vit dans Épargne › Mes comptes.
+                        showAccountCard = false,
                         onSetBalance = onSetBalance,
                         monthTransfers = monthTransfers,
                         onTryPlan = if (isCurrentMonth) onTryPlan else null,
                     )
                 }
-            }
-            BudgetView.YEAR -> {
-                item(key = "year-switch") {
-                    PeriodSwitcher(
-                        label = year.toString(),
-                        canPrevious = true,
-                        canNext = canNextYear,
-                        onPrevious = onPreviousYear,
-                        onNext = onNextYear,
-                        note = yearOverview?.let {
-                            if (it.year == YearMonth.now().year) "de janvier à aujourd'hui" else "année terminée"
-                        },
-                    )
-                }
-                if (yearOverview != null && yearOverview.year == year) yearContent(yearOverview)
             }
         }
     }
@@ -576,7 +560,7 @@ private fun ReviewLine(label: String, amount: Money) {
  * manque de l'argent sur le compte par rapport au budget.
  */
 @Composable
-private fun CurrentAccountCard(explained: CurrentAccountExplained?, onSetBalance: () -> Unit) {
+internal fun CurrentAccountCard(explained: CurrentAccountExplained?, onSetBalance: () -> Unit) {
     GlassCard(contentPadding = 16.dp) {
         if (explained == null) {
             Text(

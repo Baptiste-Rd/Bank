@@ -117,7 +117,6 @@ shot_budget() {
 }
 shot_budget glass-budget-mois-precedent --es tab BUDGET --ei monthsBack 1
 shot_budget glass-epargne-mois-precedent --es tab SAVINGS --ei monthsBack 1
-shot_budget glass-budget-annee --es tab BUDGET --es budgetView YEAR
 shot_budget glass-mois-non-renseigne --es tab BUDGET --ei monthsBack 7
 # Tri : fiche d'enveloppe avec ses dépenses, opérations (proposition, alias, outils), déclasser,
 # règles, nom en double, menu développeur du verre.

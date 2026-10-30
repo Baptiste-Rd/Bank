@@ -80,6 +80,16 @@ fun GlassSavingsContent(
     onEditGoals: () -> Unit = {},
     trackingStart: java.time.YearMonth? = null,
     onTrackMonth: (java.time.YearMonth) -> Unit = {},
+    /** Banque : état de la connexion, pour la ligne en tête de « Mes comptes ». */
+    bank: BankStatus? = null,
+    onOpenBank: () -> Unit = {},
+    /** Compte courant décomposé (reste du mois, charges, épargne à virer, réserve). */
+    currentAccount: fr.baptiste.bank.domain.budget.CurrentAccountExplained? = null,
+    onSetBalance: () -> Unit = {},
+    /** Épargne depuis janvier (mois renseignés), ou null. */
+    yearSavings: Money? = null,
+    /** Essayer un plan (projet, épargne). */
+    onTryPlan: () -> Unit = {},
 ) {
     var showInfo by remember { mutableStateOf(false) }
     // Un mois passé se consulte : ses chiffres sont définitifs, on n'y range plus rien.
@@ -133,8 +143,16 @@ fun GlassSavingsContent(
                     style = MaterialTheme.typography.displaySmall,
                     color = if (outlook.forecast.isNegative) BankTheme.status.over else MaterialTheme.colorScheme.onSurface,
                 )
+                // L'écart à l'objectif, en une ligne, plutôt que deux tuiles.
+                val gap = outlook.gapToTarget
+                Text(
+                    if (gap.isNegative) "${(-gap).formatted()} sous l'objectif (${outlook.target.formatted()})"
+                    else "${gap.formatted()} au-dessus de l'objectif (${outlook.target.formatted()})",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (gap.isNegative) BankTheme.status.warning else BankTheme.status.gain,
+                )
                 adviceFor(dashboard)?.let {
-                    Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (!readOnly) savingsLines.firstOrNull()?.let { target ->
                     GlassPillButton("Mettre de côté", onClick = { onPutAside(target) }, modifier = Modifier.padding(top = 12.dp))
@@ -142,29 +160,13 @@ fun GlassSavingsContent(
             }
         }
 
-        // 2. Les deux écarts.
-        item(key = "gaps") {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                GapTile(
-                    label = "Objectif",
-                    delta = outlook.gapToTarget,
-                    reference = "sur ${outlook.target.formatted()}",
-                    modifier = Modifier.weight(1f),
-                )
-                if (previous != null) {
-                    GapTile(
-                        label = "vs ${previous.month.name()}",
-                        delta = outlook.forecast - previous.outlook.forecast,
-                        reference = "${previous.outlook.forecast.formatted()} épargnés",
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
-        }
-
-        // 3. Six mois.
+        // 2. Mois par mois, et le total depuis janvier.
         if (history.size > 1) {
-            sectionHeader("history-label", "Six derniers mois", trailing = "objectif ${outlook.target.formatted()}")
+            sectionHeader(
+                "history-label",
+                "Mois par mois",
+                trailing = yearSavings?.let { "${it.formatted()} depuis janvier" } ?: "objectif ${outlook.target.formatted()}",
+            )
             item(key = "history") {
                 GlassCard(contentPadding = 16.dp) {
                     SavingsBarsChart(history, outlook.target, accent, legend = null)
@@ -172,7 +174,12 @@ fun GlassSavingsContent(
             }
         }
 
-        // 4. Sur les autres comptes : ce qui est déjà de côté (le mois en cours seulement).
+        // 3. Mes comptes : la banque, le compte courant expliqué, les livrets et placements.
+        if (!readOnly) {
+            sectionHeader("bank-label", "Mes comptes")
+            item(key = "bank") { BankStatusCard(bank, onOpenBank) }
+            item(key = "current-account") { CurrentAccountCard(currentAccount, onSetBalance) }
+        }
         if (!readOnly && holdings != null) holdingsSection(holdings, goals, dashboard.savings.forecast, onManageAccounts, onOpenAccount, onEditGoals)
 
         // 5. Ce qui est mis de côté.
@@ -190,7 +197,7 @@ fun GlassSavingsContent(
             }
         }
         val plannedColor = envelopeTypeColor(EnvelopeType.PLANNED)
-        sectionHeader("planned-label", "Achats prévus", dot = plannedColor, action = "Prévoir", onAction = onPlanPurchase)
+        sectionHeader("planned-label", "Projets", dot = plannedColor, action = "Essayer un plan", onAction = onTryPlan)
         item(key = "planned") {
             if (planned.isEmpty()) {
                 GlassCard(contentPadding = 16.dp) {
@@ -234,6 +241,61 @@ fun GlassSavingsContent(
                 "vers l'épargne le met à l'abri ; le total ne monte que si tu dépenses moins.",
             onDismiss = { showInfo = false },
         )
+    }
+}
+
+/** État de la banque pour la ligne de « Mes comptes ». */
+data class BankStatus(
+    val connected: Boolean,
+    val bankName: String?,
+    val lastSync: java.time.Instant?,
+    val validUntil: java.time.Instant?,
+    val expired: Boolean,
+)
+
+/**
+ * La banque en une ligne : reliée et à jour (« CIC · à jour il y a 2 h »), à reconnecter bientôt
+ * ou expirée (en ambre), ou à relier. Toucher la ligne ouvre la banque.
+ */
+@Composable
+private fun BankStatusCard(bank: BankStatus?, onOpen: () -> Unit) {
+    val now = java.time.Instant.now()
+    val daysLeft = bank?.validUntil?.let { java.time.Duration.between(now, it).toDays() }
+    val (title, detail, warn) = when {
+        bank == null || (!bank.connected && !bank.expired) ->
+            Triple("Relier ma banque", "Pour que l'app reflète ton compte, seule", false)
+        bank.expired -> Triple("${bank.bankName ?: "Banque"} · à reconnecter", "L'autorisation a expiré", true)
+        else -> {
+            val sync = bank.lastSync?.let { ago(it, now) } ?: "pas encore synchronisée"
+            Triple(
+                "${bank.bankName ?: "Banque"} · $sync",
+                if (daysLeft != null && daysLeft <= 14) "À reconnecter dans $daysLeft jour(s)" else "Synchronisée seule à l'ouverture",
+                daysLeft != null && daysLeft <= 14,
+            )
+        }
+    }
+    GlassCard(contentPadding = 16.dp, onClick = onOpen) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium))
+                Text(
+                    detail,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (warn) BankTheme.status.warning else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Chevron()
+        }
+    }
+}
+
+/** « à jour il y a 2 h », « à jour il y a 3 jours ». */
+private fun ago(then: java.time.Instant, now: java.time.Instant): String {
+    val minutes = java.time.Duration.between(then, now).toMinutes()
+    return when {
+        minutes < 60 -> "à jour"
+        minutes < 24 * 60 -> "à jour il y a ${minutes / 60} h"
+        else -> "à jour il y a ${minutes / (24 * 60)} jour(s)"
     }
 }
 
