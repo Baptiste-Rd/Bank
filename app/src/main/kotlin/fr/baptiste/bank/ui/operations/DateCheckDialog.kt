@@ -109,7 +109,7 @@ fun DateCheckDialog(
                 }
 
                 Section("Dernières opérations")
-                Hint("Compare-les à ton relevé : le jour affiché en premier doit être celui de l'achat.")
+                Hint("Compare-les à ton relevé : le jour affiché en premier doit être celui de l'achat ou du prélèvement.")
                 report.lines.take(RECENT_LINES).forEachIndexed { index, line ->
                     if (index > 0) RowDivider(0.dp)
                     OperationLine(line)
@@ -198,9 +198,9 @@ private fun OperationLine(line: DateCheckLine) {
         }
         Text(
             if (line.needsCorrection) {
-                "Daté du ${op.date.short()}$booking · achat le ${line.detail.date.short()}, à corriger"
+                "Daté du ${op.date.short()}$booking · à corriger : ${line.detail.date.short()}"
             } else {
-                "Achat le ${op.date.short()}$booking · ${line.detail.source.word()}"
+                "Daté du ${op.date.short()}$booking · ${line.detail.source.word()}"
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
