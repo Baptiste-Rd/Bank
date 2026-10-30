@@ -138,6 +138,10 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
     fun applyPlan(name: String, project: Money, months: Int, monthlySavings: Money?, reductions: Map<Long, Money> = emptyMap()) =
         perform { repository.applyPlan(name, project, months, monthlySavings, reductions) }
 
+    /** Dépenses qui reviennent chaque mois (abonnements, forfaits). */
+    val recurringExpenses: StateFlow<List<fr.baptiste.bank.domain.budget.RecurringExpense>> =
+        repository.recurringExpenses().asState(emptyList())
+
     /** Avis de Claude gardé avec un mois. */
     fun monthReview(month: YearMonth): Flow<String?> = repository.monthReview(month)
 

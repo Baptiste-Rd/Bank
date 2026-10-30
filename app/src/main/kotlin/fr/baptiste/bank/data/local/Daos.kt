@@ -197,6 +197,13 @@ data class DatedImputation(
     val date: LocalDate,
 )
 
+/** Une sortie d'argent nommée (montant positif). */
+data class LabeledAmount(
+    val label: String,
+    val date: LocalDate,
+    @ColumnInfo(name = "amount_cents") val amountCents: Long,
+)
+
 /** Un montant daté (positif), pour des totaux par mois. */
 data class DatedAmount(
     val date: LocalDate,
@@ -375,6 +382,16 @@ interface TransactionDao {
         """,
     )
     fun observeExcludedOutRows(from: LocalDate, to: LocalDate): Flow<List<ExcludedAmount>>
+
+    /** Sorties d'argent comptées (ni hors budget, ni virement vers mes comptes), avec leur nom. */
+    @Query(
+        """
+        SELECT COALESCE(t.alias, t.clean_label) AS label, t.date AS date, -t.amount_cents AS amount_cents
+        FROM transaction_record t
+        WHERE t.ignored = 0 AND t.amount_cents < 0 AND t.date BETWEEN :from AND :to
+        """,
+    )
+    fun observeOutflows(from: LocalDate, to: LocalDate): Flow<List<LabeledAmount>>
 
     /** Montants des virements vers mes comptes sur une plage de dates. */
     @Query("SELECT amount_cents FROM transaction_record WHERE transfer_account_id IS NOT NULL AND date BETWEEN :from AND :to")

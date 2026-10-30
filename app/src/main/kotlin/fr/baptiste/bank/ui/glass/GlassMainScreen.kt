@@ -83,6 +83,7 @@ fun GlassMainScreen(
     val dashboard by viewModel.dashboard.collectAsStateWithLifecycle()
     val operations by viewModel.operations.collectAsStateWithLifecycle()
     val unsortedOperations by viewModel.unsortedOperations.collectAsStateWithLifecycle()
+    val recurringExpenses by viewModel.recurringExpenses.collectAsStateWithLifecycle()
     // Épargne depuis janvier (année en cours) : affichée dans Épargne.
     val yearOverviewForSavings by viewModel.yearOverview.collectAsStateWithLifecycle()
     val archived by viewModel.archivedEnvelopes.collectAsStateWithLifecycle()
@@ -280,6 +281,7 @@ fun GlassMainScreen(
                                 if (text != null) controller.notify("Avis gardé avec ${month.label}.")
                             },
                             savings = monthDashboard?.savings,
+                            recurring = recurringExpenses,
                         )
                     } else GlassOperationsContent(
                         header = spendingHeader,

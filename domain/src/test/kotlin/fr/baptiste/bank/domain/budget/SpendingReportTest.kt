@@ -119,3 +119,24 @@ class MonthReviewTest {
         assertTrue(prompt.contains("UNE action"))
     }
 }
+
+class RecurringTest {
+
+    private fun out(label: String, month: Int, day: Int, cents: Long) =
+        Outflow(label, LocalDate.of(2026, month, day), Money(cents))
+
+    @Test
+    fun `a stable monthly label is recurring, groceries are not`() {
+        val outflows = listOf(
+            out("PRLV FREE MOBILE", 7, 3, 1999), out("PRLV FREE MOBILE", 8, 3, 1999), out("Prlv Free Mobile", 9, 4, 1999),
+            out("NETFLIX", 8, 12, 1349), out("NETFLIX", 9, 12, 1349),
+            out("CARREFOUR", 7, 2, 4500), out("CARREFOUR", 7, 20, 3200), out("CARREFOUR", 8, 5, 5100), out("CARREFOUR", 9, 6, 2800),
+            out("EDF", 7, 10, 6000), out("EDF", 8, 10, 9000), out("EDF", 9, 10, 6100),
+        )
+        val recurring = detectRecurring(outflows)
+        // Netflix : deux mois seulement ; Carrefour : plusieurs fois par mois ; EDF : montant qui varie trop.
+        assertEquals(listOf("Prlv Free Mobile"), recurring.map { it.label })
+        assertEquals(Money(1999), recurring.single().monthly)
+        assertEquals(3, recurring.single().months)
+    }
+}

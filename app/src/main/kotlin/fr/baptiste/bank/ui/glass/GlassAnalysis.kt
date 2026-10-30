@@ -108,6 +108,8 @@ fun GlassAnalysisContent(
     onSaveReview: (YearMonth, String?) -> Unit = { _, _ -> },
     /** Épargne du mois consulté (pour l'avis). */
     savings: fr.baptiste.bank.domain.budget.SavingsOutlook? = null,
+    /** Dépenses qui reviennent chaque mois. */
+    recurring: List<fr.baptiste.bank.domain.budget.RecurringExpense> = emptyList(),
 ) {
     var period by rememberSaveable { mutableStateOf(if (initialYear) AnalysisPeriod.YEAR else AnalysisPeriod.MONTH) }
     var expanded by rememberSaveable { mutableStateOf<String?>(null) }
@@ -143,6 +145,14 @@ fun GlassAnalysisContent(
                     trackingStart != null && month < trackingStart ->
                         item(key = "analysis-not-tracked") { NotTrackedCard(month, trackingStart) { onTrackMonth(month) } }
                     report != null -> monthAnalysis(
+                        // Habitude : la moyenne des trois mois renseignés précédents (même année).
+                        averages = monthYear?.months.orEmpty().filter { it.tracked && it.month < month }.takeLast(3).let { previous ->
+                            if (previous.isEmpty()) emptyMap() else report.categories.associate { category ->
+                                category.name to previous.fold(Money.ZERO) { sum, m ->
+                                    sum + (m.categories.firstOrNull { it.name == category.name }?.spent ?: Money.ZERO)
+                                }.divideFloor(previous.size.toLong())
+                            }
+                        },
                         report = report,
                         expanded = expanded,
                         onToggle = { name -> expanded = if (expanded == name) null else name },
@@ -167,7 +177,7 @@ fun GlassAnalysisContent(
                     )
                 }
                 if (yearSpending != null && yearSpending.year == year) {
-                    yearAnalysis(yearSpending, onSort) { selected ->
+                    yearAnalysis(yearSpending, onSort, recurring) { selected ->
                         onSelectMonth(selected)
                         period = AnalysisPeriod.MONTH
                     }
@@ -233,6 +243,7 @@ private fun LazyListScope.monthAnalysis(
     onOpenEnvelope: (EnvelopeSpent) -> Unit,
     onSort: () -> Unit,
     onInfo: (MonthSpending) -> Unit,
+    averages: Map<String, Money> = emptyMap(),
     review: String?,
     onAskReview: (MonthSpending) -> Unit,
     onClearReview: () -> Unit,
@@ -280,6 +291,7 @@ private fun LazyListScope.monthAnalysis(
                 if (index > 0) RowDivider(0.dp)
                 CategoryRow(
                     category = category,
+                    average = averages[category.name],
                     scale = scale,
                     expanded = expanded == category.name,
                     onClick = { onToggle(category.name) },
@@ -338,7 +350,7 @@ private fun UnsortedLine(amount: Money, onSort: () -> Unit) {
 
 /** Une catégorie : nom, dépensé sur budget, barre (le trait marque le budget). */
 @Composable
-private fun CategoryRow(category: CategorySpent, scale: Long, expanded: Boolean, onClick: () -> Unit) {
+private fun CategoryRow(category: CategorySpent, scale: Long, expanded: Boolean, onClick: () -> Unit, average: Money? = null) {
     Column(
         Modifier
             .fillMaxWidth()
@@ -362,6 +374,7 @@ private fun CategoryRow(category: CategorySpent, scale: Long, expanded: Boolean,
                 append(if (category.budget.isPositive) "sur ${category.budget.formatted()}" else "hors budget du mois")
                 append(" · ${category.envelopes.size} enveloppe${if (category.envelopes.size > 1) "s" else ""}")
                 if (category.over.isPositive) append(" · dépassé de ${category.over.formatted()}")
+                else if (average != null && average.isPositive) append(" · d'habitude ${average.formatted()}")
             },
             style = MaterialTheme.typography.bodySmall,
             color = if (category.over.isPositive) BankTheme.status.over else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -428,7 +441,12 @@ private fun SpendBar(spent: Money, budget: Money, scale: Long) {
 }
 
 /** L'année : total et moyenne, histogramme empilé, tableau par catégorie. */
-private fun LazyListScope.yearAnalysis(report: YearSpending, onSort: () -> Unit, onSelectMonth: (YearMonth) -> Unit) {
+private fun LazyListScope.yearAnalysis(
+    report: YearSpending,
+    onSort: () -> Unit,
+    recurring: List<fr.baptiste.bank.domain.budget.RecurringExpense> = emptyList(),
+    onSelectMonth: (YearMonth) -> Unit,
+) {
     val tracked = report.tracked
     item(key = "analysis-year-total") {
         GlassCard(strong = true) {
@@ -478,11 +496,18 @@ private fun LazyListScope.yearAnalysis(report: YearSpending, onSort: () -> Unit,
             Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(category.name, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium))
-                    Text(
-                        "${category.average.formatted()} / mois",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "${category.average.formatted()} / mois",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        // L'évolution mois par mois : « est-ce que ça monte ? » sans calcul.
+                        Sparkline(
+                            tracked.map { month -> month.categories.firstOrNull { it.name == category.name }?.spent ?: Money.ZERO },
+                            Modifier.padding(start = 8.dp).size(width = 56.dp, height = 16.dp),
+                        )
+                    }
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(category.total.formatted(), style = MaterialTheme.typography.titleMedium)
@@ -507,6 +532,43 @@ private fun LazyListScope.yearAnalysis(report: YearSpending, onSort: () -> Unit,
                 }
             }
         }
+    }
+    // Ce qui revient chaque mois : abonnements, forfaits, prélèvements.
+    if (recurring.isNotEmpty()) {
+        val total = recurring.fold(Money.ZERO) { sum, it -> sum + it.monthly }
+        sectionHeader("analysis-recurring-label", "Chaque mois", trailing = "${total.formatted()} / mois")
+        item(key = "analysis-recurring") {
+            GlassRowsCard(recurring.take(8), inset = 0.dp) { expense ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(expense.label, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            "${expense.months} mois de suite",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(expense.monthly.formatted(), style = MaterialTheme.typography.titleMedium)
+                }
+            }
+        }
+    }
+}
+
+/** Petite courbe d'une série (une valeur par mois), sans axe : la tendance seulement. */
+@Composable
+private fun Sparkline(values: List<Money>, modifier: Modifier = Modifier) {
+    if (values.size < 2) return
+    val color = MaterialTheme.colorScheme.onSurfaceVariant
+    val low = values.minOf { it.cents }
+    val span = (values.maxOf { it.cents } - low).coerceAtLeast(1L)
+    Canvas(modifier) {
+        val step = size.width / (values.size - 1)
+        fun point(index: Int) = Offset(step * index, size.height - size.height * (values[index].cents - low) / span)
+        for (index in 1 until values.size) {
+            drawLine(color, point(index - 1), point(index), strokeWidth = 1.5.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
+        }
+        drawCircle(color, radius = 2.dp.toPx(), center = point(values.lastIndex))
     }
 }
 

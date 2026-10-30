@@ -687,6 +687,14 @@ class BudgetRepository(
 
     fun monthReview(month: YearMonth): Flow<String?> = settings.monthReview(month)
 
+    /** Dépenses qui reviennent chaque mois, sur les six derniers mois. */
+    fun recurringExpenses(today: LocalDate = LocalDate.now()): Flow<List<fr.baptiste.bank.domain.budget.RecurringExpense>> =
+        transactionDao.observeOutflows(YearMonth.from(today).minusMonths(5).atDay(1), today).map { rows ->
+            fr.baptiste.bank.domain.budget.detectRecurring(
+                rows.map { fr.baptiste.bank.domain.budget.Outflow(it.label, it.date, Money(it.amountCents)) },
+            )
+        }
+
     suspend fun setMonthReview(month: YearMonth, text: String?) = settings.setMonthReview(month, text)
 
     /**
