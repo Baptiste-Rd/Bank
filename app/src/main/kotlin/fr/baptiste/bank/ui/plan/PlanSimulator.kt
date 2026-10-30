@@ -140,17 +140,13 @@ fun PlanSimulatorSheet(
             // 3. Le résultat, en direct.
             if (result != null) {
                 fr.baptiste.bank.ui.components.RowDivider(0.dp)
-                PlanLine("Projet", "${result.projectShare.formatted()} par mois")
-                PlanLine("Épargne", "${savings?.formatted()} par mois (aujourd'hui ${currentSavings.formatted()})")
+                PlanLine("Projet", "${result.projectShare.formatted()} / mois")
+                PlanLine("Épargne", "${savings?.formatted()} / mois", "aujourd'hui ${currentSavings.formatted()}")
                 PlanLine(
                     "Quotidien",
-                    "${result.dailyAfter.formatted()} par mois (aujourd'hui ${result.dailyBefore.formatted()})",
+                    "${result.dailyAfter.formatted()} / mois",
+                    "soit ${result.perDayAfter.formatted()} par jour · aujourd'hui ${result.dailyBefore.formatted()}",
                     strong = true,
-                )
-                Text(
-                    "Soit ${result.perDayAfter.formatted()} par jour.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 when (result.verdict) {
                     PlanVerdict.REALISTIC -> StatusChip("Réaliste", StatusKind.GOOD)
@@ -221,14 +217,21 @@ fun PlanSimulatorSheet(
     }
 }
 
+/** Une ligne du plan simulé : le libellé, la valeur avec le plan, et dessous la valeur d'aujourd'hui. */
 @Composable
-private fun PlanLine(label: String, value: String, strong: Boolean = false) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+private fun PlanLine(label: String, value: String, detail: String? = null, strong: Boolean = false) {
+    Row(verticalAlignment = Alignment.Top) {
         Text(
             label,
             style = MaterialTheme.typography.bodyLarge.copy(fontWeight = if (strong) FontWeight.SemiBold else FontWeight.Normal),
-            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            modifier = Modifier.padding(end = 12.dp),
         )
-        Text(value, style = if (strong) MaterialTheme.typography.titleSmall else MaterialTheme.typography.bodyMedium)
+        Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+            Text(value, style = if (strong) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge)
+            if (detail != null) {
+                Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
     }
 }
