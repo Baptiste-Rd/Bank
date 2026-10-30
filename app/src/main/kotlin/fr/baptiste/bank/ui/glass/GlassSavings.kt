@@ -336,7 +336,7 @@ private fun LazyListScope.holdingsSection(
     onOpen: (HoldingLine) -> Unit,
     onEditGoals: () -> Unit,
 ) {
-    sectionHeader("holdings-label", "Sur tes comptes", action = if (holdings.lines.isEmpty()) null else "Gérer", onAction = onManage)
+    sectionHeader("holdings-label", "Livrets et placements", action = if (holdings.lines.isEmpty()) null else "Gérer", onAction = onManage)
     item(key = "holdings") {
         if (holdings.lines.isEmpty()) {
             GlassCard(contentPadding = 16.dp) {

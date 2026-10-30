@@ -202,7 +202,7 @@ private class GlassOptics(
 private val GlassTuning.cardOptics get() = GlassOptics(maxOf(cardBlur, 24f).dp, 0.dp, 0.dp)
 
 /** Voile des cartes de contenu (matériau épais). */
-private val CardDim = Color(0xFF0A1A45).copy(alpha = 0.45f)
+private val CardDim = Color(0xFF0A1A45).copy(alpha = 0.53f)
 private val GlassTuning.barOptics get() = GlassOptics(barBlur.dp, barLensHeight.dp, barLensAmount.dp)
 private val GlassTuning.buttonOptics get() = GlassOptics(buttonBlur.dp, buttonLensHeight.dp, buttonLensAmount.dp)
 
