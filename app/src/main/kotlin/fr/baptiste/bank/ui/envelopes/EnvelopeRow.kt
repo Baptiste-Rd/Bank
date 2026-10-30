@@ -102,7 +102,7 @@ fun EnvelopeRow(
                 line.period.endInclusive.isAfter(line.period.start.plusMonths(1))
             ) {
                 "${line.funded.formatted()} mis de côté sur ${line.allocated.formatted()}" +
-                    if (line.catchUp != null) " · à rattraper" else ""
+                    if (line.catchUp != null) " · en retard" else ""
             } else {
                 null
             },

@@ -99,3 +99,10 @@ L'écran se lit avec six mots : Reste, Dépensé, Enveloppe, Catégorie, Épargn
 notions vivent dans les ⓘ ou s'expriment par une action (« Mettre de côté »). Une action principale
 par écran : le + en haut à droite. Le verre est réservé à la navigation ; les cartes sont un matériau
 épais (flou fort, sans lentille, voile bleu nuit) pour garder 4,5:1 de contraste.
+
+## Six mots visibles
+
+L'écran se lit avec six mots : Reste, Dépensé, Enveloppe, Catégorie, Épargne, À trier. Les autres
+notions vivent dans les ⓘ ou s'expriment par une action (« Mettre de côté »). Une action principale
+par écran : le + en haut à droite. Le verre est réservé à la navigation ; les cartes sont un matériau
+épais (flou fort, sans lentille, voile bleu nuit) pour garder 4,5:1 de contraste.

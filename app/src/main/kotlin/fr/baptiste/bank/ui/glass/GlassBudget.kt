@@ -596,8 +596,7 @@ internal fun CurrentAccountCard(explained: CurrentAccountExplained?, onSetBalanc
                 append(", ou dépenses faites hors de l'app.")
             }
             explained.free.isPositive ->
-                "Hors budget du mois. Pour la mettre de côté sans toucher au mois : ouvre une enveloppe d'épargne " +
-                    "ou une provision, Ajouter, puis « Disponible sur le compte »."
+                "Hors budget du mois : « Mettre de côté » le range sans toucher à ton mois."
             else -> null
         }
         if (note != null) {
