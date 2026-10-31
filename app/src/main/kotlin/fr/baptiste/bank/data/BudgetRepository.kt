@@ -714,6 +714,12 @@ class BudgetRepository(
 
     suspend fun setMonthReview(month: YearMonth, text: String?) = settings.setMonthReview(month, text)
 
+    /** Sorties d'argent comptées de [month], avec leur nom (habitudes de l'analyse complète). */
+    fun monthOutflows(month: YearMonth): Flow<List<fr.baptiste.bank.domain.budget.Outflow>> =
+        transactionDao.observeOutflows(month.atDay(1), month.atEndOfMonth()).map { rows ->
+            rows.map { fr.baptiste.bank.domain.budget.Outflow(it.label, it.date, Money(it.amountCents)) }
+        }
+
     /**
      * Dépenses réelles de [year], mois par mois, par catégorie et par enveloppe (archivées comprises :
      * leurs dépenses restent), avec ce qui reste à trier chaque mois. Voir [yearSpending].

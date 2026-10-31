@@ -113,6 +113,10 @@ fun GlassAnalysisContent(
     savings: fr.baptiste.bank.domain.budget.SavingsOutlook? = null,
     /** Dépenses qui reviennent chaque mois. */
     recurring: List<fr.baptiste.bank.domain.budget.RecurringExpense> = emptyList(),
+    /** Sorties d'argent d'un mois, avec leur nom (analyse complète). */
+    monthOutflows: (YearMonth) -> Flow<List<fr.baptiste.bank.domain.budget.Outflow>> = { kotlinx.coroutines.flow.flowOf(emptyList()) },
+    /** Salaire indiqué, s'il l'est (analyse complète). */
+    income: Money? = null,
 ) {
     val period = if (showYear) AnalysisPeriod.YEAR else AnalysisPeriod.MONTH
     var expanded by rememberSaveable { mutableStateOf<String?>(null) }
@@ -203,9 +207,24 @@ fun GlassAnalysisContent(
     }
 
     asking?.let { report ->
-        val previous = monthYear?.months.orEmpty().filter { it.tracked && it.month < report.month }.takeLast(3)
+        val earlier = monthYear?.months.orEmpty().filter { it.tracked && it.month < report.month }
+        val outflows by remember(report.month) { monthOutflows(report.month) }.collectAsState(initial = emptyList())
         MonthReviewDialog(
-            prompt = fr.baptiste.bank.domain.budget.monthReviewPrompt(report, previous, savings?.forecast, savings?.target),
+            quickPrompt = fr.baptiste.bank.domain.budget.monthReviewPrompt(report, earlier.takeLast(3), savings?.forecast, savings?.target),
+            fullPrompt = { merchants ->
+                fr.baptiste.bank.domain.budget.monthAnalysisPrompt(
+                    fr.baptiste.bank.domain.budget.MonthAnalysisInput(
+                        month = report,
+                        previous = earlier,
+                        outflows = outflows,
+                        recurring = recurring,
+                        income = income,
+                        savingsForecast = savings?.forecast,
+                        savingsTarget = savings?.target,
+                        includeMerchants = merchants,
+                    ),
+                )
+            },
             onSave = { text ->
                 onSaveReview(report.month, text)
                 asking = null
@@ -667,23 +686,47 @@ private fun YearBars(report: YearSpending, first: String?, second: String?, onSe
 }
 
 /**
- * Demander l'avis de Claude : le message ne contient que des totaux. On l'envoie dans l'app
- * Claude, puis on colle la réponse, gardée avec le mois.
+ * Demander l'avis de Claude, rapide (totaux seulement) ou complet (enveloppes, évolution,
+ * habitudes, abonnements ; commerçants si on le veut). On l'envoie dans l'app Claude, puis on
+ * colle la réponse, gardée avec le mois.
  */
 @Composable
-private fun MonthReviewDialog(prompt: String, onSave: (String) -> Unit, onDismiss: () -> Unit) {
+private fun MonthReviewDialog(
+    quickPrompt: String,
+    fullPrompt: (includeMerchants: Boolean) -> String,
+    onSave: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var reply by rememberSaveable { mutableStateOf("") }
+    var full by rememberSaveable { mutableStateOf(true) }
+    var merchants by rememberSaveable { mutableStateOf(true) }
+    val prompt = if (full) fullPrompt(merchants) else quickPrompt
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("L'avis de Claude") },
         text = {
             fr.baptiste.bank.ui.components.BlurBehindWindow()
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    androidx.compose.material3.FilterChip(selected = full, onClick = { full = true }, label = { Text("Analyse complète") })
+                    androidx.compose.material3.FilterChip(selected = !full, onClick = { full = false }, label = { Text("Avis rapide") })
+                }
                 Text(
-                    "Ce qui part : tes totaux par catégorie, ton budget et ta moyenne. Aucun libellé, aucun compte, aucun solde.",
+                    if (full) {
+                        "Ce qui part : ton budget enveloppe par enveloppe, tes mois précédents, ton épargne, tes abonnements" +
+                            (if (merchants) " et tes commerçants (libellés nettoyés)" else "") + ". Aucun compte, aucun solde, aucun numéro."
+                    } else {
+                        "Ce qui part : tes totaux par catégorie, ton budget et ta moyenne. Aucun libellé, aucun compte, aucun solde."
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                 )
+                if (full) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.Checkbox(checked = merchants, onCheckedChange = { merchants = it })
+                        Text("Inclure les noms des commerçants", style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
                 androidx.compose.material3.Button(
                     onClick = { fr.baptiste.bank.ui.assistant.openClaudeWith(context, prompt) },
                     modifier = Modifier.fillMaxWidth(),

@@ -307,6 +307,8 @@ fun GlassMainScreen(
                             },
                             savings = monthDashboard?.savings,
                             recurring = recurringExpenses,
+                            monthOutflows = viewModel::monthOutflows,
+                            income = income,
                         )
                     } else GlassOperationsContent(
                         header = spendingHeader,

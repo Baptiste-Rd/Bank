@@ -178,6 +178,13 @@ fun AppMenuItems(
         },
     )
     DropdownMenuItem(
+        text = { Text("Banque et synchronisation") },
+        onClick = {
+            onClose()
+            controller.dialog = OpenDialog.Bank
+        },
+    )
+    DropdownMenuItem(
         text = { Text("Vérifier les dates") },
         onClick = {
             onClose()

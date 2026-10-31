@@ -145,6 +145,8 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
     /** Avis de Claude gardé avec un mois. */
     fun monthReview(month: YearMonth): Flow<String?> = repository.monthReview(month)
 
+    fun monthOutflows(month: YearMonth): Flow<List<fr.baptiste.bank.domain.budget.Outflow>> = repository.monthOutflows(month)
+
     fun saveMonthReview(month: YearMonth, text: String?) = perform { repository.setMonthReview(month, text) }
 
     /** Rattrapage d'une provision à partir de [from]. */
