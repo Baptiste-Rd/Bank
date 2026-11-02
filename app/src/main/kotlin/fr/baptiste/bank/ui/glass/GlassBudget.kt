@@ -315,7 +315,7 @@ private fun LazyListScope.monthContent(
         }
     }
     if (!readOnly && archived.isNotEmpty()) {
-        sectionHeader("archived-label", "Retirées", trailing = "${archived.size}")
+        sectionHeader("archived-label", "Arrêtées", trailing = "${archived.size}")
         item(key = "archived") {
             GlassRowsCard(archived, inset = 0.dp) { envelope ->
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {

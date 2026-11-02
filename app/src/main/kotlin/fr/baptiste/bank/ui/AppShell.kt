@@ -637,7 +637,7 @@ fun AppDialogs(
             },
             onArchive = { archivedEnvelope ->
                 viewModel.archiveEnvelope(archivedEnvelope.id)
-                controller.notify("${archivedEnvelope.name} retirée.", action = "Annuler") {
+                controller.notify("${archivedEnvelope.name} arrêtée.", action = "Annuler") {
                     viewModel.restoreEnvelope(archivedEnvelope.id)
                 }
                 close()

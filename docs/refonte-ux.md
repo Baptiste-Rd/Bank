@@ -27,7 +27,7 @@ La fiche d'une enveloppe liste les dépenses de sa période ; toucher une dépen
 | Ce qui reste dans une enveloppe | Reste |
 | Dépassement constaté / prévu | Dépassé · Prévu + |
 | Épargne de fin de mois | Épargne prévue |
-| Familles d'enveloppes (onglet Budget seulement) | Au quotidien · Charges fixes · Provisions · Épargne |
+| Familles d'enveloppes (onglet Budget seulement) | Au quotidien · Charges fixes · Rares et ponctuels · Épargne |
 | Ce que l'on budgète et où l'on range une dépense | Enveloppe |
 | Ce qui réunit des enveloppes pour les statistiques | Catégorie (« Autres » par défaut) ; jamais « groupe » |
 | Ce qu'une provision a déjà réuni pour sa période | Mis de côté (« 900 € mis de côté sur 1 800 € ») |
@@ -114,8 +114,8 @@ choisir dans sa fiche). Une dépense antérieure peut y être rangée mais ne co
 ## Passé figé et salaire lu à la banque
 
 Chaque période commencée est enregistrée (bornes et montant) : changer un montant vaut pour la
-période en cours et les suivantes, jamais pour un mois terminé. Une enveloppe retirée garde son
-budget dans les mois qu'elle a couverts. Un budget peut avoir un premier montant et une remise à
+période en cours et les suivantes, jamais pour un mois terminé. Une enveloppe arrêtée garde son
+budget dans les mois qu'elle a couverts (« Arrêter » ; « Supprimer définitivement » pour une erreur). Un budget peut avoir un premier montant et une remise à
 zéro (« 26 € jusqu'au 1er janvier, puis 26 € tous les 3 mois »), ou être ponctuel. Un budget rare
 qui garde son reste (« tous les N », coiffeur) le reporte sur sa période suivante ; les autres
 envoient leur reste à l'épargne.

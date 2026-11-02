@@ -133,7 +133,7 @@ fun EnvelopeRow(
                 Column(Modifier.weight(1f)) {
                     Text(line.envelope.name, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium))
                     Text(
-                        if (retiredOn != null) "Retirée le ${retiredOn.formatted()} · ${display.detail}" else display.detail,
+                        if (retiredOn != null) "Arrêtée le ${retiredOn.formatted()} · ${display.detail}" else display.detail,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,

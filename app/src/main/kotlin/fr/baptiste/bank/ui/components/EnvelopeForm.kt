@@ -67,10 +67,10 @@ private fun LocalDate.text(): String = format(day)
 
 /** À quoi sert l'argent : ce qui décide de la famille de l'enveloppe. */
 private enum class Use(val label: String) {
-    DAILY("Le quotidien"),
-    FIXED("Une charge fixe"),
-    RARE("Un budget rare ou un projet"),
-    SAVINGS("De l'épargne"),
+    DAILY("Quotidien"),
+    FIXED("Charge fixe"),
+    RARE("Rare ou projet"),
+    SAVINGS("Épargne"),
 }
 
 private fun EnvelopeType.use(): Use = when (this) {
@@ -87,7 +87,7 @@ fun EnvelopeDialog(
     initial: Envelope?,
     onDismiss: () -> Unit,
     onSave: (Envelope) -> Unit,
-    /** Retirer : elle disparaît des mois à venir et reste dans ceux qu'elle a couverts. */
+    /** Arrêter : elle disparaît des mois à venir et reste dans ceux qu'elle a couverts. */
     onArchive: (Envelope) -> Unit,
     /** Catégories que j'ai déjà créées, proposées avec la liste de départ. */
     groups: List<String> = emptyList(),
@@ -190,15 +190,15 @@ fun EnvelopeDialog(
     if (confirmArchive && initial != null) {
         AlertDialog(
             onDismissRequest = { confirmArchive = false },
-            title = { Text("Retirer ${initial.name} ?") },
+            title = { Text("Arrêter ${initial.name} ?") },
             text = {
                 BlurBehindWindow()
                 Text(
                     "Elle disparaît des mois à venir et reste dans les mois qu'elle a couverts, avec ses dépenses. " +
-                        "Tu pourras la remettre depuis le bas de l'onglet Budget.",
+                        "Tu pourras la reprendre depuis le bas de l'onglet Budget.",
                 )
             },
-            confirmButton = { TextButton(onClick = { onArchive(initial) }) { Text("Retirer") } },
+            confirmButton = { TextButton(onClick = { onArchive(initial) }) { Text("Arrêter") } },
             dismissButton = { TextButton(onClick = { confirmArchive = false }) { Text("Annuler") } },
         )
         return
@@ -297,9 +297,9 @@ fun EnvelopeDialog(
 
                     // 3. Et ensuite ?
                     Text("Et ensuite ?", style = MaterialTheme.typography.labelMedium)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(selected = repeats, onClick = { repeats = true; resetTouched = true }, label = { Text("Recommencer") })
-                        FilterChip(selected = !repeats, onClick = { repeats = false; resetTouched = true }, label = { Text("Ne pas recommencer") })
+                        FilterChip(selected = !repeats, onClick = { repeats = false; resetTouched = true }, label = { Text("Une seule fois") })
                     }
                     if (repeats) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -412,7 +412,7 @@ fun EnvelopeDialog(
 
                 if (isExisting && initial != null) {
                     Row {
-                        TextButton(onClick = { confirmArchive = true }) { Text("Retirer") }
+                        TextButton(onClick = { confirmArchive = true }) { Text("Arrêter") }
                         TextButton(onClick = { askDelete = true }) { Text("Supprimer définitivement", color = BankThemeColors.over()) }
                     }
                 }
