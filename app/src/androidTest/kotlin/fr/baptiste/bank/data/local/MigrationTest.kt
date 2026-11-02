@@ -149,6 +149,45 @@ class MigrationTest {
         database.close()
     }
 
+    @Test
+    fun migrate12To13FreezesAllocationBoundsAndMarksOneOffs() {
+        createDatabase(version = 12) { db ->
+            db.execSQL(
+                "INSERT INTO envelope (id, name, type, scale, amount_cents, status, priority, carry_over, archived, every) " +
+                    "VALUES (1, 'Ordinateur', 'PLANNED', 'MONTH', 120000, 'PROTECTED', 0, 0, 0, 6)",
+            )
+            db.execSQL(
+                "INSERT INTO envelope (id, name, type, scale, amount_cents, status, priority, carry_over, archived, every) " +
+                    "VALUES (2, 'Coiffeur', 'RECURRING', 'WEEK', 3000, 'FLEXIBLE', 0, 0, 0, 6)",
+            )
+            db.execSQL(
+                "INSERT INTO envelope (id, name, type, scale, amount_cents, status, priority, carry_over, archived, every) " +
+                    "VALUES (3, 'Courses', 'DAILY', 'MONTH', 40000, 'FLEXIBLE', 0, 0, 0, 1)",
+            )
+            db.execSQL("INSERT INTO allocation (id, envelope_id, period_key, amount_cents) VALUES (1, 3, '2026-10', 35000)")
+        }
+        val database = open()
+        val db = database.openHelper.writableDatabase
+        db.query("SELECT id, repeats, carry_over, retired_on FROM envelope ORDER BY id").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(0L, cursor.getLong(1))
+            cursor.moveToNext()
+            assertEquals(1L, cursor.getLong(1))
+            assertEquals(1L, cursor.getLong(2))
+            cursor.moveToNext()
+            assertEquals(1L, cursor.getLong(1))
+            assertEquals(0L, cursor.getLong(2))
+            assertEquals(true, cursor.isNull(3))
+        }
+        db.query("SELECT start_date, end_date, amount_cents FROM allocation WHERE id = 1").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(java.time.LocalDate.of(2026, 10, 1).toEpochDay(), cursor.getLong(0))
+            assertEquals(java.time.LocalDate.of(2026, 10, 31).toEpochDay(), cursor.getLong(1))
+            assertEquals(35000L, cursor.getLong(2))
+        }
+        database.close()
+    }
+
     /** Recrée une base de [version] à partir de son schéma exporté, puis y écrit [fill]. */
     private fun createDatabase(version: Int, fill: (SQLiteDatabase) -> Unit) {
         val assets = InstrumentationRegistry.getInstrumentation().context.assets
@@ -174,7 +213,7 @@ class MigrationTest {
     }
 
     private fun open(): BankDatabase = Room.databaseBuilder(context, BankDatabase::class.java, DB)
-        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
+        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
         .build()
 
     private companion object {

@@ -65,7 +65,7 @@ val Period.label: String
         is Period.Month -> "${yearMonth.month.getDisplayName(TextStyle.FULL, french)} ${yearMonth.year}"
         is Period.Year -> year.toString()
         is Period.Week -> "semaine $week"
-        is Period.Span -> if (start == endInclusive) {
+        is Period.Span, is Period.Fixed -> if (start == endInclusive) {
             "le ${start.format(dayMonth)}"
         } else {
             "du ${start.format(dayMonth)} au ${endInclusive.format(dayMonth)}"
@@ -85,7 +85,7 @@ val Period.shortLabel: String
         }
         is Period.Year -> year.toString()
         is Period.Week -> "semaine $week"
-        is Period.Span -> if (start == endInclusive) start.format(dayMonth) else "${start.format(dayMonth)} → ${endInclusive.format(dayMonth)}"
+        is Period.Span, is Period.Fixed -> if (start == endInclusive) start.format(dayMonth) else "${start.format(dayMonth)} → ${endInclusive.format(dayMonth)}"
     }
 
 /** Désignation de la période pour une phrase : « le mois », « la semaine », « la période ». */
@@ -94,7 +94,7 @@ val Period.noun: String
         is Period.Month -> "le mois"
         is Period.Year -> "l'année"
         is Period.Week -> "la semaine"
-        is Period.Span -> if (start == endInclusive) "la journée" else "la période"
+        is Period.Span, is Period.Fixed -> if (start == endInclusive) "la journée" else "la période"
     }
 
 /** « à la fin du mois », « à la fin de l'année » : la contraction de « de le » en « du ». */

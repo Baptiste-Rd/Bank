@@ -44,9 +44,14 @@ data class MonthSpending(
     val budget: Money get() = categories.sumOfMoney { it.budget }
 }
 
-/** Part du budget d'une enveloppe pour [month] (rattrapage compris pour une provision). */
-fun Envelope.monthlyBudget(month: YearMonth): Money =
-    monthShare(month, periodContaining(month.atEndOfMonth()), amount)
+/**
+ * Part du budget d'une enveloppe pour [month] (rattrapage compris pour une provision), d'après la
+ * période enregistrée de ce mois-là : changer un montant aujourd'hui ne réécrit pas le passé.
+ */
+fun Envelope.monthlyBudget(month: YearMonth): Money {
+    val period = periodContaining(month.atEndOfMonth())
+    return monthShare(month, period, amountIn(period))
+}
 
 /** Dépenses de [month] par catégorie. [envelopes] : toutes, archivées comprises (leurs dépenses restent). */
 fun monthSpending(
@@ -66,7 +71,10 @@ fun monthSpending(
     val lines = envelopes
         .filter { it.type != EnvelopeType.SAVINGS }
         .map { envelope ->
-            val budget = if (!envelope.archived && envelope.existsOn(month.atEndOfMonth())) envelope.monthlyBudget(month) else Money.ZERO
+            // Une enveloppe retirée garde son budget dans les mois qu'elle a couverts. Une archivée
+            // avant que l'app ne retienne la date du retrait n'en a plus : on ne sait pas quand.
+            val known = !envelope.archived || envelope.retiredOn != null
+            val budget = if (known && envelope.existedDuring(month)) envelope.monthlyBudget(month) else Money.ZERO
             EnvelopeSpent(envelope, spentById[envelope.id] ?: Money.ZERO, budget)
         }
         .filter { it.spent != Money.ZERO || it.budget != Money.ZERO }

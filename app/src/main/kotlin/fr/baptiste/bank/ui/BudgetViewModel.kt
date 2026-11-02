@@ -52,7 +52,24 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
 
     init {
         // Les dépenses suivent le jour de leur opération (réparation unique des anciennes données).
-        viewModelScope.launch { repository.realignImputationPeriods() }
+        // Le passé se fige d'abord (périodes commencées enregistrées), puis chaque dépense rejoint la sienne.
+        viewModelScope.launch {
+            repository.ensurePeriods()
+            repository.realignImputationPeriods()
+        }
+    }
+
+    /** Salaires possibles lus à la banque, et le salaire confirmé (clé, finance le mois suivant). */
+    val salaryCandidates: StateFlow<List<fr.baptiste.bank.domain.budget.SalaryCandidate>> = repository.salaryCandidates.asState(emptyList())
+    val salary: StateFlow<Pair<String, Boolean>?> = repository.salary.asState(null)
+    val monthIncome: StateFlow<fr.baptiste.bank.domain.budget.MonthIncome?> = repository.monthIncome().asState(null)
+
+    fun confirmSalary(candidate: fr.baptiste.bank.domain.budget.SalaryCandidate?, nextMonth: Boolean) {
+        viewModelScope.launch { repository.confirmSalary(candidate, nextMonth) }
+    }
+
+    fun setSalaryNextMonth(nextMonth: Boolean) {
+        viewModelScope.launch { repository.setSalaryNextMonth(nextMonth) }
     }
 
     private fun <T> Flow<T>.asState(initial: T): StateFlow<T> =

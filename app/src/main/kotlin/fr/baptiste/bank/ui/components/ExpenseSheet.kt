@@ -201,7 +201,7 @@ private fun wholePeriodLabel(period: Period?): String = when (period) {
     is Period.Month, null -> "Tout le mois"
     is Period.Week -> "Toute la semaine"
     is Period.Year -> "Toute l'année"
-    is Period.Span -> "Toute la période"
+    is Period.Span, is Period.Fixed -> "Toute la période"
 }
 
 @OptIn(ExperimentalLayoutApi::class)

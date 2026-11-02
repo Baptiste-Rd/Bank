@@ -21,7 +21,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         BalanceEntity::class,
         TransferRuleEntity::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -41,7 +41,7 @@ abstract class BankDatabase : RoomDatabase() {
         /** [name] permet au mode démo d'utiliser une base séparée, sans toucher aux vraies données. */
         fun create(context: Context, name: String = "bank.db"): BankDatabase =
             Room.databaseBuilder(context, BankDatabase::class.java, name)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
                 .build()
     }
 }
@@ -163,6 +163,35 @@ val MIGRATION_11_12 = object : Migration(11, 12) {
         }
         for ((id, epochDay) in found) {
             db.execSQL("UPDATE transaction_record SET booking_date = ? WHERE id = ?", arrayOf<Any>(epochDay, id))
+        }
+    }
+}
+
+/**
+ * Version 13 : budgets datés. Une enveloppe a un premier montant, une remise à zéro, une
+ * répétition (faux : ponctuel) et un jour de retrait ; une allocation, les bornes de sa période
+ * (le passé figé). Un achat prévu devient ponctuel ; un budget « tous les N » garde son reste.
+ */
+val MIGRATION_12_13 = object : Migration(12, 13) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE envelope ADD COLUMN first_amount_cents INTEGER")
+        db.execSQL("ALTER TABLE envelope ADD COLUMN first_reset INTEGER")
+        db.execSQL("ALTER TABLE envelope ADD COLUMN repeats INTEGER NOT NULL DEFAULT 1")
+        db.execSQL("ALTER TABLE envelope ADD COLUMN retired_on INTEGER")
+        db.execSQL("ALTER TABLE allocation ADD COLUMN start_date INTEGER")
+        db.execSQL("ALTER TABLE allocation ADD COLUMN end_date INTEGER")
+        db.execSQL("UPDATE envelope SET repeats = 0 WHERE type = 'PLANNED'")
+        db.execSQL("UPDATE envelope SET carry_over = 1 WHERE type = 'RECURRING'")
+        // Bornes des allocations existantes, lues dans leur clé (« 2026-10 », « 2026-10-12+6W »...).
+        val bounds = mutableListOf<Triple<Long, Long, Long>>()
+        db.query("SELECT id, period_key FROM allocation").use { cursor ->
+            while (cursor.moveToNext()) {
+                val period = runCatching { fr.baptiste.bank.domain.period.Period.parse(cursor.getString(1)) }.getOrNull() ?: continue
+                bounds += Triple(cursor.getLong(0), period.start.toEpochDay(), period.endInclusive.toEpochDay())
+            }
+        }
+        for ((id, start, end) in bounds) {
+            db.execSQL("UPDATE allocation SET start_date = ?, end_date = ? WHERE id = ?", arrayOf<Any>(start, end, id))
         }
     }
 }

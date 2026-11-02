@@ -98,6 +98,14 @@ data class EnvelopeEntity(
     @ColumnInfo(name = "funding_start") val fundingStart: String? = null,
     /** Départ : une dépense antérieure ne compte pas dans son reste (NULL : depuis toujours). */
     @ColumnInfo(name = "start_date") val startDate: LocalDate? = null,
+    /** Montant de la première période, s'il diffère (NULL : le montant). */
+    @ColumnInfo(name = "first_amount_cents") val firstAmountCents: Long? = null,
+    /** Remise à zéro du premier budget (NULL : le rythme seul). */
+    @ColumnInfo(name = "first_reset") val firstReset: LocalDate? = null,
+    /** Faux : budget ponctuel, une seule période. */
+    @ColumnInfo(defaultValue = "1") val repeats: Boolean = true,
+    /** Jour du retrait (NULL : active, ou archivée avant que l'app ne le retienne). */
+    @ColumnInfo(name = "retired_on") val retiredOn: LocalDate? = null,
 )
 
 @Entity(
@@ -117,6 +125,9 @@ data class AllocationEntity(
     @ColumnInfo(name = "envelope_id") val envelopeId: Long,
     @ColumnInfo(name = "period_key") val periodKey: String,
     @ColumnInfo(name = "amount_cents") val amountCents: Long,
+    /** Bornes de la période, figées quand elle commence (NULL : allocation d'avant la version 13). */
+    @ColumnInfo(name = "start_date") val startDate: LocalDate? = null,
+    @ColumnInfo(name = "end_date") val endDate: LocalDate? = null,
 )
 
 @Entity(

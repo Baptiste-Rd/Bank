@@ -156,13 +156,36 @@ sealed interface Period {
         override val scale: Scale get() = frequency.scale
     }
 
+    /**
+     * Période aux bornes choisies, qui ne suit aucun rythme : le premier budget d'une enveloppe
+     * (« 26 € jusqu'au 1er janvier »), ou une période enregistrée dont le rythme a changé depuis.
+     * Clé : "2026-10-30..2026-12-31".
+     */
+    data class Fixed(
+        override val start: LocalDate,
+        override val endInclusive: LocalDate,
+        override val scale: Scale = Scale.MONTH,
+        /** Clé enregistrée, quand elle diffère de la clé par défaut (période figée d'un ancien rythme). */
+        private val storedKey: String? = null,
+    ) : Period {
+        init {
+            require(!endInclusive.isBefore(start)) { "Période vide : $start → $endInclusive" }
+        }
+
+        override val key: String get() = storedKey ?: "$start..$endInclusive"
+    }
+
     companion object {
+        private val fixedKey = Regex("""^(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})$""")
         private val spanKey = Regex("""^(\d{4}-\d{2}-\d{2})\+(\d+)([DWMY])$""")
         private val monthKey = Regex("""^(\d{4})-(\d{2})$""")
         private val yearKey = Regex("""^(\d{4})$""")
         private val weekKey = Regex("""^(\d{4})-W(\d{2})$""")
 
         fun parse(key: String): Period {
+            fixedKey.matchEntire(key)?.let { match ->
+                return Fixed(LocalDate.parse(match.groupValues[1]), LocalDate.parse(match.groupValues[2]))
+            }
             monthKey.matchEntire(key)?.let { match ->
                 val (year, month) = match.destructured
                 return Month(YearMonth.of(year.toInt(), month.toInt()))

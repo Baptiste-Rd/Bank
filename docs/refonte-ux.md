@@ -12,7 +12,7 @@ carte mentale, autocritique) est dans le document de refonte partagé avec Bapti
 | Épargne | Combien vais-je mettre de côté ? | Épargne prévue + conseil · écarts à l'objectif et au mois précédent · six mois · sur tes comptes (livrets, investissement) · mis de côté · achats prévus | Mettre de côté ; + = achat prévu |
 | Dépenses | Où est parti l'argent ? Que s'est-il passé ? | Analyse \| Liste. Analyse : Mois (total réel, à trier et non comptés à part, une barre par catégorie avec le trait du budget, puis enveloppes, puis opérations) · Année (histogramme empilé, moyenne, mois non renseignés grisés, tableau par catégorie). Liste : à trier · outils du tri · historique par jour | Ajouter une dépense |
 
-Le menu ⋮ garde les réglages : salaire, banque, journal des transferts, style, réglages du verre
+Le menu ⋮ garde les réglages : salaire (lu à la banque), banque et synchronisation, vérifier les dates, journal des transferts, style, réglages du verre
 (développeur : panneau en bas, app en direct au-dessus), mises à jour.
 
 La fiche d'une enveloppe liste les dépenses de sa période ; toucher une dépense la déplace.
@@ -110,3 +110,16 @@ corriger, dit si la carte est à débit immédiat ou différé, et applique ce q
 
 Une enveloppe a un départ (1er du mois de sa création ; « depuis toujours » pour les anciennes, à
 choisir dans sa fiche). Une dépense antérieure peut y être rangée mais ne compte pas dans son reste.
+
+## Passé figé et salaire lu à la banque
+
+Chaque période commencée est enregistrée (bornes et montant) : changer un montant vaut pour la
+période en cours et les suivantes, jamais pour un mois terminé. Une enveloppe retirée garde son
+budget dans les mois qu'elle a couverts. Un budget peut avoir un premier montant et une remise à
+zéro (« 26 € jusqu'au 1er janvier, puis 26 € tous les 3 mois »), ou être ponctuel. Un budget rare
+qui garde son reste (« tous les N », coiffeur) le reporte sur sa période suivante ; les autres
+envoient leur reste à l'épargne.
+
+Le salaire n'est plus tapé : l'app repère les virements reçus chaque mois du même émetteur, on
+confirme une fois lequel est le salaire. Versé après le 20, il finance le mois suivant. Tant qu'il
+n'est pas arrivé, le dernier versement est « attendu ».

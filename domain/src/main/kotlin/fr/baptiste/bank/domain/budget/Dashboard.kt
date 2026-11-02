@@ -149,7 +149,7 @@ fun computeDashboard(
 
     val lines = active.map { envelope ->
         val period = envelope.periodContaining(today)
-        val allocated = allocations[envelope.id to period.key] ?: envelope.amount
+        val allocated = allocations[envelope.id to period.key] ?: envelope.amountIn(period)
         val transferred = netTransfers(envelope.id, period)
         val available = allocated + transferred
         val inPeriod = spendingsByEnvelope[envelope.id].orEmpty().filter { it.date in period }
@@ -246,6 +246,8 @@ fun computeDashboard(
     // Le reste d'une enveloppe dont la période est terminée va à l'épargne (voir SavingsOutlook).
     val surpluses = lines
         .filter { it.envelope.type != EnvelopeType.DAILY && it.envelope.type != EnvelopeType.SAVINGS }
+        // Un budget rare qui garde son reste (coiffeur) le reporte sur sa période suivante.
+        .filter { !it.envelope.carryOver }
         // Seule une période qui se termine aujourd'hui est close : c'est le cas, au dernier jour du mois,
         // des charges mensuelles et des provisions qui se terminent ce mois-là.
         .filter { it.period.endInclusive == today }

@@ -349,34 +349,3 @@ fun EnvelopeDialog(
     )
 }
 
-@Composable
-fun IncomeDialog(
-    current: Money?,
-    onDismiss: () -> Unit,
-    onSave: (Money) -> Unit,
-) {
-    var amountText by rememberSaveable { mutableStateOf(current?.toFieldText().orEmpty()) }
-    val amount = parseMoney(amountText)
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Salaire mensuel") },
-        text = {
-            BlurBehindWindow()
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    "Montant net versé chaque mois. Il sert à calculer ce qui reste à répartir.",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                MoneyField(value = amountText, onValueChange = { amountText = it }, label = "Salaire net")
-            }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = amount != null && amount.isPositive,
-                onClick = { if (amount != null) onSave(amount) },
-            ) { Text("Enregistrer") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } },
-    )
-}

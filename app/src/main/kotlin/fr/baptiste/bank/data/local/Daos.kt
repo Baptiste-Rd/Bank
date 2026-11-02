@@ -154,13 +154,13 @@ interface EnvelopeDao {
     @Upsert
     suspend fun upsert(envelope: EnvelopeEntity): Long
 
-    @Query("UPDATE envelope SET archived = 1 WHERE id = :id")
-    suspend fun archive(id: Long)
+    @Query("UPDATE envelope SET archived = 1, retired_on = :on WHERE id = :id")
+    suspend fun archive(id: Long, on: LocalDate)
 
     @Query("SELECT * FROM envelope WHERE archived = 1 ORDER BY name")
     fun observeArchived(): Flow<List<EnvelopeEntity>>
 
-    @Query("UPDATE envelope SET archived = 0 WHERE id = :id")
+    @Query("UPDATE envelope SET archived = 0, retired_on = NULL WHERE id = :id")
     suspend fun restore(id: Long)
 
     @Query("SELECT * FROM envelope WHERE archived = 0")
@@ -174,6 +174,16 @@ interface EnvelopeDao {
 interface AllocationDao {
     @Query("SELECT * FROM allocation")
     fun observeAll(): Flow<List<AllocationEntity>>
+
+    @Query("SELECT * FROM allocation")
+    suspend fun all(): List<AllocationEntity>
+
+    /** Une période déjà enregistrée (même clé) est gardée telle quelle. */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertAll(allocations: List<AllocationEntity>)
+
+    @Query("UPDATE allocation SET amount_cents = :amountCents WHERE envelope_id = :envelopeId AND period_key = :periodKey")
+    suspend fun setAmount(envelopeId: Long, periodKey: String, amountCents: Long)
 
     @Query("DELETE FROM allocation WHERE envelope_id = :envelopeId AND period_key = :periodKey")
     suspend fun delete(envelopeId: Long, periodKey: String)
@@ -242,6 +252,10 @@ data class OperationRow(
 interface ImputationDao {
     @Insert
     suspend fun insert(imputation: ImputationEntity): Long
+
+    /** Dépensé par enveloppe et par période (report du reste d'un budget rare). */
+    @Query("SELECT envelope_id AS envelopeId, period_key AS periodKey, SUM(amount_cents) AS amountCents FROM imputation GROUP BY envelope_id, period_key")
+    suspend fun spentByPeriod(): List<PeriodSpent>
 
     @Query("DELETE FROM imputation WHERE transaction_id = :transactionId")
     suspend fun deleteForTransaction(transactionId: Long)
@@ -392,6 +406,16 @@ interface TransactionDao {
         """,
     )
     fun observeOutflows(from: LocalDate, to: LocalDate): Flow<List<LabeledAmount>>
+
+    /** Virements reçus de la banque (salaire, remboursements), libellé d'origine. */
+    @Query(
+        """
+        SELECT t.raw_label AS label, t.date AS date, t.amount_cents AS amount_cents
+        FROM transaction_record t
+        WHERE t.amount_cents > 0 AND t.source != 'MANUAL' AND t.date BETWEEN :from AND :to
+        """,
+    )
+    fun observeInflows(from: LocalDate, to: LocalDate): Flow<List<LabeledAmount>>
 
     /** Montants des virements vers mes comptes sur une plage de dates. */
     @Query("SELECT amount_cents FROM transaction_record WHERE transfer_account_id IS NOT NULL AND date BETWEEN :from AND :to")
@@ -547,3 +571,6 @@ data class DatedOperationRow(
     val bookingDate: LocalDate?,
     val bankDate: LocalDate?,
 )
+
+/** Dépensé dans une enveloppe sur une période. */
+data class PeriodSpent(val envelopeId: Long, val periodKey: String, val amountCents: Long)

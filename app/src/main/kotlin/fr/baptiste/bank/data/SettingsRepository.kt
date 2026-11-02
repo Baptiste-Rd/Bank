@@ -39,6 +39,28 @@ class SettingsRepository(context: Context, storeName: String = "settings") {
         settingsStore.edit { it[monthlyIncomeKey] = income.cents }
     }
 
+    private val salaryKeyKey = stringPreferencesKey("salary_key")
+    private val salaryNextMonthKey = androidx.datastore.preferences.core.booleanPreferencesKey("salary_next_month")
+
+    /** Salaire confirmé : la clé de ses versements, et s'il finance le mois suivant (null : pas confirmé). */
+    val salary: Flow<Pair<String, Boolean>?> = settingsStore.data.map { prefs ->
+        prefs[salaryKeyKey]?.let { it to (prefs[salaryNextMonthKey] ?: true) }
+    }
+
+    /** Confirme le salaire lu à la banque ; le montant tapé à la main n'a plus lieu d'être. */
+    suspend fun setSalary(key: String?, nextMonth: Boolean) {
+        settingsStore.edit {
+            if (key == null) {
+                it.remove(salaryKeyKey)
+                it.remove(salaryNextMonthKey)
+            } else {
+                it[salaryKeyKey] = key
+                it[salaryNextMonthKey] = nextMonth
+                it.remove(monthlyIncomeKey)
+            }
+        }
+    }
+
     private val uiStyleKey = stringPreferencesKey("ui_style")
 
     /** Liquid Glass par défaut ; le style classique reste disponible depuis le menu. */

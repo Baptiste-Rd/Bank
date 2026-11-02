@@ -32,6 +32,12 @@ private fun monthsBetween(from: YearMonth, to: YearMonth): Long = ChronoUnit.MON
  * Rattrapage seulement si la mise de côté commence après le premier mois de la période.
  */
 fun Envelope.monthShare(month: YearMonth, period: Period, allocated: Money): Money {
+    // Période aux bornes choisies (« 26 € jusqu'au 1er janvier ») : le montant se répartit sur ses mois.
+    if (period is Period.Fixed && type.isProvision) {
+        val from = listOfNotNull(period.firstMonth(), fundingStart).max()
+        if (month < from || month > period.lastMonth()) return Money.ZERO
+        return allocated.divideCeil(monthsBetween(from, period.lastMonth()))
+    }
     val usual = allocated.convert(frequency, Frequency.MONTHLY)
     val start = fundingStart
     if (start == null || !type.isProvision || start <= period.firstMonth()) return usual

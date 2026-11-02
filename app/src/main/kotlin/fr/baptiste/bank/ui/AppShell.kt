@@ -29,7 +29,7 @@ import fr.baptiste.bank.domain.model.Envelope
 import fr.baptiste.bank.domain.money.Money
 import fr.baptiste.bank.ui.components.EnvelopeDialog
 import fr.baptiste.bank.ui.components.ExpenseSheet
-import fr.baptiste.bank.ui.components.IncomeDialog
+import fr.baptiste.bank.ui.components.SalaryDialog
 import fr.baptiste.bank.ui.bank.BankDialog
 import fr.baptiste.bank.ui.format.formatted
 import fr.baptiste.bank.ui.format.label
@@ -169,9 +169,9 @@ fun AppMenuItems(
     /** Menu développeur : réglages du verre (style Liquid Glass seulement). */
     onOpenTuning: (() -> Unit)? = null,
 ) {
-    val income by viewModel.monthlyIncome.collectAsStateWithLifecycle()
+    val salary by viewModel.salary.collectAsStateWithLifecycle()
     DropdownMenuItem(
-        text = { Text(income?.let { "Salaire mensuel : ${it.formatted()}" } ?: "Indiquer mon salaire") },
+        text = { Text(if (salary != null) "Salaire : lu à la banque" else "Salaire : à confirmer") },
         onClick = {
             onClose()
             controller.dialog = OpenDialog.Income
@@ -239,7 +239,6 @@ fun AppDialogs(
 ) {
     val dashboard by viewModel.dashboard.collectAsStateWithLifecycle()
     val envelopes by viewModel.envelopes.collectAsStateWithLifecycle()
-    val income by viewModel.monthlyIncome.collectAsStateWithLifecycle()
     val journal by viewModel.transferJournal.collectAsStateWithLifecycle()
     val archivedEnvelopes by viewModel.archivedEnvelopes.collectAsStateWithLifecycle()
     val holdingAccounts by viewModel.holdingAccounts.collectAsStateWithLifecycle()
@@ -276,14 +275,25 @@ fun AppDialogs(
                 close()
             },
         )
-        OpenDialog.Income -> IncomeDialog(
-            current = income,
-            onDismiss = ::close,
-            onSave = {
-                viewModel.setMonthlyIncome(it)
-                close()
-            },
-        )
+        OpenDialog.Income -> {
+            val candidates by viewModel.salaryCandidates.collectAsStateWithLifecycle()
+            val salary by viewModel.salary.collectAsStateWithLifecycle()
+            val monthIncome by viewModel.monthIncome.collectAsStateWithLifecycle()
+            val typed by viewModel.monthlyIncome.collectAsStateWithLifecycle()
+            SalaryDialog(
+                candidates = candidates,
+                salary = salary,
+                income = monthIncome,
+                typed = typed.takeIf { salary == null },
+                onConfirm = { candidate, next ->
+                    viewModel.confirmSalary(candidate, next)
+                    controller.notify("Salaire lu à la banque : plus rien à taper.")
+                },
+                onNextMonthChange = viewModel::setSalaryNextMonth,
+                onForget = { viewModel.confirmSalary(null, true) },
+                onDismiss = ::close,
+            )
+        }
         OpenDialog.Updates -> UpdateDialog(viewModel = updateViewModel, onDismiss = ::close)
         OpenDialog.Bank -> BankDialog(viewModel = bankViewModel, onDismiss = ::close)
         is OpenDialog.SortOperation -> SortOperationDialog(
