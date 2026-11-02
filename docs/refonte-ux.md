@@ -7,7 +7,7 @@ carte mentale, autocritique) est dans le document de refonte partagé avec Bapti
 
 | Onglet | Question | Contenu, dans l'ordre | Action principale |
 | --- | --- | --- | --- |
-| Aujourd'hui | Puis-je dépenser aujourd'hui ? | Reste du jour · Le mois (dépensé sur budget, bande de rythme) · À faire (couvrir, trier ; absent s'il n'y a rien) · Épargne prévue en une ligne | Ajouter une dépense |
+| Aujourd'hui | Combien j'ai, et où j'en suis ce mois ? | Sur ton compte (solde réel, lu à…, dépensé du mois sur le budget, charges encore à prélever) · À trier (absent s'il n'y a rien) · Autres comptes (total, ≈ net, quatre comptes, versement du mois à faire) · Rythme du mois (écart, courbe cumulée face au budget) · Enveloppes (six lignes au plus, charges en une ligne) | Ajouter une dépense (+) |
 | Budget | Où va mon salaire ? | Bilan (mois terminé) · Plan du mois (barre : charges fixes, provisions, épargne, quotidien) · une carte par famille | Nouvelle enveloppe (+) |
 | Épargne | Combien vais-je mettre de côté ? | Épargne prévue + conseil · écarts à l'objectif et au mois précédent · six mois · sur tes comptes (livrets, investissement) · mis de côté · achats prévus | Mettre de côté ; + = achat prévu |
 | Dépenses | Où est parti l'argent ? Que s'est-il passé ? | Analyse \| Liste. Analyse : Mois (total réel, à trier et non comptés à part, une barre par catégorie avec le trait du budget, puis enveloppes, puis opérations) · Année (histogramme empilé, moyenne, mois non renseignés grisés, tableau par catégorie). Liste : à trier · outils du tri · historique par jour | Ajouter une dépense |

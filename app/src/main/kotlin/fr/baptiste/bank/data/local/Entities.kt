@@ -33,6 +33,8 @@ data class AccountEntity(
     @ColumnInfo(name = "invested_cents") val investedCents: Long? = null,
     /** Placement : enveloppe fiscale (compte-titres, PEA, assurance-vie) ; NULL : inconnue. */
     @ColumnInfo(name = "tax_wrapper") val taxWrapper: TaxWrapper? = null,
+    /** Versement prévu chaque mois vers ce compte (rappel sur l'accueil), en centimes ; NULL : aucun. */
+    @ColumnInfo(name = "monthly_target_cents") val monthlyTargetCents: Long? = null,
 )
 
 @Entity(

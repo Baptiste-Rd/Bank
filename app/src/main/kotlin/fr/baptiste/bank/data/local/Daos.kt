@@ -46,6 +46,9 @@ interface AccountDao {
 
     @Query("UPDATE account SET invested_cents = :investedCents, tax_wrapper = :wrapper WHERE id = :id")
     suspend fun setInvestment(id: Long, investedCents: Long?, wrapper: fr.baptiste.bank.domain.budget.TaxWrapper?)
+
+    @Query("UPDATE account SET monthly_target_cents = :cents WHERE id = :id")
+    suspend fun setMonthlyTarget(id: Long, cents: Long?)
 }
 
 @Dao
@@ -443,6 +446,10 @@ interface TransactionDao {
     )
     fun observeInflows(from: LocalDate, to: LocalDate): Flow<List<LabeledAmount>>
 
+    /** Virements vers mes comptes, par compte, sur une plage de dates. */
+    @Query("SELECT transfer_account_id AS accountId, date, amount_cents AS amountCents FROM transaction_record WHERE transfer_account_id IS NOT NULL AND date BETWEEN :from AND :to")
+    fun observeTransfersByAccount(from: LocalDate, to: LocalDate): Flow<List<AccountTransferRow>>
+
     /** Montants des virements vers mes comptes sur une plage de dates. */
     @Query("SELECT amount_cents FROM transaction_record WHERE transfer_account_id IS NOT NULL AND date BETWEEN :from AND :to")
     fun observeTransfersToAccounts(from: LocalDate, to: LocalDate): Flow<List<Long>>
@@ -610,3 +617,6 @@ data class PeriodSpent(val envelopeId: Long, val periodKey: String, val amountCe
 
 /** Ce qui est rangé dans une enveloppe pour une origine (banque, saisie). */
 data class EnvelopeUsageRow(val source: TransactionSource, val count: Int, val amountCents: Long)
+
+/** Un virement vers un de mes comptes. */
+data class AccountTransferRow(val accountId: Long, val date: LocalDate, val amountCents: Long)

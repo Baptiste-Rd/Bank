@@ -137,6 +137,8 @@ object DemoData {
         repository.updateBalance(trading, Money.euros(3000), today.minusMonths(1).withDayOfMonth(15))
         // Montant versé et enveloppe fiscale : l'app en estime le net après impôt.
         repository.setInvestment(trading, Money.euros(3000), fr.baptiste.bank.domain.budget.TaxWrapper.SECURITIES)
+        // Versement de 100 € par mois à faire soi-même : l'accueil le rappelle.
+        repository.setMonthlyTarget(trading, Money.euros(100))
         val pea = repository.addManualAccount("PEA", AccountType.INVESTMENT, Money.euros(2400))
         repository.setInvestment(pea, Money.euros(2000), fr.baptiste.bank.domain.budget.TaxWrapper.PEA_OVER_5)
         // Le solde du compte courant, tel que la banque l'afficherait : il contient une réserve (mois passés).

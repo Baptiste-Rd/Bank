@@ -22,13 +22,25 @@ data class HoldingAccount(
     val linked: Boolean,
     val invested: Money? = null,
     val taxWrapper: TaxWrapper? = null,
+    /** Versement prévu chaque mois vers ce compte (un rappel s'il n'est pas fait), null sinon. */
+    val monthlyTarget: Money? = null,
 )
+
+/** Un virement du compte courant vers un compte d'épargne. */
+data class AccountTransfer(val accountId: Long, val date: LocalDate, val amount: Money)
 
 /** Relevé de solde d'un compte à une date. */
 data class BalanceSnapshot(val accountId: Long, val date: LocalDate, val balance: Money)
 
 /** Un compte et son dernier solde connu (null : jamais renseigné). */
-data class HoldingLine(val account: HoldingAccount, val balance: Money?, val asOf: LocalDate?) {
+data class HoldingLine(
+    val account: HoldingAccount,
+    val balance: Money?,
+    val asOf: LocalDate?,
+    /** Versé ce mois-ci vers ce compte, et le dernier jour de versement. */
+    val transferredThisMonth: Money = Money.ZERO,
+    val lastTransfer: LocalDate? = null,
+) {
     /** Net estimé si tout était retiré aujourd'hui (placements renseignés), sinon null. */
     val estimate: NetEstimate? get() = balance?.let { netEstimate(account.taxWrapper, it, account.invested) }
 }
@@ -67,11 +79,20 @@ fun computeHoldings(
     today: LocalDate,
     months: Int = 6,
     transfersThisMonth: List<Money> = emptyList(),
+    /** Virements du mois, par compte (pour le rappel du versement prévu). */
+    transfersByAccount: List<AccountTransfer> = emptyList(),
 ): Holdings {
     val held = accounts.filter { it.type != AccountType.CURRENT }
     val lines = held.map { account ->
         val last = snapshots.filter { it.accountId == account.id && !it.date.isAfter(today) }.maxByOrNull { it.date }
-        HoldingLine(account, last?.balance, last?.date)
+        val mine = transfersByAccount.filter { it.accountId == account.id && YearMonth.from(it.date) == YearMonth.from(today) }
+        HoldingLine(
+            account,
+            last?.balance,
+            last?.date,
+            transferredThisMonth = mine.fold(Money.ZERO) { sum, it -> sum + Money(kotlin.math.abs(it.amount.cents)) },
+            lastTransfer = mine.maxOfOrNull { it.date },
+        )
     }
     fun totalOn(date: LocalDate) = held.fold(Money.ZERO) { sum, account ->
         sum + (snapshots.balanceOn(account.id, date) ?: Money.ZERO)

@@ -324,6 +324,7 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
     ) = perform {
         val id = repository.addManualAccount(name, type, balance)
         if (type == AccountType.INVESTMENT) repository.setInvestment(id, investment.invested, investment.wrapper)
+        repository.setMonthlyTarget(id, investment.monthlyTarget)
     }
 
     fun saveAccount(accountId: Long, name: String, type: AccountType, balance: Money?, investment: AccountInvestment = AccountInvestment()) = perform {
@@ -334,7 +335,11 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
             investment.invested.takeIf { type == AccountType.INVESTMENT },
             investment.wrapper.takeIf { type == AccountType.INVESTMENT },
         )
+        repository.setMonthlyTarget(accountId, investment.monthlyTarget)
     }
+
+    /** Le dépensé du mois en cours jour par jour, face au budget (courbe de l'accueil). */
+    val monthPace: StateFlow<fr.baptiste.bank.domain.budget.MonthPace?> = repository.monthPace().asState(null)
 
     fun archiveAccount(accountId: Long) = perform { repository.archiveAccount(accountId) }
 
@@ -371,4 +376,6 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
 data class AccountInvestment(
     val invested: Money? = null,
     val wrapper: fr.baptiste.bank.domain.budget.TaxWrapper? = null,
+    /** Versement prévu chaque mois vers ce compte (null : aucun). */
+    val monthlyTarget: Money? = null,
 )

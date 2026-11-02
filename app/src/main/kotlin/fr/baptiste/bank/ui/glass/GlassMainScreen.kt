@@ -174,36 +174,33 @@ fun GlassMainScreen(
                 val openEnvelope: (EnvelopeLine) -> Unit = { controller.dialog = OpenDialog.EnvelopeDetail(it.envelope.id) }
                 val cover: (EnvelopeLine) -> Unit = { controller.dialog = OpenDialog.Cover(it.envelope.id) }
                 when (controller.tab) {
-                    Tab.HOME -> GlassHomeContent(
-                        dashboard = dashboard,
-                        savingsHistory = savingsHistory,
-                        unsortedCount = unsortedCount,
-                        onAddExpense = { controller.dialog = OpenDialog.Expense },
-                        showsDay = homeShowsDay,
-                        onShowsDayChange = viewModel::setHomeShowsDay,
-                        accountBalance = currentBalance?.balance,
-                        // Dernière lecture du solde : synchronisation de la banque, ou saisie datée.
-                        balanceCheckedAt = bankConnection?.takeIf { it.isConnected }?.lastSync
-                            ?: currentBalance?.date?.atStartOfDay(java.time.ZoneId.systemDefault())?.toInstant(),
-                        bankConnected = bankConnection?.isConnected == true,
-                        onSync = {
-                            bankViewModel.syncNow()
-                            controller.notify("Synchronisation en cours…")
-                        },
-                        onSetBalance = { controller.dialog = OpenDialog.CurrentBalance },
-                        onOpenReview = {
-                            if (selectedMonth == YearMonth.now()) viewModel.previousMonth()
-                            controller.tab = Tab.BUDGET
-                        },
-                        onEditIncome = { controller.dialog = OpenDialog.Income },
-                        onCover = cover,
-                        onOpenEnvelope = openEnvelope,
-                        onOpenTab = {
-                            // Le lien « à trier » de l'accueil mène à la liste, pas à l'analyse.
-                            if (it == Tab.OPERATIONS) spendingView = SpendingTabView.LIST
-                            controller.tab = it
-                        },
-                    )
+                    Tab.HOME -> {
+                        val pace by viewModel.monthPace.collectAsStateWithLifecycle()
+                        GlassHomeContent(
+                            dashboard = dashboard,
+                            unsortedCount = unsortedCount,
+                            onOpenEnvelope = openEnvelope,
+                            onCover = cover,
+                            onOpenTab = {
+                                // Le lien « à trier » de l'accueil mène à la liste, pas à l'analyse.
+                                if (it == Tab.OPERATIONS) spendingView = SpendingTabView.LIST
+                                controller.tab = it
+                            },
+                            accountBalance = currentBalance?.balance,
+                            // Dernière lecture du solde : synchronisation de la banque, ou saisie datée.
+                            balanceCheckedAt = bankConnection?.takeIf { it.isConnected }?.lastSync
+                                ?: currentBalance?.date?.atStartOfDay(java.time.ZoneId.systemDefault())?.toInstant(),
+                            bankConnected = bankConnection?.isConnected == true,
+                            onSync = {
+                                bankViewModel.syncNow()
+                                controller.notify("Synchronisation en cours…")
+                            },
+                            onSetBalance = { controller.dialog = OpenDialog.CurrentBalance },
+                            pace = pace,
+                            holdings = holdings,
+                            onOpenAccount = { controller.dialog = OpenDialog.AccountEdit(it) },
+                        )
+                    }
                     Tab.BUDGET -> {
                         val yearOverview by viewModel.yearOverview.collectAsStateWithLifecycle()
                         GlassBudgetContent(

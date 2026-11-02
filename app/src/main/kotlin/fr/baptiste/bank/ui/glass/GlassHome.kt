@@ -1,10 +1,7 @@
 package fr.baptiste.bank.ui.glass
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,75 +9,95 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import fr.baptiste.bank.R
-import fr.baptiste.bank.data.MonthSavings
+import androidx.compose.foundation.background
 import fr.baptiste.bank.domain.budget.Dashboard
 import fr.baptiste.bank.domain.budget.EnvelopeLine
+import fr.baptiste.bank.domain.budget.HoldingLine
+import fr.baptiste.bank.domain.budget.Holdings
+import fr.baptiste.bank.domain.budget.MonthPace
+import fr.baptiste.bank.domain.budget.SavingReminder
+import fr.baptiste.bank.domain.budget.chargesToCome
+import fr.baptiste.bank.domain.budget.homeBudget
+import fr.baptiste.bank.domain.budget.reminder
 import fr.baptiste.bank.domain.money.Money
 import fr.baptiste.bank.ui.Tab
-import fr.baptiste.bank.ui.components.RowActionButton
+import fr.baptiste.bank.ui.accounts.isStale
+import fr.baptiste.bank.ui.components.RowDivider
 import fr.baptiste.bank.ui.components.StatusChip
 import fr.baptiste.bank.ui.components.StatusKind
-import fr.baptiste.bank.ui.envelopes.CategoryAvatar
+import fr.baptiste.bank.ui.envelopes.EnvelopeRow
 import fr.baptiste.bank.ui.format.formatted
-import fr.baptiste.bank.ui.home.MonthStrip
 import fr.baptiste.bank.ui.theme.BankTheme
-import fr.baptiste.bank.ui.theme.envelopeTypeColor
+import java.time.Duration
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle
 import java.util.Locale
 
 /*
- * Onglet Aujourd'hui : une seule question, « puis-je dépenser aujourd'hui ? ».
- * 1. Le reste du jour, en très grand, et l'action la plus fréquente.
- * 2. Le mois : dépensé sur budget, et la bande du rythme jour par jour.
- * 3. Ma semaine : le rendez-vous qui garde les chiffres justes (trier, couvrir, vérifier le
- *    solde), avec « tout est à jour » quand c'est fait.
- * 4. L'épargne prévue en une ligne, qui ouvre l'onglet Épargne.
- * Le détail des enveloppes vit dans l'onglet Budget.
+ * Accueil : le tableau de bord du mois, au plus simple mais complet. Cinq blocs, une question
+ * chacun (voir domain/budget/Home.kt) :
+ * 1. Sur ton compte : le solde réel, le dépensé du mois sur le budget, les charges encore à prélever.
+ * 2. À trier, seulement s'il y a quelque chose.
+ * 3. Autres comptes : livrets et placements (≈ net), le versement du mois à faire.
+ * 4. Rythme du mois : le dépensé cumulé face à la ligne du budget.
+ * 5. Enveloppes : six lignes au plus (charges en une ligne), le reste dans l'onglet Budget.
+ * Une seule action : le + en haut à droite (ajouter une dépense).
  */
 
 private val todayTitle = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.FRANCE)
+private val hour = DateTimeFormatter.ofPattern("H 'h' mm", Locale.FRANCE)
+private val dayMonth = DateTimeFormatter.ofPattern("d MMM", Locale.FRANCE)
 
 internal fun Money.signed(): String = if (isNegative) "−${(-this).formatted()}" else "+${formatted()}"
+
+/** Comptes montrés sur l'accueil ; les autres sont dans l'onglet Épargne. */
+private const val HOME_ACCOUNTS = 4
 
 @Composable
 fun GlassHomeContent(
     dashboard: Dashboard?,
-    savingsHistory: List<MonthSavings>,
     unsortedCount: Int,
-    onAddExpense: () -> Unit,
-    onEditIncome: () -> Unit,
-    onCover: (EnvelopeLine) -> Unit,
     onOpenEnvelope: (EnvelopeLine) -> Unit,
+    onCover: (EnvelopeLine) -> Unit,
     onOpenTab: (Tab) -> Unit,
-    /** Ouvre le bilan du mois dernier (onglet Budget, mois précédent). */
-    onOpenReview: () -> Unit = {},
-    /** Reste du jour plutôt que reste du mois (le mois par défaut). */
-    showsDay: Boolean = false,
-    onShowsDayChange: (Boolean) -> Unit = {},
-    /** Solde du compte courant lu à la banque, s'il est connu. */
+    /** Solde du compte courant (banque ou saisie), s'il est connu, et sa dernière lecture. */
     accountBalance: Money? = null,
-    /** Dernière lecture du solde (synchronisation ou saisie), ou null. */
-    balanceCheckedAt: java.time.Instant? = null,
-    /** Banque reliée : on synchronise ; sinon on saisit le solde. */
+    balanceCheckedAt: Instant? = null,
     bankConnected: Boolean = false,
     onSync: () -> Unit = {},
     onSetBalance: () -> Unit = {},
+    pace: MonthPace? = null,
+    holdings: Holdings? = null,
+    onOpenAccount: (HoldingLine?) -> Unit = {},
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -93,273 +110,314 @@ fun GlassHomeContent(
             item { Box(Modifier.fillMaxWidth().padding(48.dp), Alignment.Center) { CircularProgressIndicator() } }
             return@LazyColumn
         }
-        val allowance = dashboard.dailyAllowance
+        val today = dashboard.today
 
-        if (!dashboard.dailyBudget.isPositive) {
-            item(key = "no-income") {
-                GlassCard(strong = true) {
-                    Text("Indique ton salaire", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "Il fixe ton budget du quotidien, donc ton reste du jour.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    GlassPillButton("Indiquer mon salaire", onClick = onEditIncome, modifier = Modifier.padding(top = 12.dp))
-                }
-            }
-        } else {
-            // 1. Le chiffre, posé sur le fond : la seule chose en très grand. Par défaut ce qui reste
-            // à dépenser d'ici la fin du mois ; « Jour » le ramène à aujourd'hui.
-            item(key = "hero") {
-                val monthLeft = dashboard.dailyBudget - dashboard.dailySpent
-                val shown = if (showsDay) allowance.remainingToday else monthLeft
-                Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
-                    // À gauche, contre le libellé : à droite, la bascule passait sous les boutons
-                    // flottants (+ et ⋮) quand l'accueil défile.
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(
-                            if (showsDay) "Reste du jour" else "Reste du mois",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        PeriodPills(showsDay, onShowsDayChange)
-                    }
-                    Text(
-                        shown.formatted(),
-                        style = MaterialTheme.typography.displayLarge,
-                        color = if (shown.isNegative) BankTheme.status.over else MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        if (showsDay) {
-                            "sur ${allowance.allowance.formatted()} aujourd'hui · ${daysLabel(dashboard.daysRemaining)}"
-                        } else {
-                            // Une ligne, deux faits : le budget et le temps qui reste. Le par-jour est
-                            // dans « Jour », le compte courant dans Épargne › Mes comptes.
-                            "sur ${dashboard.dailyBudget.formatted()} · ${daysLabel(dashboard.daysRemaining)}"
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    // Une seule action « ajouter » par écran : le + en haut à droite, comme sur iOS.
-                }
-            }
+        // 1. Sur ton compte.
+        item(key = "account") {
+            AccountHero(
+                balance = accountBalance,
+                checkedAt = balanceCheckedAt,
+                bankConnected = bankConnected,
+                pace = pace,
+                toCome = chargesToCome(dashboard.envelopes, today),
+                onRefresh = if (bankConnected) onSync else onSetBalance,
+            )
+        }
 
-            // 2. Le mois.
-            sectionHeader("month-label", "Ce mois-ci", action = "Budget", onAction = { onOpenTab(Tab.BUDGET) })
-            item(key = "month") {
-                GlassCard(contentPadding = 16.dp) {
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text(dashboard.dailySpent.formatted(), style = MaterialTheme.typography.titleLarge)
+        // 2. À trier : le seul rappel qui garde les chiffres justes ; absent quand tout est rangé.
+        if (unsortedCount > 0) {
+            item(key = "to-sort") {
+                GlassCard(contentPadding = 16.dp, onClick = { onOpenTab(Tab.OPERATIONS) }) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            "  dépensés",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(bottom = 3.dp),
+                            if (unsortedCount > 1) "$unsortedCount dépenses à trier" else "1 dépense à trier",
+                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                            modifier = Modifier.weight(1f),
                         )
+                        Chevron()
                     }
-                    MonthStrip(
-                        days = dashboard.monthDays,
-                        averageShare = dashboard.averageDailyShare,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
                 }
             }
         }
 
-        // 3. Ma semaine : trois étapes, cochées quand elles sont faites. Rien à faire : une ligne.
-        val watched = dashboard.alerts
-        // La première semaine du mois, le bilan du mois dernier attend d'être lu.
-        val lastMonth = savingsHistory.dropLast(1).lastOrNull()?.takeIf { dashboard.today.dayOfMonth <= 7 }
-        val balanceFresh = balanceCheckedAt?.let {
-            java.time.Duration.between(it, java.time.Instant.now()) < java.time.Duration.ofDays(if (bankConnected) 1 else 7)
-        } == true
-        val steps = listOf(unsortedCount == 0, watched.isEmpty(), balanceFresh)
-        val done = steps.count { it }
-        sectionHeader("week-label", "Ma semaine", trailing = if (done == steps.size) "à jour" else "$done sur ${steps.size}")
-        item(key = "week") {
-            GlassCard(contentPadding = 16.dp, verticalPadding = 4.dp) {
-                if (done == steps.size) {
-                    StepRow(done = true, title = "Tout est à jour", detail = "Opérations triées, aucun dépassement, solde vérifié.")
-                } else {
-                    // Trier.
-                    if (unsortedCount > 0) {
-                        StepRow(
-                            done = false,
-                            title = if (unsortedCount > 1) "$unsortedCount opérations à trier" else "1 opération à trier",
-                            detail = "Valide les propositions d'un geste",
-                            onClick = { onOpenTab(Tab.OPERATIONS) },
-                        )
-                    } else {
-                        StepRow(done = true, title = "Tout est trié")
+        // 3. Autres comptes.
+        if (holdings != null) {
+            sectionHeader("accounts-label", "Autres comptes", action = "Détail", onAction = { onOpenTab(Tab.SAVINGS) })
+            item(key = "accounts") { AccountsCard(holdings, today, onOpenAccount) }
+        }
+
+        // 4. Rythme du mois.
+        if (pace != null && pace.budget.isPositive) {
+            sectionHeader("pace-label", "Rythme du mois")
+            item(key = "pace") { PaceCard(pace) }
+        }
+
+        // 5. Enveloppes.
+        val home = homeBudget(dashboard.envelopes)
+        if (home.daily.isNotEmpty() || home.charges.isNotEmpty() || home.rare.isNotEmpty()) {
+            sectionHeader("envelopes-label", "Enveloppes", action = "Tout voir", onAction = { onOpenTab(Tab.BUDGET) })
+            item(key = "envelopes") {
+                GlassCard(contentPadding = 16.dp, verticalPadding = 4.dp) {
+                    var first = true
+                    if (home.daily.isNotEmpty()) {
+                        FamilyCaption("Au quotidien", "${dashboard.dailyAllowance.allowance.formatted()} par jour jusqu'au ${today.lengthOfMonth()}")
+                        home.daily.forEachIndexed { index, line ->
+                            if (index > 0) RowDivider(0.dp)
+                            EnvelopeRow(line, onClick = { onOpenEnvelope(line) }, onCover = { onCover(line) })
+                        }
+                        first = false
                     }
-                    fr.baptiste.bank.ui.components.RowDivider(0.dp)
-                    // Couvrir.
-                    if (watched.isEmpty()) {
-                        StepRow(done = true, title = "Aucun dépassement")
-                    } else {
-                        watched.forEachIndexed { index, line ->
-                            if (index > 0) fr.baptiste.bank.ui.components.RowDivider()
-                            TodoEnvelopeRow(line, onOpen = { onOpenEnvelope(line) }, onCover = { onCover(line) })
+                    if (home.charges.isNotEmpty()) {
+                        if (!first) RowDivider(0.dp)
+                        ChargesRow(home.charges, onOpenEnvelope)
+                        first = false
+                    }
+                    if (home.rare.isNotEmpty()) {
+                        if (!first) RowDivider(0.dp)
+                        FamilyCaption("Rares et ponctuels", null)
+                        home.rare.forEachIndexed { index, line ->
+                            if (index > 0) RowDivider(0.dp)
+                            EnvelopeRow(line, onClick = { onOpenEnvelope(line) }, onCover = { onCover(line) })
                         }
                     }
-                    fr.baptiste.bank.ui.components.RowDivider(0.dp)
-                    // Vérifier le solde.
-                    if (balanceFresh) {
-                        StepRow(done = true, title = "Solde à jour", detail = accountBalance?.let { "Compte courant : ${it.formatted()}" })
-                    } else {
-                        StepRow(
-                            done = false,
-                            title = if (bankConnected) "Synchroniser la banque" else "Mettre à jour le solde",
-                            detail = if (bankConnected) "Pour que les chiffres collent à ton compte" else "Le solde de ton compte courant",
-                            onClick = if (bankConnected) onSync else onSetBalance,
-                        )
+                    if (home.hidden > 0) {
+                        RowDivider(0.dp)
+                        TextButton(onClick = { onOpenTab(Tab.BUDGET) }) {
+                            Text(if (home.hidden > 1) "${home.hidden} autres enveloppes" else "1 autre enveloppe")
+                        }
                     }
-                }
-                if (lastMonth != null) {
-                    fr.baptiste.bank.ui.components.RowDivider(0.dp)
-                    StepRow(
-                        done = false,
-                        title = "Bilan de ${lastMonth.month.month.getDisplayName(TextStyle.FULL_STANDALONE, Locale.FRANCE)}",
-                        detail = "${lastMonth.outlook.forecast.formatted()} épargnés",
-                        onClick = onOpenReview,
-                    )
-                }
-            }
-        }
-
-        // 4. L'épargne en une ligne.
-        val savings = dashboard.savings
-        sectionHeader("savings-label", "Épargne", action = "Détail", onAction = { onOpenTab(Tab.SAVINGS) })
-        item(key = "savings") {
-            GlassCard(contentPadding = 16.dp, onClick = { onOpenTab(Tab.SAVINGS) }) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    CategoryAvatar("€", envelopeTypeColor(fr.baptiste.bank.domain.model.EnvelopeType.SAVINGS))
-                    Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                        Text(
-                            if (savings.isFinal) "Épargné ce mois-ci" else "Épargne prévue",
-                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-                        )
-                        // Un seul signal : le montant, coloré face à l'objectif. L'écart au mois précédent
-                        // est dans l'onglet Épargne (barres mois par mois).
-                        Text(
-                            "objectif ${savings.target.formatted()}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    // Comparée à l'objectif : vert au-dessus, blanc à 5 % près, rouge en dessous.
-                    val margin = savings.target.divideFloor(20)
-                    Text(
-                        savings.forecast.formatted(),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = when {
-                            savings.forecast > savings.target + margin -> BankTheme.status.gain
-                            savings.forecast < savings.target - margin -> BankTheme.status.over
-                            else -> MaterialTheme.colorScheme.onSurface
-                        },
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Chevron()
                 }
             }
         }
     }
 }
 
-private fun daysLabel(days: Int): String = if (days > 1) "$days jours restants" else "dernier jour du mois"
-
-/**
- * Une étape de la semaine : une coche verte quand elle est faite (titre seul), sinon un cercle
- * vide, le titre, ce qu'il y a à faire, et la ligne mène à l'action.
- */
+/** Le solde réel en grand, sa fraîcheur, puis le mois en une ou deux lignes. */
 @Composable
-private fun StepRow(done: Boolean, title: String, detail: String? = null, onClick: (() -> Unit)? = null) {
-    val gain = BankTheme.status.gain
+private fun AccountHero(
+    balance: Money?,
+    checkedAt: Instant?,
+    bankConnected: Boolean,
+    pace: MonthPace?,
+    toCome: Money,
+    onRefresh: () -> Unit,
+) {
+    Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
+        Text("Sur ton compte", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            balance?.formatted() ?: "—",
+            style = MaterialTheme.typography.displayLarge,
+            color = if (balance?.isNegative == true) BankTheme.status.over else MaterialTheme.colorScheme.onSurface,
+        )
+        // Un solde ancien ne doit jamais avoir l'air à jour : sa date, en ambre au-delà d'un jour (banque)
+        // ou d'une semaine (saisie). Toucher la ligne l'actualise.
+        val stale = checkedAt == null ||
+            Duration.between(checkedAt, Instant.now()) > Duration.ofDays(if (bankConnected) 1 else 7)
+        val read = checkedAt?.atZone(ZoneId.systemDefault())
+        val readText = when {
+            read == null -> if (bankConnected) "Synchroniser la banque" else "Saisir le solde"
+            read.toLocalDate() == LocalDate.now() -> "lu à ${read.format(hour)}"
+            else -> "lu le ${read.format(dayMonth)}" + if (stale) " · actualiser" else ""
+        }
+        Text(
+            readText,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (stale) BankTheme.status.warning else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.clickable(onClick = onRefresh).padding(vertical = 2.dp),
+        )
+        if (pace != null) {
+            Text(
+                "Dépensé ce mois : ${pace.spent.formatted()} sur ${pace.budget.formatted()}",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+        }
+        if (toCome.isPositive) {
+            Text(
+                "dont ${toCome.formatted()} de charges encore à prélever",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/** Livrets et placements : le total, le net estimé, quatre comptes au plus, le versement du mois. */
+@Composable
+private fun AccountsCard(holdings: Holdings, today: LocalDate, onOpenAccount: (HoldingLine?) -> Unit) {
+    GlassCard(contentPadding = 16.dp, verticalPadding = 12.dp) {
+        if (holdings.lines.isEmpty()) {
+            Row(Modifier.fillMaxWidth().clickable { onOpenAccount(null) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Ajouter un livret ou un placement", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                Chevron()
+            }
+            return@GlassCard
+        }
+        Text(holdings.total.formatted(), style = MaterialTheme.typography.titleLarge)
+        if (holdings.netTotal != holdings.total) {
+            Text(
+                "≈ ${holdings.netTotal.formatted()} net après impôt estimé",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        holdings.lines.take(HOME_ACCOUNTS).forEach { line ->
+            RowDivider(0.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { onOpenAccount(line) }.padding(vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(line.account.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    val stale = line.isStale(today)
+                    Text(
+                        accountCaption(line, today),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (stale) BankTheme.status.warning else MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Text(line.balance?.formatted() ?: "—", style = MaterialTheme.typography.titleMedium)
+            }
+        }
+        // Le versement du mois : à faire (ambre), puis fait (vert) quelques jours.
+        holdings.lines.forEach { line ->
+            when (val reminder = line.reminder(today)) {
+                is SavingReminder.Due -> StatusChip(
+                    "${reminder.amount.formatted()} à verser sur ${line.account.name}",
+                    StatusKind.WARNING,
+                    Modifier.padding(top = 8.dp),
+                )
+                is SavingReminder.Done -> StatusChip(
+                    "Versé sur ${line.account.name} le ${reminder.on.format(dayMonth)}",
+                    StatusKind.GOOD,
+                    Modifier.padding(top = 8.dp),
+                )
+                null -> Unit
+            }
+        }
+    }
+}
+
+/** « relié · lu le 2 nov. », « saisi le 12 oct. · à mettre à jour », « ≈ 4 343 € net · +500 € ». */
+private fun accountCaption(line: HoldingLine, today: LocalDate): String {
+    val estimate = line.estimate
+    if (estimate != null) return "≈ ${estimate.net.formatted()} net · ${estimate.gain.signed()}"
+    val origin = when {
+        line.account.linked -> "relié" + (line.asOf?.let { " · lu le ${it.format(dayMonth)}" } ?: "")
+        line.asOf != null -> "saisi le ${line.asOf.format(dayMonth)}"
+        else -> "solde à saisir"
+    }
+    return origin + if (line.isStale(today)) " · à mettre à jour" else ""
+}
+
+/** Le chiffre (l'écart au rythme), puis la courbe du mois et sa légende. */
+@Composable
+private fun PaceCard(pace: MonthPace) {
+    val status = BankTheme.status
+    val above = pace.gap.isPositive
+    GlassCard(contentPadding = 16.dp) {
+        Text(
+            "${pace.gap.signed()} vs rythme prévu",
+            style = MaterialTheme.typography.titleMedium,
+            color = if (above) status.warning else status.gain,
+        )
+        Text(
+            "Prévu à ce jour : ${pace.expected.formatted()}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        val spentColor = if (above) status.warning else status.good
+        val paceColor = MaterialTheme.colorScheme.onSurfaceVariant
+        Canvas(Modifier.fillMaxWidth().height(120.dp).padding(top = 12.dp)) {
+            val maxValue = maxOf(pace.budget.cents, pace.spent.cents, 1L).toFloat() * 1.08f
+            fun x(day: Int) = size.width * (day.toFloat() / pace.days)
+            fun y(cents: Long) = size.height - size.height * (cents / maxValue)
+            // Rythme prévu : du 0 au budget, en pointillé.
+            drawLine(
+                color = paceColor,
+                start = Offset(0f, y(0)),
+                end = Offset(size.width, y(pace.budget.cents)),
+                strokeWidth = 2.dp.toPx(),
+                cap = StrokeCap.Round,
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 6.dp.toPx())),
+            )
+            // Dépensé cumulé, jusqu'à aujourd'hui.
+            val path = Path().apply {
+                moveTo(0f, y(0))
+                pace.cumulative.forEachIndexed { index, value -> lineTo(x(index + 1), y(value.cents)) }
+            }
+            drawPath(path, spentColor, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round))
+            pace.cumulative.lastOrNull()?.let { drawCircle(spentColor, 4.dp.toPx(), Offset(x(pace.cumulative.size), y(it.cents))) }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(top = 8.dp)) {
+            Legend(spentColor, "Dépensé ${pace.spent.formatted()}")
+            Legend(paceColor, "Budget ${pace.budget.formatted()}", dashed = true)
+        }
+    }
+}
+
+@Composable
+private fun Legend(color: Color, label: String, dashed: Boolean = false) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (dashed) {
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                repeat(2) { Box(Modifier.size(width = 5.dp, height = 2.dp).background(color)) }
+            }
+        } else {
+            Box(Modifier.size(width = 12.dp, height = 3.dp).clip(CircleShape).background(color))
+        }
+        Spacer(Modifier.width(6.dp))
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** Petit titre de famille dans la carte des enveloppes, avec un fait en regard. */
+@Composable
+private fun FamilyCaption(title: String, detail: String?) {
+    Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(title, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+        if (detail != null) Text(detail, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** Les charges fixes en une ligne (« 4 sur 6 prélevées »), dépliable. */
+@Composable
+private fun ChargesRow(charges: List<EnvelopeLine>, onOpenEnvelope: (EnvelopeLine) -> Unit) {
+    var open by rememberSaveable { mutableStateOf(false) }
+    val paid = charges.count { it.spent.isPositive }
+    val left = charges.filter { !it.spent.isPositive }.fold(Money.ZERO) { sum, it -> sum + it.remaining }
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(vertical = 12.dp),
+        Modifier.fillMaxWidth().clickable { open = !open }.padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            Modifier
-                .size(28.dp)
-                .clip(CircleShape)
-                .then(
-                    if (done) {
-                        Modifier.background(gain.copy(alpha = 0.22f))
-                    } else {
-                        Modifier.border(2.dp, MaterialTheme.colorScheme.onSurfaceVariant, CircleShape)
-                    },
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (done) {
-                androidx.compose.material3.Icon(
-                    androidx.compose.ui.res.painterResource(fr.baptiste.bank.R.drawable.ic_check),
-                    contentDescription = "Fait",
-                    tint = gain,
-                    modifier = Modifier.size(18.dp),
+        Column(Modifier.weight(1f)) {
+            Text("Charges fixes", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium))
+            Text(
+                "$paid sur ${charges.size} prélevées",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            Text(left.formatted(), style = MaterialTheme.typography.titleMedium)
+            Text("à venir", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+    if (open) {
+        charges.forEach { line ->
+            Row(
+                Modifier.fillMaxWidth().clickable { onOpenEnvelope(line) }.padding(start = 12.dp, top = 6.dp, bottom = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(line.envelope.name, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                Text(
+                    if (line.spent.isPositive) "prélevée · ${line.spent.formatted()}" else "à venir · ${line.allocated.formatted()}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-        }
-        Column(Modifier.weight(1f).padding(start = 12.dp)) {
-            Text(
-                title,
-                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = if (done) FontWeight.Normal else FontWeight.Medium),
-                color = if (done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-            )
-            if (detail != null) {
-                Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        if (onClick != null) Chevron()
-    }
-}
-
-/** Une enveloppe à couvrir, en version courte : pastille, nom, statut, bouton Couvrir. */
-@Composable
-private fun TodoEnvelopeRow(line: EnvelopeLine, onOpen: () -> Unit, onCover: () -> Unit) {
-    val overspent = line.remaining.isNegative
-    Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        CategoryAvatar(line.envelope.name, envelopeTypeColor(line.envelope.type))
-        Column(Modifier.weight(1f).padding(start = 12.dp)) {
-            Text(line.envelope.name, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium))
-            if (overspent) {
-                StatusChip("Dépassé ${(-line.remaining).formatted()}", StatusKind.OVER, Modifier.padding(top = 4.dp))
-            } else {
-                StatusChip("Prévu +${line.projection.overrun.formatted()}", StatusKind.WARNING, Modifier.padding(top = 4.dp))
-            }
-        }
-        RowActionButton("Couvrir", onClick = onCover)
-    }
-}
-
-/** « Mois | Jour » en petit, à côté du libellé du chiffre. */
-@Composable
-private fun PeriodPills(showsDay: Boolean, onChange: (Boolean) -> Unit) {
-    Row(
-        Modifier
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-            .padding(2.dp),
-    ) {
-        listOf(false to "Mois", true to "Jour").forEach { (day, label) ->
-            val selected = day == showsDay
-            Text(
-                label,
-                style = MaterialTheme.typography.labelMedium,
-                color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .then(if (selected) Modifier.background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f)) else Modifier)
-                    .clickable(role = androidx.compose.ui.semantics.Role.Tab) { onChange(day) }
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-            )
         }
     }
 }

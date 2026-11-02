@@ -126,6 +126,8 @@ fun AccountEditDialog(
     var investedText by rememberSaveable { mutableStateOf(line?.account?.invested?.toFieldText().orEmpty()) }
     var wrapper by rememberSaveable { mutableStateOf(line?.account?.taxWrapper) }
     val invested = if (investedText.isBlank()) null else parseMoney(investedText)
+    var targetText by rememberSaveable { mutableStateOf(line?.account?.monthlyTarget?.toFieldText().orEmpty()) }
+    val target = if (targetText.isBlank()) null else parseMoney(targetText)
     val linked = line?.account?.linked == true
     val balance = if (balanceText.isBlank()) null else parseMoney(balanceText)
     val canSave = name.isNotBlank() && (linked || balance != null)
@@ -223,6 +225,18 @@ fun AccountEditDialog(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                // Un versement que je fais moi-même chaque mois : l'accueil le rappelle tant qu'il n'est pas vu.
+                OutlinedTextField(
+                    value = targetText,
+                    onValueChange = { targetText = it },
+                    label = { Text("Versement prévu chaque mois") },
+                    suffix = { Text("€") },
+                    isError = targetText.isNotBlank() && target == null,
+                    supportingText = { Text("Facultatif. L'accueil te le rappelle jusqu'à ce que le virement arrive.") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 if (onArchive != null) {
                     TextButton(onClick = { confirmArchive = true }) { Text("Retirer ce compte") }
                 }
@@ -230,8 +244,8 @@ fun AccountEditDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { onSave(name, type, if (linked) null else balance, AccountInvestment(invested, wrapper)) },
-                enabled = canSave && (investedText.isBlank() || invested != null),
+                onClick = { onSave(name, type, if (linked) null else balance, AccountInvestment(invested, wrapper, target)) },
+                enabled = canSave && (investedText.isBlank() || invested != null) && (targetText.isBlank() || target != null),
             ) {
                 Text("Enregistrer")
             }

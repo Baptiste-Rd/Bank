@@ -834,6 +834,7 @@ class BudgetRepository(
                     linked = it.externalUid != null,
                     invested = it.investedCents?.let(::Money),
                     taxWrapper = it.taxWrapper,
+                    monthlyTarget = it.monthlyTargetCents?.let(::Money),
                 )
             }
     }
@@ -844,14 +845,15 @@ class BudgetRepository(
         return combine(
             holdingAccounts,
             balanceDao.observeAll(),
-            transactionDao.observeTransfersToAccounts(month.atDay(1), month.atEndOfMonth()),
+            transactionDao.observeTransfersByAccount(month.atDay(1), month.atEndOfMonth()),
         ) { accounts, balances, transfers ->
             computeHoldings(
                 accounts = accounts,
                 snapshots = balances.map { BalanceSnapshot(it.accountId, it.date, Money(it.balanceCents)) },
                 today = today,
                 months = 12,
-                transfersThisMonth = transfers.map(::Money),
+                transfersThisMonth = transfers.map { Money(it.amountCents) },
+                transfersByAccount = transfers.map { fr.baptiste.bank.domain.budget.AccountTransfer(it.accountId, it.date, Money(it.amountCents)) },
             )
         }
     }
@@ -1034,6 +1036,22 @@ class BudgetRepository(
     /** Placement : montant versé et enveloppe fiscale, pour le net estimé. */
     suspend fun setInvestment(accountId: Long, invested: Money?, wrapper: fr.baptiste.bank.domain.budget.TaxWrapper?) =
         accountDao.setInvestment(accountId, invested?.cents, wrapper)
+
+    suspend fun setMonthlyTarget(accountId: Long, target: Money?) =
+        accountDao.setMonthlyTarget(accountId, target?.takeIf { it.isPositive }?.cents)
+
+    /** Le mois en cours : dépensé par jour (hors épargne, comme le total du mois) et budget du mois. */
+    fun monthPace(today: LocalDate = LocalDate.now()): Flow<fr.baptiste.bank.domain.budget.MonthPace?> {
+        val month = YearMonth.from(today)
+        val types = combine(envelopes, archivedEnvelopes) { active, archived -> (active + archived).associate { it.id to it.type } }
+        val spent = imputationDao.observeSpendings(month.atDay(1), month.atEndOfMonth())
+        return combine(spendingYear(today.year, today), spent, types) { year, rows, byId ->
+            val report = year.months.firstOrNull { it.month == month } ?: return@combine null
+            val counted = rows.filter { byId[it.envelopeId]?.let { type -> type != EnvelopeType.SAVINGS } == true }
+                .map { it.date to Money(it.amountCents) }
+            fr.baptiste.bank.domain.budget.monthPace(month, today, counted, report.budget)
+        }
+    }
 
     /** Solde lu à la banque pour un compte suivi (livret relié) : crée le compte au premier relevé. */
     suspend fun recordLinkedBalance(uid: String, name: String, ibanSuffix: String?, type: AccountType, balance: Money) {
