@@ -315,7 +315,7 @@ private fun LazyListScope.monthContent(
         }
     }
     if (!readOnly && archived.isNotEmpty()) {
-        sectionHeader("archived-label", "Archivées", trailing = "${archived.size}")
+        sectionHeader("archived-label", "Retirées", trailing = "${archived.size}")
         item(key = "archived") {
             GlassRowsCard(archived, inset = 0.dp) { envelope ->
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -438,7 +438,7 @@ private fun LazyListScope.yearContent(overview: YearOverview) {
 
     val provisions = board.envelopes.filter { it.envelope.type.family == EnvelopeFamily.PROVISIONS }
     if (provisions.isNotEmpty()) {
-        sectionHeader("year-provisions-label", "Provisions", dot = EnvelopeFamily.PROVISIONS.color)
+        sectionHeader("year-provisions-label", "Rares et ponctuels", dot = EnvelopeFamily.PROVISIONS.color)
         item(key = "year-provisions") {
             GlassRowsCard(provisions) { line ->
                 EnvelopeRow(line, accent = envelopeTypeColor(line.envelope.type))
@@ -591,7 +591,7 @@ internal fun CurrentAccountCard(explained: CurrentAccountExplained?, onSetBalanc
             AccountLine("Reste du mois", explained.monthLeft)
             if (explained.chargesDue.isPositive) AccountLine("Charges à payer ce mois", explained.chargesDue)
             if (explained.savingsPending.isPositive) AccountLine("Épargne du mois à virer", explained.savingsPending)
-            if (explained.provisionsHeld.isPositive) AccountLine("Provisions mises de côté", explained.provisionsHeld)
+            if (explained.provisionsHeld.isPositive) AccountLine("Mis de côté pour les budgets rares", explained.provisionsHeld)
             fr.baptiste.bank.ui.components.RowDivider(0.dp)
             val free = explained.free
             AccountLine(if (free.isNegative) "Il manque" else "Disponible sur le compte", free, strong = true, positiveGood = true)
@@ -599,7 +599,7 @@ internal fun CurrentAccountCard(explained: CurrentAccountExplained?, onSetBalanc
         val note = when {
             explained.free.isNegative -> buildString {
                 append("Le compte contient moins que ce que le budget réserve. Causes possibles : salaire pas encore arrivé, ")
-                append("provisions gardées sur un livret")
+                append("argent des budgets rares gardé sur un livret")
                 if (explained.unsortedOut.isPositive) append(", ${explained.unsortedOut.formatted()} de dépenses à trier")
                 append(", ou dépenses faites hors de l'app.")
             }

@@ -195,7 +195,7 @@ fun GlassAnalysisContent(
     info?.let { report ->
         InfoSheet(
             title = "Ce qui est compté",
-            lines = listOf(InfoLine("Dépenses rangées (quotidien, charges, provisions)", report.total.formatted())) +
+            lines = listOf(InfoLine("Dépenses rangées (quotidien, charges, budgets rares)", report.total.formatted())) +
                 listOfNotNull(
                     report.unsorted.takeIf { it.isPositive }?.let { InfoLine("Pas compté : encore à trier", it.formatted()) },
                     report.outOfBudget.takeIf { it.isPositive }?.let { InfoLine("Pas compté : hors budget", it.formatted()) },

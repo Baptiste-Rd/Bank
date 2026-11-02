@@ -74,6 +74,19 @@ class MainActivity : ComponentActivity() {
             // Validation du tri assisté, avec une réponse type de Claude pour les trois opérations de la démo.
             "ASSISTED_REVIEW" -> OpenDialog.AssistedSort(demoReply = DEMO_ASSISTANT_REPLY)
             // Un nom déjà pris (« courses » existe) : le formulaire le signale.
+            // Nouveau budget rare : 26 € jusqu'au 1er janvier, puis tous les 3 mois.
+            "RARE" -> OpenDialog.EnvelopeEditor(
+                fr.baptiste.bank.domain.model.Envelope(
+                    id = 0,
+                    name = "Coiffeur",
+                    type = fr.baptiste.bank.domain.model.EnvelopeType.RECURRING,
+                    frequency = fr.baptiste.bank.domain.period.Frequency(3, fr.baptiste.bank.domain.period.Scale.MONTH),
+                    amount = Money.euros(26),
+                    status = fr.baptiste.bank.domain.model.EnvelopeStatus.FLEXIBLE,
+                    group = "Santé",
+                    firstReset = java.time.LocalDate.of(java.time.LocalDate.now().year + 1, 1, 1),
+                ),
+            )
             "DUPLICATE" -> OpenDialog.EnvelopeEditor(
                 fr.baptiste.bank.domain.model.Envelope(
                     id = 0,

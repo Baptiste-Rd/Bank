@@ -12,7 +12,7 @@ import fr.baptiste.bank.ui.theme.envelopeTypeColor
 enum class EnvelopeFamily(val label: String, val color: Color) {
     DAILY("Au quotidien", envelopeTypeColor(EnvelopeType.DAILY)),
     FIXED("Charges fixes", envelopeTypeColor(EnvelopeType.FIXED)),
-    PROVISIONS("Provisions", envelopeTypeColor(EnvelopeType.ANNUAL)),
+    PROVISIONS("Rares et ponctuels", envelopeTypeColor(EnvelopeType.ANNUAL)),
     SAVINGS("Épargne", envelopeTypeColor(EnvelopeType.SAVINGS)),
 }
 

@@ -79,6 +79,9 @@ interface RuleDao {
     @Query("DELETE FROM rule WHERE id IN (:ids)")
     suspend fun delete(ids: List<Long>)
 
+    @Query("DELETE FROM rule WHERE envelope_id = :envelopeId")
+    suspend fun deleteForEnvelope(envelopeId: Long)
+
     @Query(
         """
         SELECT r.id AS id, r.pattern AS pattern, e.name AS envelope_name
@@ -168,6 +171,9 @@ interface EnvelopeDao {
 
     @Query("SELECT * FROM envelope WHERE archived = 1")
     suspend fun archived(): List<EnvelopeEntity>
+
+    @Query("DELETE FROM envelope WHERE id = :id")
+    suspend fun delete(id: Long)
 }
 
 @Dao
@@ -184,6 +190,9 @@ interface AllocationDao {
 
     @Query("UPDATE allocation SET amount_cents = :amountCents WHERE envelope_id = :envelopeId AND period_key = :periodKey")
     suspend fun setAmount(envelopeId: Long, periodKey: String, amountCents: Long)
+
+    @Query("UPDATE allocation SET end_date = :end WHERE envelope_id = :envelopeId AND period_key = :periodKey")
+    suspend fun setEnd(envelopeId: Long, periodKey: String, end: LocalDate)
 
     @Query("DELETE FROM allocation WHERE envelope_id = :envelopeId AND period_key = :periodKey")
     suspend fun delete(envelopeId: Long, periodKey: String)
@@ -252,6 +261,23 @@ data class OperationRow(
 interface ImputationDao {
     @Insert
     suspend fun insert(imputation: ImputationEntity): Long
+
+    /** Dépensé par période d'une enveloppe (historique de sa fiche). */
+    @Query("SELECT envelope_id AS envelopeId, period_key AS periodKey, SUM(amount_cents) AS amountCents FROM imputation WHERE envelope_id = :envelopeId GROUP BY period_key")
+    fun observeSpentByPeriod(envelopeId: Long): Flow<List<PeriodSpent>>
+
+    /** Ce qui est rangé dans une enveloppe, par origine (banque, saisie), avant une suppression. */
+    @Query(
+        """
+        SELECT t.source AS source, COUNT(*) AS count, COALESCE(SUM(i.amount_cents), 0) AS amountCents
+        FROM imputation i JOIN transaction_record t ON t.id = i.transaction_id
+        WHERE i.envelope_id = :envelopeId GROUP BY t.source
+        """,
+    )
+    suspend fun usage(envelopeId: Long): List<EnvelopeUsageRow>
+
+    @Query("DELETE FROM imputation WHERE envelope_id = :envelopeId")
+    suspend fun deleteForEnvelope(envelopeId: Long)
 
     /** Dépensé par enveloppe et par période (report du reste d'un budget rare). */
     @Query("SELECT envelope_id AS envelopeId, period_key AS periodKey, SUM(amount_cents) AS amountCents FROM imputation GROUP BY envelope_id, period_key")
@@ -438,6 +464,10 @@ interface TransactionDao {
     @Query("UPDATE transaction_record SET date = :date WHERE id = :id")
     suspend fun setDate(id: Long, date: LocalDate)
 
+    /** Supprime les saisies à la main rangées dans une enveloppe (avant de la supprimer). */
+    @Query("DELETE FROM transaction_record WHERE source = 'MANUAL' AND id IN (SELECT transaction_id FROM imputation WHERE envelope_id = :envelopeId)")
+    suspend fun deleteManualIn(envelopeId: Long)
+
     /** Rend le libellé de la banque aux opérations nommées [alias]. */
     @Query("UPDATE transaction_record SET alias = NULL WHERE alias = :alias")
     suspend fun clearAlias(alias: String)
@@ -539,6 +569,9 @@ interface TransferDao {
     @Insert
     suspend fun insertAll(transfers: List<TransferEntity>)
 
+    @Query("DELETE FROM transfer WHERE source_envelope_id = :envelopeId OR target_envelope_id = :envelopeId")
+    suspend fun deleteForEnvelope(envelopeId: Long)
+
     @Query("SELECT * FROM transfer WHERE cancelled = 0 AND effective_date BETWEEN :from AND :to")
     fun observeActive(from: LocalDate, to: LocalDate): Flow<List<TransferEntity>>
 
@@ -574,3 +607,6 @@ data class DatedOperationRow(
 
 /** Dépensé dans une enveloppe sur une période. */
 data class PeriodSpent(val envelopeId: Long, val periodKey: String, val amountCents: Long)
+
+/** Ce qui est rangé dans une enveloppe pour une origine (banque, saisie). */
+data class EnvelopeUsageRow(val source: TransactionSource, val count: Int, val amountCents: Long)

@@ -144,7 +144,9 @@ class BudgetRepository(
             .map { rows -> rows.associate { (it.envelopeId to it.periodKey) to Money(it.amountCents) } }
         // La plage de dépenses à charger dépend des périodes des enveloppes (une période de
         // 3 mois peut commencer avant l'année en cours) : elle est recalculée quand elles changent.
-        return envelopes.flatMapLatest { envelopes ->
+        // Les enveloppes retirées depuis comptent dans le tableau d'un jour passé (bilan d'un mois terminé).
+        val known = combine(envelopes, archivedEnvelopes) { active, archived -> active + archived.filter { it.retiredOn?.isAfter(today) == true } }
+        return known.flatMapLatest { envelopes ->
             val range = dashboardDateRange(today, envelopes)
             val spendings = imputationDao.observeSpendings(range.start, range.endInclusive)
                 .map { rows -> rows.map { Spending(it.envelopeId, it.date, Money(it.amountCents), it.wholePeriod) } }
@@ -267,17 +269,31 @@ class BudgetRepository(
         val today = LocalDate.now()
         // Une nouvelle enveloppe part du 1er du mois : une dépense plus ancienne n'y compte pas.
         val toSave = if (envelope.id == 0L && envelope.start == null) envelope.copy(start = today.withDayOfMonth(1)) else envelope
+        var adjusted = toSave
         if (envelope.id != 0L) {
             // Le passé se fige avec les réglages d'avant ; un nouveau montant vaut pour la période en cours.
             ensurePeriods(today)
             val before = allEnvelopes().firstOrNull { it.id == envelope.id }
-            if (before != null && before.amount != toSave.amount) {
-                before.currentPeriodWithAmount(today, toSave.amount)?.let {
-                    database.allocationDao().setAmount(envelope.id, it.key, it.amount.cents)
+            if (before != null) {
+                val current = before.periodContaining(today)
+                if (before.amount != toSave.amount) {
+                    before.currentPeriodWithAmount(today, toSave.amount)?.let {
+                        database.allocationDao().setAmount(envelope.id, it.key, it.amount.cents)
+                    }
+                }
+                // Une remise à zéro choisie (ou un budget devenu ponctuel) part de la période en cours :
+                // une ancienne enveloppe sans départ prend le début de cette période, ses dépenses comptent toujours.
+                val resetChanged = toSave.firstReset != null && toSave.firstReset != before.firstReset
+                if ((resetChanged || (!toSave.repeats && before.repeats)) && adjusted.start == null) {
+                    adjusted = adjusted.copy(start = current.start)
+                }
+                val reset = toSave.firstReset
+                if (resetChanged && reset != null && reset.isAfter(today) && before.periods.any { it.key == current.key }) {
+                    database.allocationDao().setEnd(envelope.id, current.key, reset.minusDays(1))
                 }
             }
         }
-        val rowId = envelopeDao.upsert(toSave.toEntity())
+        val rowId = envelopeDao.upsert(adjusted.toEntity())
         // Upsert renvoie -1 pour une mise à jour : l'identifiant est alors celui qu'on avait.
         val id = if (envelope.id != 0L) envelope.id else rowId
         ensurePeriods(today)
@@ -308,6 +324,68 @@ class BudgetRepository(
             }
         if (rows.isNotEmpty()) database.allocationDao().insertAll(rows)
         return rows.size
+    }
+
+    /** Ce qui est rangé dans une enveloppe, annoncé avant de la supprimer définitivement. */
+    suspend fun envelopeUsage(id: Long): EnvelopeUsage {
+        val rows = imputationDao.usage(id)
+        val bank = rows.filter { it.source != TransactionSource.MANUAL }
+        val manual = rows.filter { it.source == TransactionSource.MANUAL }
+        return EnvelopeUsage(
+            bankCount = bank.sumOf { it.count },
+            bankAmount = Money(bank.sumOf { it.amountCents }),
+            manualCount = manual.sumOf { it.count },
+            manualAmount = Money(manual.sumOf { it.amountCents }),
+        )
+    }
+
+    /**
+     * Supprime une enveloppe définitivement (erreur de saisie) : ses dépenses de la banque repartent
+     * à trier, ses saisies, règles, transferts et périodes sont effacés.
+     */
+    suspend fun deleteEnvelope(id: Long) = database.withTransaction {
+        transactionDao.deleteManualIn(id)
+        imputationDao.deleteForEnvelope(id)
+        database.ruleDao().deleteForEnvelope(id)
+        transferDao.deleteForEnvelope(id)
+        envelopeDao.delete(id)
+    }
+
+    /** Une période enregistrée d'une enveloppe et ce qui y a été dépensé (historique de sa fiche). */
+    data class PeriodLine(val period: BudgetPeriod, val spent: Money)
+
+    /** Les périodes d'une enveloppe, la plus récente en premier. */
+    fun envelopePeriods(id: Long): Flow<List<PeriodLine>> =
+        combine(database.allocationDao().observeAll(), imputationDao.observeSpentByPeriod(id)) { allocations, spent ->
+            val byKey = spent.associate { it.periodKey to Money(it.amountCents) }
+            allocations
+                .filter { it.envelopeId == id && it.startDate != null && it.endDate != null }
+                .map { PeriodLine(BudgetPeriod(it.periodKey, it.startDate!!, it.endDate!!, Money(it.amountCents)), byKey[it.periodKey] ?: Money.ZERO) }
+                .sortedByDescending { it.period.start }
+        }
+
+    /** Corrige le budget d'une période (passée comprise), d'un geste volontaire depuis la fiche. */
+    suspend fun setPeriodAmount(id: Long, key: String, amount: Money) =
+        database.allocationDao().setAmount(id, key, amount.cents)
+
+    /**
+     * Montant proposé pour un budget de [frequency] : la moyenne des mois terminés (douze au plus,
+     * depuis le début des données) de l'enveloppe [envelopeId], sinon des enveloppes de [category].
+     */
+    suspend fun suggestAmount(envelopeId: Long?, category: String?, frequency: fr.baptiste.bank.domain.period.Frequency): fr.baptiste.bank.domain.budget.AmountSuggestion? {
+        val today = LocalDate.now()
+        val ids = if (envelopeId != null && envelopeId != 0L) {
+            setOf(envelopeId)
+        } else {
+            val name = category?.trim()?.takeIf { it.isNotEmpty() && it != fr.baptiste.bank.domain.model.DEFAULT_CATEGORY } ?: return null
+            allEnvelopes().filter { it.group?.trim().equals(name, ignoreCase = true) }.map { it.id }.toSet()
+        }
+        if (ids.isEmpty()) return null
+        val from = YearMonth.from(today).minusMonths(12).atDay(1)
+        val spent = imputationDao.observeSpendings(from, today).first()
+            .filter { it.envelopeId in ids }
+            .map { it.date to Money(it.amountCents) }
+        return fr.baptiste.bank.domain.budget.suggestedAmount(spent, frequency, today, since = trackingStart(today).first())
     }
 
     /** Retire une enveloppe : elle n'a plus de période ensuite, mais reste dans les mois qu'elle a couverts. */
@@ -1108,3 +1186,6 @@ private fun Envelope.toEntity() = EnvelopeEntity(
     repeats = repeats,
     retiredOn = retiredOn,
 )
+
+/** Ce qui est rangé dans une enveloppe : annoncé avant une suppression définitive. */
+data class EnvelopeUsage(val bankCount: Int, val bankAmount: Money, val manualCount: Int, val manualAmount: Money)

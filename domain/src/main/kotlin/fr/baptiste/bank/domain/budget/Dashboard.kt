@@ -133,7 +133,8 @@ fun computeDashboard(
     /** Début du suivi : rien n'a été mis de côté avant (provisions). */
     trackingStart: java.time.YearMonth? = null,
 ): Dashboard {
-    val active = envelopes.filter { !it.archived && it.existsOn(today) }
+    // Une enveloppe retirée figure encore dans le tableau d'un jour d'avant son retrait (un mois passé).
+    val active = envelopes.filter { (!it.archived || it.retiredOn?.let { on -> today.isBefore(on) } == true) && it.existsOn(today) }
     // Une dépense antérieure au départ de son enveloppe ne compte pas dans son reste (un rattrapage,
     // qui porte sur la période choisie, compte toujours).
     val byId = envelopes.associateBy { it.id }

@@ -519,8 +519,12 @@ fun AppDialogs(
                 }.collectAsStateWithLifecycle(null)
                 // La fiche s'ouvre une fois ses dépenses chargées : sa hauteur est alors la bonne
                 // (un panneau ouvert ne remonte pas quand son contenu grandit après coup).
+                val periods by remember(line.envelope.id) { viewModel.envelopePeriods(line.envelope.id) }
+                    .collectAsStateWithLifecycle(emptyList())
                 val loadedOperations = periodOperations
                 if (loadedOperations != null) EnvelopeSheet(
+                    periods = periods,
+                    onSetPeriodAmount = { key, amount -> viewModel.setPeriodAmount(line.envelope.id, key, amount) },
                     line = line,
                     transfers = journal,
                     operations = loadedOperations,
@@ -633,9 +637,15 @@ fun AppDialogs(
             },
             onArchive = { archivedEnvelope ->
                 viewModel.archiveEnvelope(archivedEnvelope.id)
-                controller.notify("${archivedEnvelope.name} archivée.", action = "Annuler") {
+                controller.notify("${archivedEnvelope.name} retirée.", action = "Annuler") {
                     viewModel.restoreEnvelope(archivedEnvelope.id)
                 }
+                close()
+            },
+            suggest = { category, frequency -> viewModel.suggestAmount(current.envelope?.id, category, frequency) },
+            usage = { current.envelope?.id?.takeIf { it != 0L }?.let { viewModel.envelopeUsage(it) } },
+            onDelete = { deleted ->
+                viewModel.deleteEnvelope(deleted.id) { controller.notify("${deleted.name} supprimée définitivement.") }
                 close()
             },
         )

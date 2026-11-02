@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -80,7 +81,7 @@ fun EnvelopeRow(
         EnvelopeType.PLANNED -> {
             val saved = line.envelope.savedSoFar(today)
             RowDisplay(
-                detail = "${line.envelope.monthlyShare.formatted()} par mois · achat en ${line.envelope.purchaseMonth?.label.orEmpty()}",
+                detail = "${line.monthlyShare.formatted()} par mois · jusqu'à ${line.envelope.purchaseMonth?.label.orEmpty()}",
                 value = saved,
                 caption = "sur ${line.envelope.amount.formatted()}",
                 ratio = if (line.envelope.amount.isPositive) saved.cents.toFloat() / line.envelope.amount.cents else 0f,
@@ -116,10 +117,13 @@ fun EnvelopeRow(
         )
     }
 
+    // Retirée depuis : elle reste dans ce mois passé, en retrait.
+    val retiredOn = line.envelope.retiredOn?.takeIf { line.envelope.archived }
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .let { if (onClick != null) it.clickable(onClick = onClick) else it }
+            .let { if (onClick != null && retiredOn == null) it.clickable(onClick = onClick) else it }
+            .let { if (retiredOn != null) it.alpha(0.55f) else it }
             .padding(vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -129,7 +133,7 @@ fun EnvelopeRow(
                 Column(Modifier.weight(1f)) {
                     Text(line.envelope.name, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium))
                     Text(
-                        display.detail,
+                        if (retiredOn != null) "Retirée le ${retiredOn.formatted()} · ${display.detail}" else display.detail,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,

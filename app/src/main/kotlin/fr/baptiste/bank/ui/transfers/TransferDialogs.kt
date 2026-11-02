@@ -264,7 +264,35 @@ fun EnvelopeSheet(
     onMoveOperation: (OperationRow) -> Unit = {},
     /** Accepte le rattrapage proposé (provision suivie depuis moins longtemps que sa période). */
     onCatchUp: ((java.time.YearMonth) -> Unit)? = null,
+    /** Périodes enregistrées, la plus récente en premier : le budget de chacune se corrige ici. */
+    periods: List<fr.baptiste.bank.data.BudgetRepository.PeriodLine> = emptyList(),
+    onSetPeriodAmount: (key: String, amount: Money) -> Unit = { _, _ -> },
 ) {
+    var editing by remember { mutableStateOf<fr.baptiste.bank.data.BudgetRepository.PeriodLine?>(null) }
+    editing?.let { line ->
+        var text by remember(line) { mutableStateOf(line.period.amount.cents.let { "${it / 100},${(it % 100).toString().padStart(2, '0')}" }) }
+        val parsed = fr.baptiste.bank.domain.money.parseMoney(text)
+        AlertDialog(
+            onDismissRequest = { editing = null },
+            title = { Text("Budget · ${line.period.toPeriod(fr.baptiste.bank.domain.period.Scale.MONTH).label}") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Corrige le budget de cette période seulement. Les autres ne bougent pas.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    fr.baptiste.bank.ui.components.MoneyField(value = text, onValueChange = { text = it }, label = "Budget")
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = parsed != null && !parsed.isNegative, onClick = {
+                    parsed?.let { onSetPeriodAmount(line.period.key, it) }
+                    editing = null
+                }) { Text("Enregistrer") }
+            },
+            dismissButton = { TextButton(onClick = { editing = null }) { Text("Annuler") } },
+        )
+    }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -358,6 +386,37 @@ fun EnvelopeSheet(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+            // L'historique : chaque période garde son budget ; toucher une ligne le corrige.
+            if (periods.size > 1) {
+                Text("Périodes", style = MaterialTheme.typography.titleSmall)
+                Column(Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())) {
+                    periods.forEachIndexed { index, row ->
+                        if (index > 0) RowDivider(inset = 0.dp)
+                        val left = row.period.amount - row.spent
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(onClickLabel = "Corriger le budget") { editing = row }
+                                .padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(row.period.toPeriod(line.envelope.frequency.scale).label.replaceFirstChar { it.titlecase() }, style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    "${row.spent.formatted()} sur ${row.period.amount.formatted()}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Text(
+                                (if (left.isNegative) "−" + Money(-left.cents).formatted() else left.formatted()),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = if (left.isNegative) fr.baptiste.bank.ui.theme.BankTheme.status.over else MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+                }
             }
             val mine = transfers.filter {
                 !it.cancelled && it.date in line.period &&

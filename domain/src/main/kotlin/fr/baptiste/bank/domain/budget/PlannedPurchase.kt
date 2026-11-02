@@ -59,5 +59,13 @@ fun Envelope.savedSoFar(today: LocalDate): Money {
     if (type != EnvelopeType.PLANNED) return Money.ZERO
     val months = (ChronoUnit.MONTHS.between(YearMonth.from(start), YearMonth.from(today)) + 1)
         .coerceIn(0, frequency.every.toLong())
+    // Créé en cours de route (départ passé, mise de côté à partir d'un mois) : rien avant ce mois.
+    val from = fundingStart?.takeIf { it > YearMonth.from(start) }
+    if (from != null) {
+        val last = YearMonth.from(start).plusMonths(frequency.every.toLong() - 1)
+        val counted = (ChronoUnit.MONTHS.between(from, YearMonth.from(today)) + 1).coerceIn(0, ChronoUnit.MONTHS.between(from, last) + 1)
+        val total = ChronoUnit.MONTHS.between(from, last) + 1
+        return if (total <= 0) amount else minOf(amount.divideCeil(total) * counted, amount)
+    }
     return minOf(monthlyShare * months, amount)
 }

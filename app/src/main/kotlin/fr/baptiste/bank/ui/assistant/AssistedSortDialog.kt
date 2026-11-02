@@ -76,7 +76,7 @@ private enum class Step { SEND, PASTE, REVIEW }
 private fun EnvelopeFamily.assistantName(): String = when (this) {
     EnvelopeFamily.DAILY -> "quotidien"
     EnvelopeFamily.FIXED -> "charges fixes"
-    EnvelopeFamily.PROVISIONS -> "provisions"
+    EnvelopeFamily.PROVISIONS -> "budgets rares et ponctuels"
     EnvelopeFamily.SAVINGS -> "épargne"
 }
 

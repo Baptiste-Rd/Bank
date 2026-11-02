@@ -68,6 +68,24 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
         viewModelScope.launch { repository.confirmSalary(candidate, nextMonth) }
     }
 
+    suspend fun envelopeUsage(id: Long): fr.baptiste.bank.data.EnvelopeUsage = repository.envelopeUsage(id)
+
+    fun deleteEnvelope(id: Long, onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            repository.deleteEnvelope(id)
+            onDone()
+        }
+    }
+
+    fun envelopePeriods(id: Long): Flow<List<fr.baptiste.bank.data.BudgetRepository.PeriodLine>> = repository.envelopePeriods(id)
+
+    fun setPeriodAmount(id: Long, key: String, amount: Money) {
+        viewModelScope.launch { repository.setPeriodAmount(id, key, amount) }
+    }
+
+    suspend fun suggestAmount(envelopeId: Long?, category: String?, frequency: fr.baptiste.bank.domain.period.Frequency) =
+        repository.suggestAmount(envelopeId, category, frequency)
+
     fun setSalaryNextMonth(nextMonth: Boolean) {
         viewModelScope.launch { repository.setSalaryNextMonth(nextMonth) }
     }
