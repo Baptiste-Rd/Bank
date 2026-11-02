@@ -214,8 +214,11 @@ private fun AccountHero(
         val stale = checkedAt == null ||
             Duration.between(checkedAt, Instant.now()) > Duration.ofDays(if (bankConnected) 1 else 7)
         val read = checkedAt?.atZone(ZoneId.systemDefault())
+        // Lu à la banque : l'heure ; saisi à la main : le jour seulement (la saisie n'a pas d'heure).
         val readText = when {
             read == null -> if (bankConnected) "Synchroniser la banque" else "Saisir le solde"
+            !bankConnected && read.toLocalDate() == LocalDate.now() -> "saisi aujourd'hui"
+            !bankConnected -> "saisi le ${read.format(dayMonth)}" + if (stale) " · à mettre à jour" else ""
             read.toLocalDate() == LocalDate.now() -> "lu à ${read.format(hour)}"
             else -> "lu le ${read.format(dayMonth)}" + if (stale) " · actualiser" else ""
         }
@@ -317,12 +320,19 @@ private fun accountCaption(line: HoldingLine, today: LocalDate): String {
 @Composable
 private fun PaceCard(pace: MonthPace) {
     val status = BankTheme.status
-    val above = pace.gap.isPositive
+    // Un écart de quelques euros n'est pas un signal : « dans le rythme » à 2 % du budget (10 € au moins).
+    val tolerance = maxOf(pace.budget.divideFloor(50), Money.euros(10))
+    val above = pace.gap > tolerance
+    val below = pace.gap < Money.ZERO - tolerance
     GlassCard(contentPadding = 16.dp) {
         Text(
-            "${pace.gap.signed()} vs rythme prévu",
+            if (above || below) "${pace.gap.signed()} vs rythme prévu" else "Dans le rythme",
             style = MaterialTheme.typography.titleMedium,
-            color = if (above) status.warning else status.gain,
+            color = when {
+                above -> status.warning
+                below -> status.gain
+                else -> MaterialTheme.colorScheme.onSurface
+            },
         )
         Text(
             "Prévu à ce jour : ${pace.expected.formatted()}",
