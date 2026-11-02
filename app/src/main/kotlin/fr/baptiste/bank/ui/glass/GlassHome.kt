@@ -304,9 +304,10 @@ private fun AccountsCard(holdings: Holdings, today: LocalDate, onOpenAccount: (H
 private fun accountCaption(line: HoldingLine, today: LocalDate): String {
     val estimate = line.estimate
     if (estimate != null) return "≈ ${estimate.net.formatted()} net · ${estimate.gain.signed()}"
+    val asOf = line.asOf
     val origin = when {
-        line.account.linked -> "relié" + (line.asOf?.let { " · lu le ${it.format(dayMonth)}" } ?: "")
-        line.asOf != null -> "saisi le ${line.asOf.format(dayMonth)}"
+        line.account.linked -> "relié" + (asOf?.let { " · lu le ${it.format(dayMonth)}" } ?: "")
+        asOf != null -> "saisi le ${asOf.format(dayMonth)}"
         else -> "solde à saisir"
     }
     return origin + if (line.isStale(today)) " · à mettre à jour" else ""
