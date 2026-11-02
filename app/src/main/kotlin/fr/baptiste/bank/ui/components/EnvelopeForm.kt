@@ -272,10 +272,10 @@ fun EnvelopeDialog(
                     AssistChip(
                         onClick = { amountText = proposed.amount.toFieldText() },
                         label = {
-                            Text(
-                                "Proposé : ${proposed.amount.formatted()} (moyenne de " +
-                                    (if (proposed.months > 1) "tes ${proposed.months} derniers mois" else "ton dernier mois") + ")",
-                            )
+                            // D'où vient le chiffre : l'enveloppe elle-même, sinon sa catégorie.
+                            val source = if (isExisting) "de ce budget" else "de la catégorie $categoryForSuggestion"
+                            val span = if (proposed.months > 1) "sur ${proposed.months} mois" else "sur le dernier mois"
+                            Text("Proposé : ${proposed.amount.formatted()} (dépense moyenne $source $span)")
                         },
                     )
                 }
