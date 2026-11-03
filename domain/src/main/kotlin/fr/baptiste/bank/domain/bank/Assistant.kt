@@ -138,7 +138,8 @@ fun extractJsonArray(reply: String): String? {
 
 /** L'objet JSON d'une réponse : le bloc ```json``` qui contient « actions », sinon le premier objet du texte. */
 fun extractJsonObject(reply: String): String? {
-    Regex("""```(?:json)?\s*(\{[\s\S]*?})\s*```""", RegexOption.IGNORE_CASE).findAll(reply)
+    // L'accolade fermante est échappée : la regex d'Android (ICU) la refuse seule.
+    Regex("""```(?:json)?\s*(\{[\s\S]*?\})\s*```""", RegexOption.IGNORE_CASE).findAll(reply)
         .map { it.groupValues[1].trim() }
         .firstOrNull { it.contains("\"actions\"") }
         ?.let { return it }

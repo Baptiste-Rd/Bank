@@ -37,4 +37,11 @@ class ClaudeExportTest {
         assertEquals("Virement émis · destinataire 1", labels[5])
         assertTrue(labels.none { it.contains("DUPONT") || it.contains("MARTIN") || it.contains("DURAND") })
     }
+
+    @Test
+    fun `the plan object is found in a fenced block or in plain text`() {
+        val fenced = "Voici le plan (2 actions) :\n```json\n{\"format\":\"bank-plan\",\"actions\":[{\"type\":\"flag\",\"issue\":\"x\"}]}\n```"
+        assertEquals("{\"format\":\"bank-plan\",\"actions\":[{\"type\":\"flag\",\"issue\":\"x\"}]}", extractJsonObject(fenced))
+        assertEquals("{\"actions\":[]}", extractJsonObject("texte {\"actions\":[]} fin"))
+    }
 }
