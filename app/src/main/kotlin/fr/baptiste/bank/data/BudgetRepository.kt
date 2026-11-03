@@ -745,6 +745,40 @@ class BudgetRepository(
         AssistedSortResult(sorted = choices.size, createdEnvelopes = created)
     }
 
+    /** Le pont avec le skill Claude : export anonymisé, lecture et application d'un plan. */
+    val claude: ClaudeBridge by lazy { ClaudeBridge(database, settings, this) }
+
+    /**
+     * Crée une règle « tout libellé qui contient [pattern] va dans [envelopeName] » (sans opération de
+     * départ : un plan de Claude). Un même motif ne mène qu'à une enveloppe. Faux si l'enveloppe n'existe pas.
+     */
+    suspend fun addRule(pattern: String, envelopeName: String): Boolean = database.withTransaction {
+        val text = pattern.trim().takeIf { it.isNotEmpty() } ?: return@withTransaction false
+        val envelope = activeEnvelopes().firstOrNull { envelopeNameKey(it.name) == envelopeNameKey(envelopeName) }
+            ?: return@withTransaction false
+        val ruleDao = database.ruleDao()
+        val key = normalizeLabel(text)
+        ruleDao.delete(ruleDao.all().filter { normalizeLabel(it.pattern) == key }.map { it.id })
+        ruleDao.insert(RuleEntity(matchType = RuleMatchType.CONTAINS, pattern = text, envelopeId = envelope.id))
+        true
+    }
+
+    /** Crée un nom affiché (alias) pour tout libellé qui contient [pattern], et l'applique aux opérations sans nom. */
+    suspend fun addAlias(pattern: String, name: String): Int = database.withTransaction {
+        val text = pattern.trim()
+        val alias = name.trim()
+        if (text.isEmpty() || alias.isEmpty()) return@withTransaction 0
+        val aliasDao = database.aliasDao()
+        val key = normalizeLabel(text)
+        aliasDao.delete(aliasDao.all().filter { normalizeLabel(it.pattern) == key }.map { it.id })
+        aliasDao.insert(LabelAliasEntity(pattern = text, alias = alias))
+        val single = listOf(LabelAlias(0, text, alias))
+        transactionDao.withoutAlias()
+            .filter { single.aliasFor(it.cleanLabel) != null }
+            .onEach { transactionDao.setAlias(it.id, alias) }
+            .size
+    }
+
     /** Met une opération hors budget : elle reste visible mais n'est comptée dans aucune enveloppe. */
     /** Opérations de la banque à trier, toutes. */
     val unsortedOperations: Flow<List<OperationRow>> = transactionDao.observeUnsortedOperations()
@@ -915,10 +949,10 @@ class BudgetRepository(
         saveEnvelope(envelope.copy(fundingStart = from))
     }
 
-    /** Dépense du quotidien des trois derniers mois terminés et renseignés (référence du simulateur). */
+    /** Dépense du quotidien des douze derniers mois terminés et renseignés au plus (référence du simulateur). */
     fun dailySpendingHistory(today: LocalDate = LocalDate.now()): Flow<List<fr.baptiste.bank.domain.budget.MonthDailySpending>> {
         val current = YearMonth.from(today)
-        val from = current.minusMonths(3).atDay(1)
+        val from = current.minusMonths(12).atDay(1)
         val to = current.minusMonths(1).atEndOfMonth()
         val all = combine(envelopes, archivedEnvelopes) { active, archived -> active + archived }
         val spendings = imputationDao.observeSpendings(from, to)
@@ -1130,11 +1164,15 @@ data class AssistedSortChoice(
 data class AssistedSortResult(val sorted: Int, val createdEnvelopes: List<String>)
 
 /** Famille proposée par Claude (vocabulaire de l'app) vers le type du calcul. */
-private fun typeForFamily(family: String): EnvelopeType = when (envelopeNameKey(family)) {
-    envelopeNameKey("charges fixes") -> EnvelopeType.FIXED
-    envelopeNameKey("provisions") -> EnvelopeType.ANNUAL
-    envelopeNameKey("épargne") -> EnvelopeType.SAVINGS
-    else -> EnvelopeType.DAILY
+internal fun typeForFamily(family: String): EnvelopeType {
+    val key = envelopeNameKey(family)
+    return when {
+        key.startsWith(envelopeNameKey("charge")) -> EnvelopeType.FIXED
+        // « budgets rares et ponctuels » (ancien vocabulaire : « provisions »).
+        key.contains(envelopeNameKey("rare")) || key.contains(envelopeNameKey("ponctuel")) || key.startsWith(envelopeNameKey("provision")) -> EnvelopeType.ANNUAL
+        key.startsWith(envelopeNameKey("épargne")) || key.startsWith(envelopeNameKey("epargne")) -> EnvelopeType.SAVINGS
+        else -> EnvelopeType.DAILY
+    }
 }
 
 /** Ce qu'on déclasse dans un mois. */

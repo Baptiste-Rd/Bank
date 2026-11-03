@@ -86,6 +86,19 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
     suspend fun suggestAmount(envelopeId: Long?, category: String?, frequency: fr.baptiste.bank.domain.period.Frequency) =
         repository.suggestAmount(envelopeId, category, frequency)
 
+    /** Prépare l'export anonymisé pour Claude (texte JSON). */
+    fun exportForClaude(onReady: (String) -> Unit) {
+        viewModelScope.launch { onReady(repository.claude.export()) }
+    }
+
+    fun parseClaudePlan(reply: String): fr.baptiste.bank.domain.bank.ClaudePlan? = repository.claude.parsePlan(reply)
+
+    suspend fun claudeContext(): fr.baptiste.bank.data.ClaudeBridge.Context = repository.claude.context()
+
+    fun applyClaudePlan(actions: List<fr.baptiste.bank.domain.bank.PlanAction>, onDone: (Int) -> Unit) {
+        viewModelScope.launch { onDone(repository.claude.apply(actions)) }
+    }
+
     fun setSalaryNextMonth(nextMonth: Boolean) {
         viewModelScope.launch { repository.setSalaryNextMonth(nextMonth) }
     }
@@ -156,6 +169,14 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
     @OptIn(ExperimentalCoroutinesApi::class)
     val monthYearSpending: StateFlow<YearSpending?> = _selectedMonth
         .map { it.year }
+        .distinctUntilChanged()
+        .flatMapLatest { repository.spendingYear(it) }
+        .asState(null)
+
+    /** L'année d'avant le mois consulté (moyennes sur 12 mois glissants). */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val monthPreviousYearSpending: StateFlow<YearSpending?> = _selectedMonth
+        .map { it.year - 1 }
         .distinctUntilChanged()
         .flatMapLatest { repository.spendingYear(it) }
         .asState(null)

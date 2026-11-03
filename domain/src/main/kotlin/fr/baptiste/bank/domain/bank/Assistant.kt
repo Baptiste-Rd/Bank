@@ -136,6 +136,17 @@ fun extractJsonArray(reply: String): String? {
     return if (start >= 0 && end > start) reply.substring(start, end + 1).trim() else null
 }
 
+/** L'objet JSON d'une réponse : le bloc ```json``` qui contient « actions », sinon le premier objet du texte. */
+fun extractJsonObject(reply: String): String? {
+    Regex("""```(?:json)?\s*(\{[\s\S]*?})\s*```""", RegexOption.IGNORE_CASE).findAll(reply)
+        .map { it.groupValues[1].trim() }
+        .firstOrNull { it.contains("\"actions\"") }
+        ?.let { return it }
+    val start = reply.indexOf('{')
+    val end = reply.lastIndexOf('}')
+    return if (start >= 0 && end > start) reply.substring(start, end + 1).trim() else null
+}
+
 /** Ce que Claude propose pour une opération, tel que lu dans sa réponse. */
 data class AssistantProposal(
     val ref: Int,

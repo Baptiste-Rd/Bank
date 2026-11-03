@@ -23,7 +23,7 @@ import java.util.Locale
 /** Ce que l'on sait d'un mois pour l'analyser. */
 data class MonthAnalysisInput(
     val month: MonthSpending,
-    /** Mois renseignés précédents, du plus ancien au plus récent (six au plus sont envoyés). */
+    /** Mois renseignés précédents, du plus ancien au plus récent (douze au plus sont envoyés : 12 mois glissants). */
     val previous: List<MonthSpending>,
     /** Sorties d'argent comptées du mois, avec leur nom (pour les habitudes). */
     val outflows: List<Outflow> = emptyList(),
@@ -36,7 +36,7 @@ data class MonthAnalysisInput(
     val today: LocalDate = LocalDate.now(),
 )
 
-private const val MAX_PREVIOUS = 6
+private const val MAX_PREVIOUS = 12
 private const val TOP = 8
 private const val BIGGEST = 5
 

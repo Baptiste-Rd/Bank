@@ -102,6 +102,7 @@ fun GlassMainScreen(
     val rules by viewModel.rules.collectAsStateWithLifecycle()
     val transferRules by viewModel.transferRules.collectAsStateWithLifecycle()
     val holdings by viewModel.holdings.collectAsStateWithLifecycle()
+    val previousYearSpending by viewModel.monthPreviousYearSpending.collectAsStateWithLifecycle()
     val homeShowsDay by viewModel.homeShowsDay.collectAsStateWithLifecycle()
     val currentBalance by viewModel.currentAccountBalance.collectAsStateWithLifecycle()
     // Même instance que celle des fenêtres (portée de l'activité) : les opérations en attente.
@@ -306,6 +307,7 @@ fun GlassMainScreen(
                             recurring = recurringExpenses,
                             monthOutflows = viewModel::monthOutflows,
                             income = income,
+                            previousYear = previousYearSpending,
                         )
                     } else GlassOperationsContent(
                         header = spendingHeader,

@@ -44,6 +44,7 @@ import fr.baptiste.bank.ui.operations.RenameOperationDialog
 import fr.baptiste.bank.ui.operations.RulesDialog
 import fr.baptiste.bank.ui.operations.SortOperationDialog
 import fr.baptiste.bank.ui.operations.DateCheckDialog
+import fr.baptiste.bank.ui.assistant.ClaudeControlDialog
 import fr.baptiste.bank.ui.operations.UnsortDialog
 import fr.baptiste.bank.ui.transfers.CoverDialog
 import fr.baptiste.bank.ui.transfers.EnvelopeSheet
@@ -92,6 +93,9 @@ sealed interface OpenDialog {
 
     /** « Vérifier les dates » : débit de la carte, jours à corriger. */
     data object DateCheck : OpenDialog
+
+    /** Contrôle avec Claude : export anonymisé, puis plan de corrections à valider. */
+    data class ClaudeControl(val demoReply: String? = null) : OpenDialog
 
     /** Livrets et investissements : la liste, puis un compte (null : nouveau). */
     data object Accounts : OpenDialog
@@ -182,6 +186,13 @@ fun AppMenuItems(
         onClick = {
             onClose()
             controller.dialog = OpenDialog.Bank
+        },
+    )
+    DropdownMenuItem(
+        text = { Text("Contrôle avec Claude") },
+        onClick = {
+            onClose()
+            controller.dialog = OpenDialog.ClaudeControl()
         },
     )
     DropdownMenuItem(
@@ -352,6 +363,17 @@ fun AppDialogs(
                 controller.dialog = OpenDialog.SortOperation(renamed, current.selectedEnvelopeId)
             },
             onDismiss = { controller.dialog = OpenDialog.SortOperation(current.operation, current.selectedEnvelopeId) },
+        )
+        is OpenDialog.ClaudeControl -> ClaudeControlDialog(
+            onExport = viewModel::exportForClaude,
+            parse = viewModel::parseClaudePlan,
+            loadContext = viewModel::claudeContext,
+            onApply = { actions ->
+                viewModel.applyClaudePlan(actions) { count -> controller.notify("$count action(s) de Claude appliquée(s).") }
+                close()
+            },
+            onDismiss = ::close,
+            initialReply = current.demoReply,
         )
         OpenDialog.DateCheck -> {
             val report by viewModel.dateCheck.collectAsStateWithLifecycle()

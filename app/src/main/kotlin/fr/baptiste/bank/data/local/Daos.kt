@@ -471,6 +471,22 @@ interface TransactionDao {
     @Query("UPDATE transaction_record SET date = :date WHERE id = :id")
     suspend fun setDate(id: Long, date: LocalDate)
 
+    /** Opérations depuis [from], avec leur enveloppe (une ligne par part si l'opération est répartie), pour l'export Claude. */
+    @Query(
+        """
+        SELECT t.id AS id, t.date AS date, t.booking_date AS bookingDate, t.amount_cents AS amountCents,
+               t.raw_label AS rawLabel, t.alias AS alias, t.ignored AS ignored, t.transfer_account_id AS transferAccountId,
+               t.source AS source, t.account_id AS accountId, i.envelope_id AS envelopeId, i.mode AS mode
+        FROM transaction_record t LEFT JOIN imputation i ON i.transaction_id = t.id
+        WHERE t.date >= :from ORDER BY t.date, t.id
+        """,
+    )
+    suspend fun exportRows(from: LocalDate): List<ExportRow>
+
+    /** Identifiants de toutes les opérations (retrouver celles d'un plan de Claude). */
+    @Query("SELECT id FROM transaction_record")
+    suspend fun allIds(): List<Long>
+
     /** Supprime les saisies à la main rangées dans une enveloppe (avant de la supprimer). */
     @Query("DELETE FROM transaction_record WHERE source = 'MANUAL' AND id IN (SELECT transaction_id FROM imputation WHERE envelope_id = :envelopeId)")
     suspend fun deleteManualIn(envelopeId: Long)
@@ -620,3 +636,19 @@ data class EnvelopeUsageRow(val source: TransactionSource, val count: Int, val a
 
 /** Un virement vers un de mes comptes. */
 data class AccountTransferRow(val accountId: Long, val date: LocalDate, val amountCents: Long)
+
+/** Une opération pour l'export Claude, avec l'enveloppe d'une de ses parts. */
+data class ExportRow(
+    val id: Long,
+    val date: LocalDate,
+    val bookingDate: LocalDate?,
+    val amountCents: Long,
+    val rawLabel: String,
+    val alias: String?,
+    val ignored: Boolean,
+    val transferAccountId: Long?,
+    val source: TransactionSource,
+    val accountId: Long,
+    val envelopeId: Long?,
+    val mode: fr.baptiste.bank.domain.model.ImputationMode?,
+)

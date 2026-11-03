@@ -14,7 +14,7 @@ import java.time.YearMonth
  * ÷ mois), l'épargne mensuelle peut changer, et le quotidien est ce qui reste.
  *
  * Le verdict compare ce quotidien à ce que je dépense vraiment au quotidien : la moyenne des mois
- * renseignés choisis (les trois derniers mois terminés par défaut ; un mois exceptionnel s'exclut).
+ * renseignés choisis (les douze derniers mois terminés au plus ; un mois exceptionnel s'exclut).
  */
 
 enum class PlanVerdict {
@@ -109,7 +109,7 @@ fun dailySpendingHistory(
     spendings: List<Spending>,
     current: YearMonth,
     trackingStart: YearMonth?,
-    count: Int = 3,
+    count: Int = 12,
 ): List<MonthDailySpending> {
     val dailyIds = envelopes.filter { it.type == EnvelopeType.DAILY }.map { it.id }.toSet()
     return (1..count)

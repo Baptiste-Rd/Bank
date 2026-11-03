@@ -117,6 +117,8 @@ fun GlassAnalysisContent(
     monthOutflows: (YearMonth) -> Flow<List<fr.baptiste.bank.domain.budget.Outflow>> = { kotlinx.coroutines.flow.flowOf(emptyList()) },
     /** Salaire indiqué, s'il l'est (analyse complète). */
     income: Money? = null,
+    /** L'année d'avant le mois consulté : les 12 mois glissants peuvent la toucher. */
+    previousYear: YearSpending? = null,
 ) {
     val period = if (showYear) AnalysisPeriod.YEAR else AnalysisPeriod.MONTH
     var expanded by rememberSaveable { mutableStateOf<String?>(null) }
@@ -150,8 +152,10 @@ fun GlassAnalysisContent(
                     trackingStart != null && month < trackingStart ->
                         item(key = "analysis-not-tracked") { NotTrackedCard(month, trackingStart) { onTrackMonth(month) } }
                     report != null -> monthAnalysis(
-                        // Habitude : la moyenne des trois mois renseignés précédents (même année).
-                        averages = monthYear?.months.orEmpty().filter { it.tracked && it.month < month }.takeLast(3).let { previous ->
+                        // Habitude : la moyenne des mois renseignés précédents, sur 12 mois glissants au plus
+                        // (l'année d'avant comprise en début d'année).
+                        averages = (previousYear?.months.orEmpty() + monthYear?.months.orEmpty())
+                            .filter { it.tracked && it.month < month && !it.month.isBefore(month.minusMonths(12)) }.let { previous ->
                             if (previous.isEmpty()) emptyMap() else report.categories.associate { category ->
                                 category.name to previous.fold(Money.ZERO) { sum, m ->
                                     sum + (m.categories.firstOrNull { it.name == category.name }?.spent ?: Money.ZERO)
@@ -207,10 +211,11 @@ fun GlassAnalysisContent(
     }
 
     asking?.let { report ->
-        val earlier = monthYear?.months.orEmpty().filter { it.tracked && it.month < report.month }
+        val earlier = (previousYear?.months.orEmpty() + monthYear?.months.orEmpty())
+            .filter { it.tracked && it.month < report.month && !it.month.isBefore(report.month.minusMonths(12)) }
         val outflows by remember(report.month) { monthOutflows(report.month) }.collectAsState(initial = emptyList())
         MonthReviewDialog(
-            quickPrompt = fr.baptiste.bank.domain.budget.monthReviewPrompt(report, earlier.takeLast(3), savings?.forecast, savings?.target),
+            quickPrompt = fr.baptiste.bank.domain.budget.monthReviewPrompt(report, earlier, savings?.forecast, savings?.target),
             fullPrompt = { merchants ->
                 fr.baptiste.bank.domain.budget.monthAnalysisPrompt(
                     fr.baptiste.bank.domain.budget.MonthAnalysisInput(

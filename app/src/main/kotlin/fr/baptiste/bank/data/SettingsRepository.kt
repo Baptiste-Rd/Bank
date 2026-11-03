@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStoreFile
 import fr.baptiste.bank.domain.money.Money
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 
@@ -59,6 +60,16 @@ class SettingsRepository(context: Context, storeName: String = "settings") {
                 it.remove(monthlyIncomeKey)
             }
         }
+    }
+
+    private val exportSaltKey = stringPreferencesKey("export_salt")
+
+    /** Sel des identifiants opaques de l'export Claude : tiré au hasard une fois, gardé sur le téléphone. */
+    suspend fun exportSalt(): String {
+        settingsStore.data.first()[exportSaltKey]?.let { return it }
+        val salt = java.util.UUID.randomUUID().toString()
+        settingsStore.edit { it[exportSaltKey] = salt }
+        return salt
     }
 
     private val uiStyleKey = stringPreferencesKey("ui_style")

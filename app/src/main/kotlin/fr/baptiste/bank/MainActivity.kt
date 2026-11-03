@@ -68,6 +68,18 @@ class MainActivity : ComponentActivity() {
             "RESERVE" -> OpenDialog.Move(10, incoming = true)
             "UNSORT" -> OpenDialog.Unsort
             "DATES" -> OpenDialog.DateCheck
+            // Contrôle avec Claude : accueil, puis un plan d'exemple à valider.
+            "CLAUDE" -> OpenDialog.ClaudeControl()
+            "CLAUDE_PLAN" -> OpenDialog.ClaudeControl(
+                demoReply = """
+                    {"format":"bank-plan","version":1,"actions":[
+                    {"type":"envelope","name":"Coiffeur","family":"rare","amount":26,"every":3,"unit":"mois","reset":"2027-01-01","category":"Santé","reason":"4 passages chez le coiffeur en 12 mois","confidence":"haute"},
+                    {"type":"rule","pattern":"BOULANGERIE","envelope":"Courses","reason":"12 achats rangés à la main dans Courses","confidence":"haute"},
+                    {"type":"rename","pattern":"SAS LDC","name":"Salle de sport","reason":"prélèvement mensuel de 29,90 €","confidence":"moyenne"},
+                    {"type":"flag","issue":"doublon probable","note":"deux paiements de 45,20 € chez Carrefour City le même jour"}
+                    ]}
+                """.trimIndent(),
+            )
             "RULES" -> OpenDialog.Rules
             "ASSISTED" -> OpenDialog.AssistedSort()
             "ACCOUNTS" -> OpenDialog.Accounts
