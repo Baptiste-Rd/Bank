@@ -12,7 +12,7 @@ carte mentale, autocritique) est dans le document de refonte partagé avec Bapti
 | Épargne | Combien vais-je mettre de côté ? | Épargne prévue + conseil · écarts à l'objectif et au mois précédent · six mois · sur tes comptes (livrets, investissement) · mis de côté · achats prévus | Mettre de côté ; + = achat prévu |
 | Dépenses | Où est parti l'argent ? Que s'est-il passé ? | Analyse \| Liste. Analyse : Mois (total réel, à trier et non comptés à part, une barre par catégorie avec le trait du budget, puis enveloppes, puis opérations) · Année (histogramme empilé, moyenne, mois non renseignés grisés, tableau par catégorie). Liste : à trier · outils du tri · historique par jour | Ajouter une dépense |
 
-Le menu ⋮ garde les réglages : salaire (lu à la banque), banque et synchronisation, vérifier les dates, journal des transferts, style, réglages du verre
+Le menu ⋮ garde les réglages : salaire (lu à la banque), banque et synchronisation, contrôle avec Claude, vérifier les dates, journal des transferts, style, réglages du verre
 (développeur : panneau en bas, app en direct au-dessus), mises à jour.
 
 La fiche d'une enveloppe liste les dépenses de sa période ; toucher une dépense la déplace.
