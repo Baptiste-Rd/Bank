@@ -21,7 +21,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import fr.baptiste.bank.data.MonthSavings
 import fr.baptiste.bank.domain.budget.Dashboard
-import fr.baptiste.bank.domain.budget.dailyCapForTarget
+import fr.baptiste.bank.domain.budget.spendableForTarget
 import fr.baptiste.bank.domain.money.Money
 import fr.baptiste.bank.ui.format.formatted
 import fr.baptiste.bank.ui.theme.BankTheme
@@ -93,13 +93,14 @@ fun SavingsSummary(dashboard: Dashboard, history: List<MonthSavings>, accent: Co
             if (outlook.overruns.isPositive) Breakdown("Dépassements et retraits d'épargne", "−${outlook.overruns.formatted()}")
         }
 
-        val cap = dashboard.dailyCapForTarget()
+        val room = dashboard.spendableForTarget()
+        val end = dashboard.today.lengthOfMonth()
         val advice = when {
-            cap == null -> null
-            outlook.gapToTarget.isNegative && cap.isPositive ->
-                "Pour atteindre l'objectif : au plus ${cap.formatted()} par jour pour le quotidien d'ici la fin du mois."
+            room == null -> null
+            outlook.gapToTarget.isNegative && room.isPositive ->
+                "Pour atteindre l'objectif : au plus ${room.formatted()} de quotidien d'ici le $end."
             outlook.gapToTarget.isNegative -> "L'objectif n'est plus atteignable ce mois-ci, même sans autre dépense."
-            else -> "En avance de ${outlook.gapToTarget.formatted()} sur l'objectif. Plafond pour le rester : ${cap.formatted()} par jour."
+            else -> "En avance de ${outlook.gapToTarget.formatted()} sur l'objectif : au plus ${room.formatted()} de quotidien d'ici le $end pour le rester."
         }
         if (advice != null) Text(advice, style = MaterialTheme.typography.bodyMedium)
         Text(

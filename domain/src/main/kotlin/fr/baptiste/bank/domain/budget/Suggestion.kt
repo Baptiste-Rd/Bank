@@ -43,3 +43,22 @@ fun suggestedAmount(
     val monthly = total.divideCeil(months.size.toLong())
     return AmountSuggestion(monthly.convert(Frequency.MONTHLY, frequency), months.size, monthly)
 }
+
+/**
+ * Dépense habituelle par mois de chaque enveloppe quotidienne : moyenne des mois terminés (douze
+ * au plus) depuis le début du suivi et le départ de l'enveloppe. Sert à tempérer la projection du
+ * mois en cours. Une enveloppe sans mois terminé n'a pas d'habitude.
+ */
+fun dailyHabits(
+    envelopes: List<fr.baptiste.bank.domain.model.Envelope>,
+    spendings: List<Spending>,
+    today: LocalDate,
+    trackingStart: YearMonth?,
+): Map<Long, Money> {
+    val byEnvelope = spendings.filter { !it.wholePeriod }.groupBy { it.envelopeId }
+    return envelopes.filter { it.type == fr.baptiste.bank.domain.model.EnvelopeType.DAILY }.mapNotNull { envelope ->
+        val since = listOfNotNull(trackingStart, envelope.start?.let { YearMonth.from(it) }).maxOrNull()
+        val spent = byEnvelope[envelope.id].orEmpty().map { it.date to it.amount }
+        suggestedAmount(spent, Frequency.MONTHLY, today, since)?.let { envelope.id to it.monthlyAverage }
+    }.toMap()
+}

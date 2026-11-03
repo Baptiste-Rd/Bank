@@ -36,6 +36,7 @@ import fr.baptiste.bank.data.YearOverview
 import fr.baptiste.bank.domain.budget.CurrentAccountExplained
 import fr.baptiste.bank.domain.budget.Dashboard
 import fr.baptiste.bank.domain.budget.closings
+import fr.baptiste.bank.domain.budget.monthClosing
 import fr.baptiste.bank.domain.budget.EnvelopeLine
 import fr.baptiste.bank.domain.model.Envelope
 import fr.baptiste.bank.domain.model.EnvelopeType
@@ -511,10 +512,23 @@ private fun MonthReview(dashboard: Dashboard, onEdit: (Envelope) -> Unit, transf
     GlassCard(strong = true, contentPadding = 16.dp) {
         Text("Bilan de ${dashboard.today.monthTitle().substringBefore(' ').lowercase()}", style = MaterialTheme.typography.titleMedium)
         Text(
-            "${savings.forecast.formatted()} épargnés",
+            savings.forecast.formatted(),
             style = MaterialTheme.typography.titleLarge,
             color = if (savings.forecast.isNegative) status.over else MaterialTheme.colorScheme.onSurface,
         )
+        Text("Épargne du mois", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        // Ce qu'est devenue l'épargne du mois : virée vers un livret ou un placement, ou encore sur le compte courant.
+        val closing = monthClosing(savings.forecast, transfers)
+        val onAccount = closing.onAccount
+        if (onAccount != null && savings.forecast.isPositive) {
+            Column(Modifier.padding(top = 8.dp)) {
+                ReviewLine("Virée vers tes comptes", closing.transferred ?: Money.ZERO)
+                when {
+                    onAccount.isPositive -> ReviewLine("Encore sur le compte courant", onAccount)
+                    onAccount.isNegative -> ReviewLine("Pris sur l'argent déjà sur le compte", onAccount)
+                }
+            }
+        }
         Column(Modifier.padding(top = 8.dp)) {
             ReviewLine("Objectif et transferts vers l'épargne", savings.secured)
             ReviewLine("Reste du quotidien", savings.dailyMargin)
@@ -525,14 +539,6 @@ private fun MonthReview(dashboard: Dashboard, onEdit: (Envelope) -> Unit, transf
             val savingsSpent = savings.overruns - closings.filter { it.remaining.isNegative }
                 .fold(Money.ZERO) { sum, line -> sum - line.remaining }
             if (savingsSpent.isPositive) ReviewLine("Dépenses sur l'épargne", Money(-savingsSpent.cents))
-        }
-        // Ce qui a vraiment quitté le compte courant pour un livret ou un placement.
-        if (transfers != null && savings.forecast.isPositive) {
-            val left = savings.forecast - transfers
-            Column(Modifier.padding(top = 8.dp)) {
-                ReviewLine("Viré vers tes comptes", transfers)
-                if (left.isPositive) ReviewLine("Resté sur le compte courant", left)
-            }
         }
         Text(
             "Ce qui reste dans une enveloppe à la fin de sa période va à l'épargne ; un dépassement y est pris.",

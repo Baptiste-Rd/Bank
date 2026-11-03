@@ -123,3 +123,18 @@ envoient leur reste à l'épargne.
 Le salaire n'est plus tapé : l'app repère les virements reçus chaque mois du même émetteur, on
 confirme une fois lequel est le salaire. Versé après le 20, il finance le mois suivant. Tant qu'il
 n'est pas arrivé, le dernier versement est « attendu ».
+
+## Un chiffre, une fonction
+
+Un chiffre affiché à plusieurs endroits vient d'une seule fonction du module `:domain`.
+
+| Chiffre | Fonction | Où il s'affiche |
+| --- | --- | --- |
+| Reste du mois, par jour | `dailyAllowance` (`DailyBudget.kt`) | Accueil seulement ; l'Épargne parle d'un total (`spendableForTarget`) |
+| Dépensé du mois | `countedSpendings` (`SpendingReport.kt`), via `monthPace` et `monthSpending` | Accueil (rythme), Analyse (total du mois) |
+| Prévu + | `project` (`Projection.kt`) : rien avant le 10, puis rythme du mois mêlé à l'habitude (`dailyHabits`, 12 mois) | Enveloppes, fiche, Claude |
+| Comparaison de début de mois | `MonthPace.previousSameDay` | Analyse du mois en cours |
+| Bilan d'un mois terminé | `monthClosing` (`MonthClosing.kt`) : épargne du mois, virée ou encore sur le compte | Budget, mois passé |
+| Moyennes et écarts de l'année | `YearSpending.complete` : mois terminés seulement | Analyse, Année |
+| Montant proposé | `suggestedAmount` sur l'historique de l'enveloppe ; rien pour une nouvelle | Formulaire d'enveloppe |
+| À trier | `observeUnsortedCount` moins le salaire reconnu | Accueil, onglet Dépenses |

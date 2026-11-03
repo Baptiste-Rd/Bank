@@ -159,7 +159,7 @@ fun EnvelopeDialog(
     val canSave = name.isNotBlank() && !nameTaken && amount != null && !amount.isNegative && frequency != null &&
         resetValid && (use != Use.RARE || !repeats || (thenAmount != null && !thenAmount.isNegative))
 
-    // Montant proposé : la moyenne des mois passés, recalculée quand la catégorie ou le rythme change.
+    // Montant proposé : la moyenne des mois passés de l'enveloppe, recalculée quand le rythme change.
     var suggestion by remember { mutableStateOf<AmountSuggestion?>(null) }
     val categoryForSuggestion = newCategory?.takeIf { it.isNotBlank() } ?: category
     LaunchedEffect(categoryForSuggestion, frequency) {
@@ -272,10 +272,9 @@ fun EnvelopeDialog(
                     AssistChip(
                         onClick = { amountText = proposed.amount.toFieldText() },
                         label = {
-                            // D'où vient le chiffre : l'enveloppe elle-même, sinon sa catégorie.
-                            val source = if (isExisting) "de ce budget" else "de la catégorie $categoryForSuggestion"
+                            // D'où vient le chiffre : l'historique de cette enveloppe (une nouvelle n'a pas de proposition).
                             val span = if (proposed.months > 1) "sur ${proposed.months} mois" else "sur le dernier mois"
-                            Text("Proposé : ${proposed.amount.formatted()} (dépense moyenne $source $span)")
+                            Text("Proposé : ${proposed.amount.formatted()} (dépense moyenne de cette enveloppe $span)")
                         },
                     )
                 }

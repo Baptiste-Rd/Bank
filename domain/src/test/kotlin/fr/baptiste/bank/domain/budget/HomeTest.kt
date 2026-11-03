@@ -77,4 +77,25 @@ class HomeTest {
         assertEquals(SavingReminder.Done(LocalDate.of(2026, 11, 9)), done.reminder(today))
         assertEquals(null, done.reminder(LocalDate.of(2026, 11, 13)))
     }
+
+    @Test
+    fun `early in the month the comparison is with the same date last month`() {
+        // Le 3 novembre : 143 € dépensés, contre 95 € du 1er au 3 octobre (pas les 1 497 € du budget).
+        val spent = listOf(
+            LocalDate.of(2026, 11, 2) to Money.euros(143),
+            LocalDate.of(2026, 10, 1) to Money.euros(60),
+            LocalDate.of(2026, 10, 3) to Money.euros(35),
+            LocalDate.of(2026, 10, 4) to Money.euros(400),
+        )
+        val pace = monthPace(YearMonth.of(2026, 11), LocalDate.of(2026, 11, 3), spent, Money.euros(1497), previousTracked = true)
+        assertEquals(Money.euros(95), pace.previousSameDay)
+        assertEquals(null, monthPace(YearMonth.of(2026, 11), LocalDate.of(2026, 11, 3), spent, Money.euros(1497)).previousSameDay)
+    }
+
+    @Test
+    fun `a longer month is compared with the last day of a shorter one`() {
+        val spent = listOf(LocalDate.of(2026, 2, 28) to Money.euros(20), LocalDate.of(2026, 3, 30) to Money.euros(5))
+        val pace = monthPace(YearMonth.of(2026, 3), LocalDate.of(2026, 3, 31), spent, Money.euros(100), previousTracked = true)
+        assertEquals(Money.euros(20), pace.previousSameDay)
+    }
 }

@@ -28,6 +28,8 @@ data class MonthPace(
     /** Dépensé cumulé à la fin de chaque jour, du 1er à aujourd'hui (les jours à venir n'y sont pas). */
     val cumulative: List<Money>,
     val budget: Money,
+    /** Dépensé le mois précédent du 1er au même jour (null sans mois précédent suivi) : la comparaison de début de mois. */
+    val previousSameDay: Money? = null,
 ) {
     val days: Int get() = month.lengthOfMonth()
     val spent: Money get() = cumulative.lastOrNull() ?: Money.ZERO
@@ -39,8 +41,18 @@ data class MonthPace(
     val gap: Money get() = spent - expected
 }
 
-/** Rythme de [month] à [today] : [spent] (jour, montant) cumulé, face à [budget]. */
-fun monthPace(month: YearMonth, today: LocalDate, spent: List<Pair<LocalDate, Money>>, budget: Money): MonthPace {
+/**
+ * Rythme de [month] à [today] : [spent] (jour, montant) cumulé, face à [budget]. Avec
+ * [previousTracked], [spent] couvre aussi le mois précédent, et [MonthPace.previousSameDay] donne ce
+ * qu'il avait dépensé à la même date (au dernier jour s'il était plus court).
+ */
+fun monthPace(
+    month: YearMonth,
+    today: LocalDate,
+    spent: List<Pair<LocalDate, Money>>,
+    budget: Money,
+    previousTracked: Boolean = false,
+): MonthPace {
     val last = when {
         YearMonth.from(today) == month -> today.dayOfMonth
         YearMonth.from(today).isAfter(month) -> month.lengthOfMonth()
@@ -52,7 +64,14 @@ fun monthPace(month: YearMonth, today: LocalDate, spent: List<Pair<LocalDate, Mo
         total += byDay[day].orEmpty().sumOfMoney { it.second }
         total
     }
-    return MonthPace(month, cumulative, budget)
+    val previous = month.minusMonths(1)
+    val previousSameDay = if (previousTracked && last > 0) {
+        val through = minOf(last, previous.lengthOfMonth())
+        spent.filter { YearMonth.from(it.first) == previous && it.first.dayOfMonth <= through }.sumOfMoney { it.second }
+    } else {
+        null
+    }
+    return MonthPace(month, cumulative, budget, previousSameDay)
 }
 
 /** La carte des enveloppes de l'accueil : quotidien et budgets rares ligne à ligne, charges en une ligne. */

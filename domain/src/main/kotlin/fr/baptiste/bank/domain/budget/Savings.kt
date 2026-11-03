@@ -50,6 +50,15 @@ data class SavingsOutlook(
  * La dépense encore permise est donc à l'abri − objectif + budget − déjà dépensé − dépassements,
  * répartie sur les jours restants (aujourd'hui compris).
  */
+/**
+ * Ce qu'on peut encore dépenser au quotidien d'ici la fin du mois en tenant l'objectif d'épargne
+ * (un total : le seul montant « par jour » affiché est celui de [Dashboard.dailyAllowance]).
+ */
+fun Dashboard.spendableForTarget(): Money? {
+    if (savings.isFinal || daysRemaining <= 0) return null
+    return savings.secured - savings.target + dailyBudget - dailySpent - savings.overruns
+}
+
 fun Dashboard.dailyCapForTarget(): Money? {
     if (savings.isFinal || daysRemaining <= 0) return null
     val room = savings.secured - savings.target + dailyBudget - dailySpent - savings.overruns

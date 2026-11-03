@@ -450,6 +450,17 @@ interface TransactionDao {
     )
     fun observeInflows(from: LocalDate, to: LocalDate): Flow<List<LabeledAmount>>
 
+    /** Virements reçus encore à trier, libellé d'origine : le salaire reconnu n'est pas compté « à trier ». */
+    @Query(
+        """
+        SELECT t.raw_label AS label, t.date AS date, t.amount_cents AS amount_cents
+        FROM transaction_record t
+        WHERE t.ignored = 0 AND t.amount_cents > 0
+          AND NOT EXISTS (SELECT 1 FROM imputation i WHERE i.transaction_id = t.id)
+        """,
+    )
+    fun observeUnsortedInflows(): Flow<List<LabeledAmount>>
+
     /** Virements vers mes comptes, par compte, sur une plage de dates. */
     @Query("SELECT transfer_account_id AS accountId, date, amount_cents AS amountCents FROM transaction_record WHERE transfer_account_id IS NOT NULL AND date BETWEEN :from AND :to")
     fun observeTransfersByAccount(from: LocalDate, to: LocalDate): Flow<List<AccountTransferRow>>

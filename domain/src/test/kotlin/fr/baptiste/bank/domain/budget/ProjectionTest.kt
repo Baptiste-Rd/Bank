@@ -87,4 +87,32 @@ class ProjectionTest {
         assertEquals(Money.euros(90), result.projected)
         assertFalse(result.isAlert)
     }
+
+    private val november = Period.Month(YearMonth.of(2026, 11))
+
+    @Test
+    fun `three days of groceries are not projected over the month`() {
+        // Courses : 58 € le 3 novembre pour 320 €. L'ancien calcul annonçait 580 €.
+        val result = project(Money.euros(58), Money.euros(320), november, LocalDate.of(2026, 11, 3))
+        assertEquals(Money.euros(58), result.projected)
+        assertFalse(result.isAlert)
+    }
+
+    @Test
+    fun `from the tenth day the pace blends with the habit`() {
+        // Courses : 250 € le 20 novembre pour 320 €, 300 € d'habitude. Dix jours restants :
+        // 250/30 + 300 × 10/900 par jour = 11,67 €, soit 366,67 € en fin de mois.
+        val result = project(Money.euros(250), Money.euros(320), november, LocalDate.of(2026, 11, 20), habit = Money.euros(300))
+        assertEquals(Money(36667), result.projected)
+        assertTrue(result.isAlert)
+    }
+
+    @Test
+    fun `the habit tempers a fast but early pace`() {
+        // 150 € le 10 novembre pour 320 € (rythme 450 €), 280 € d'habitude : 150 + 20 × (5 + 280 × 20/900).
+        val result = project(Money.euros(150), Money.euros(320), november, LocalDate.of(2026, 11, 10), habit = Money.euros(280))
+        assertEquals(Money(37445), result.projected)
+        val alone = project(Money.euros(150), Money.euros(320), november, LocalDate.of(2026, 11, 10))
+        assertEquals(Money.euros(450), alone.projected)
+    }
 }

@@ -132,6 +132,8 @@ fun computeDashboard(
     transfers: List<Transfer> = emptyList(),
     /** Début du suivi : rien n'a été mis de côté avant (provisions). */
     trackingStart: java.time.YearMonth? = null,
+    /** Dépense habituelle par mois des enveloppes quotidiennes (12 mois glissants), pour la projection. */
+    habits: Map<Long, Money> = emptyMap(),
 ): Dashboard {
     // Une enveloppe retirée figure encore dans le tableau d'un jour d'avant son retrait (un mois passé).
     val active = envelopes.filter { (!it.archived || it.retiredOn?.let { on -> today.isBefore(on) } == true) && it.existsOn(today) }
@@ -179,6 +181,7 @@ fun computeDashboard(
                 today,
                 alertThresholdPercent,
                 if (envelope.type == EnvelopeType.DAILY) lumpSum else spent,
+                habit = habits[envelope.id]?.takeIf { envelope.type == EnvelopeType.DAILY && period is Period.Month },
             ),
         )
     }

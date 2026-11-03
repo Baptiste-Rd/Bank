@@ -276,8 +276,10 @@ fun GlassMainScreen(
                     Tab.OPERATIONS -> if (spendingView == SpendingTabView.ANALYSIS) {
                         val monthYearSpending by viewModel.monthYearSpending.collectAsStateWithLifecycle()
                         val yearSpending by viewModel.yearSpending.collectAsStateWithLifecycle()
+                        val analysisPace by viewModel.monthPace.collectAsStateWithLifecycle()
                         GlassAnalysisContent(
                             header = spendingHeader,
+                            pace = analysisPace,
                             month = selectedMonth,
                             monthYear = monthYearSpending,
                             canNextMonth = selectedMonth < YearMonth.now(),

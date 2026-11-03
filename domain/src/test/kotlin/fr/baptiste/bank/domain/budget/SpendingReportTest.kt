@@ -89,12 +89,38 @@ class SpendingReportTest {
         assertEquals(2, year.tracked.size)
         // Septembre : 999 € de courses ; octobre : 855 €.
         assertEquals(Money.euros(1854), year.total)
-        assertEquals(Money.euros(927), year.monthlyAverage)
+        // Octobre est en cours (le 29) : il compte dans le total, pas dans la moyenne ni l'écart.
+        assertEquals(YearMonth.of(2026, 10), year.inProgress)
+        assertEquals(Money.euros(999), year.monthlyAverage)
         val food = year.categories().first { it.name == "Nourriture" }
         assertEquals(Money.euros(1379), food.total)
-        assertEquals(Money(68950), food.average)
-        assertEquals(Money.euros(760), food.budget)
+        assertEquals(Money.euros(999), food.average)
+        assertEquals(Money.euros(380), food.budget)
         assertEquals(Money.euros(619), food.gap)
+        // L'année terminée, tout compte.
+        val later = yearSpending(2026, LocalDate.of(2027, 1, 5), trackingStart = september, envelopes = all, spendings = spendings)
+        assertEquals(null, later.inProgress)
+        assertEquals(Money.euros(1520), later.categories().first { it.name == "Nourriture" }.budget) // septembre à décembre
+    }
+
+    @Test
+    fun `the home and the analysis count the same spending for a month`() {
+        // Un chiffre, une fonction : le « Dépensé ce mois » de l'accueil et le total de l'analyse.
+        val report = monthSpending(october, all, spendings)
+        val counted = countedSpendings(october, all, spendings).map { it.date to it.amount }
+        val pace = monthPace(october, LocalDate.of(2026, 10, 31), counted, report.budget)
+        assertEquals(report.total, pace.spent)
+        // L'épargne n'est dans aucun des deux.
+        assertTrue(countedSpendings(october, all, spendings).none { it.envelopeId == epargne.id })
+    }
+
+    @Test
+    fun `the habit of a daily envelope is its average over finished months`() {
+        // Courses : 999 € en septembre, 350 € en octobre → 674,50 € par mois. Le mois en cours n'y est pas.
+        val habits = dailyHabits(all, spendings + spent(courses, 2, 80, YearMonth.of(2026, 11)), LocalDate.of(2026, 11, 5), YearMonth.of(2026, 9))
+        assertEquals(Money(67450), habits[courses.id])
+        // Une provision n'a pas d'habitude de rythme.
+        assertEquals(null, habits[vacances.id])
     }
 }
 

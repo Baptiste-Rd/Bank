@@ -119,6 +119,8 @@ fun GlassAnalysisContent(
     income: Money? = null,
     /** L'année d'avant le mois consulté : les 12 mois glissants peuvent la toucher. */
     previousYear: YearSpending? = null,
+    /** Rythme du mois en cours : la comparaison à la même date du mois précédent. */
+    pace: fr.baptiste.bank.domain.budget.MonthPace? = null,
 ) {
     val period = if (showYear) AnalysisPeriod.YEAR else AnalysisPeriod.MONTH
     var expanded by rememberSaveable { mutableStateOf<String?>(null) }
@@ -163,6 +165,7 @@ fun GlassAnalysisContent(
                             }
                         },
                         report = report,
+                        pace = pace?.takeIf { it.month == month && month == current },
                         expanded = expanded,
                         onToggle = { name -> expanded = if (expanded == name) null else name },
                         onOpenEnvelope = { opened = it },
@@ -263,6 +266,8 @@ private fun monthName(month: YearMonth): String = month.month.getDisplayName(Tex
 /** Le mois : total, reste à trier, une barre par catégorie. */
 private fun LazyListScope.monthAnalysis(
     report: MonthSpending,
+    /** Mois en cours seulement : on compare à la même date du mois précédent, pas au budget du mois entier. */
+    pace: fr.baptiste.bank.domain.budget.MonthPace? = null,
     expanded: String?,
     onToggle: (String) -> Unit,
     onOpenEnvelope: (EnvelopeSpent) -> Unit,
@@ -285,7 +290,31 @@ private fun LazyListScope.monthAnalysis(
                 fr.baptiste.bank.ui.components.InfoButton(onClick = { onInfo(report) }, contentDescription = "Ce qui est compté")
             }
             Text(report.total.formatted(), style = MaterialTheme.typography.displaySmall)
-            if (report.budget.isPositive) {
+            val sameDay = pace?.previousSameDay
+            if (pace != null) {
+                val day = pace.cumulative.size
+                val previous = report.month.minusMonths(1)
+                val through = minOf(day, previous.lengthOfMonth())
+                if (sameDay != null) {
+                    val gap = sameDay - report.total
+                    Text(
+                        when {
+                            gap.isNegative -> "${(-gap).formatted()} de plus qu'au $through ${monthName(previous)}"
+                            gap.isPositive -> "${gap.formatted()} de moins qu'au $through ${monthName(previous)}"
+                            else -> "Autant qu'au $through ${monthName(previous)}"
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (gap.isNegative) BankTheme.status.warning else BankTheme.status.gain,
+                    )
+                }
+                if (report.budget.isPositive) {
+                    Text(
+                        "Budget du mois : ${report.budget.formatted()}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            } else if (report.budget.isPositive) {
                 val gap = report.budget - report.total
                 Text(
                     if (gap.isNegative) {
@@ -486,7 +515,12 @@ private fun LazyListScope.yearAnalysis(
                 if (tracked.isEmpty()) {
                     "Aucun mois renseigné cette année."
                 } else {
-                    "${report.monthlyAverage.formatted()} par mois en moyenne, sur ${tracked.size} mois renseigné${if (tracked.size > 1) "s" else ""}"
+                    val done = report.complete.size
+                    when {
+                        done == 0 -> "Premier mois en cours : pas encore de moyenne."
+                        else -> "${report.monthlyAverage.formatted()} par mois en moyenne, sur $done mois terminé${if (done > 1) "s" else ""}" +
+                            if (report.inProgress != null) " (le mois en cours n'y entre pas)" else ""
+                    }
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -510,7 +544,7 @@ private fun LazyListScope.yearAnalysis(
                 ).forEach { (name, color) -> LegendSwatch(color, name) }
             }
             Text(
-                "Pointillés : moyenne mensuelle. Mois grisés : non renseignés. Touche un mois pour le détailler.",
+                "Pointillés : moyenne des mois terminés. Mois atténué : en cours. Touche un mois pour le détailler.",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -530,7 +564,7 @@ private fun LazyListScope.yearAnalysis(
                         )
                         // L'évolution mois par mois : « est-ce que ça monte ? » sans calcul.
                         Sparkline(
-                            tracked.map { month -> month.categories.firstOrNull { it.name == category.name }?.spent ?: Money.ZERO },
+                            report.complete.map { month -> month.categories.firstOrNull { it.name == category.name }?.spent ?: Money.ZERO },
                             Modifier.padding(start = 8.dp).size(width = 56.dp, height = 16.dp),
                         )
                     }
@@ -634,12 +668,14 @@ private fun YearBars(report: YearSpending, first: String?, second: String?, onSe
                     val secondCents = month.categories.firstOrNull { it.name == second }?.spent?.cents ?: 0L
                     val restCents = month.total.cents - firstCents - secondCents
                     var bottom = size.height
+                    // Le mois en cours, incomplet, est atténué : il ne se compare pas encore aux autres.
+                    val alpha = if (month.month == report.inProgress) 0.45f else 1f
                     listOf(FirstCategoryColor to firstCents, SecondCategoryColor to secondCents, OtherCategoriesColor to restCents)
                         .filter { it.second > 0 }
                         .forEach { (color, cents) ->
                             val h = height(cents)
                             val drawn = (h - gap).coerceAtLeast(1f)
-                            drawRoundRect(color, topLeft = Offset(left, bottom - drawn), size = Size(barWidth, drawn), cornerRadius = CornerRadius(4.dp.toPx()))
+                            drawRoundRect(color.copy(alpha = alpha), topLeft = Offset(left, bottom - drawn), size = Size(barWidth, drawn), cornerRadius = CornerRadius(4.dp.toPx()))
                             bottom -= h
                         }
                 }

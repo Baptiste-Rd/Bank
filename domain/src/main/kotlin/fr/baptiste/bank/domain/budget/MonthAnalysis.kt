@@ -69,11 +69,11 @@ fun monthAnalysisPrompt(input: MonthAnalysisInput): String = buildString {
     appendLine()
 
     appendLine("## Budget enveloppe par enveloppe")
-    appendLine("Format : enveloppe (catégorie) : dépensé / budget du mois → reste" + if (current) " ; projection fin de mois au rythme actuel" else "")
+    appendLine("Format : enveloppe (catégorie) : dépensé / budget du mois → reste" + if (current && input.today.dayOfMonth >= MIN_DAYS_FOR_PROJECTION) " ; projection fin de mois au rythme actuel" else "")
     month.categories.flatMap { it.envelopes }.sortedByDescending { it.spent }.forEach { line ->
         val envelope = line.envelope
         val rest = line.budget - line.spent
-        val projection = if (current && envelope.type == EnvelopeType.DAILY && input.today.dayOfMonth > 0) {
+        val projection = if (current && envelope.type == EnvelopeType.DAILY && input.today.dayOfMonth >= MIN_DAYS_FOR_PROJECTION) {
             val projected = (line.spent * month.month.lengthOfMonth().toLong()).divideFloor(input.today.dayOfMonth.toLong())
             " ; projection ${euros(projected)}"
         } else {

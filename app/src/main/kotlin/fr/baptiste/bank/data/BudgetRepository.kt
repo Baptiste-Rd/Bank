@@ -152,8 +152,16 @@ class BudgetRepository(
                 .map { rows -> rows.map { Spending(it.envelopeId, it.date, Money(it.amountCents), it.wholePeriod) } }
             val transfers = transferDao.observeActive(range.start, range.endInclusive)
                 .map { rows -> rows.map { it.toDomain() } }
-            combine(allocations, spendings, transfers, monthlyIncome, trackingStart(today)) { allocs, spent, moves, income, start ->
-                computeDashboard(envelopes, allocs, spent, income, today, transfers = moves, trackingStart = start)
+            // L'habitude des enveloppes quotidiennes (12 mois terminés) tempère la projection du mois.
+            val history = imputationDao.observeSpendings(
+                YearMonth.from(today).minusMonths(12).atDay(1),
+                YearMonth.from(today).minusMonths(1).atEndOfMonth(),
+            ).map { rows -> rows.map { Spending(it.envelopeId, it.date, Money(it.amountCents), it.wholePeriod) } }
+            val startAndHabits = combine(trackingStart(today), history) { start, past ->
+                start to fr.baptiste.bank.domain.budget.dailyHabits(envelopes, past, today, start)
+            }
+            combine(allocations, spendings, transfers, monthlyIncome, startAndHabits) { allocs, spent, moves, income, (start, habits) ->
+                computeDashboard(envelopes, allocs, spent, income, today, transfers = moves, trackingStart = start, habits = habits)
             }
         }
     }
@@ -369,23 +377,23 @@ class BudgetRepository(
         database.allocationDao().setAmount(id, key, amount.cents)
 
     /**
-     * Montant proposé pour un budget de [frequency] : la moyenne des mois terminés (douze au plus,
-     * depuis le début des données) de l'enveloppe [envelopeId], sinon des enveloppes de [category].
+     * Montant proposé pour l'enveloppe [envelopeId] : la moyenne de ses mois terminés (douze au plus,
+     * depuis le début du suivi et son départ). Une nouvelle enveloppe n'a pas d'historique propre :
+     * rien n'est proposé. La moyenne d'une catégorie ne vaut pas pour une enveloppe nouvelle, puisque
+     * ces dépenses sont déjà rangées dans les autres enveloppes (Cadeaux à 26 € ne valait pas 391 €
+     * de Loisirs). [category] reste dans la signature pour l'appel du formulaire.
      */
+    @Suppress("UNUSED_PARAMETER")
     suspend fun suggestAmount(envelopeId: Long?, category: String?, frequency: fr.baptiste.bank.domain.period.Frequency): fr.baptiste.bank.domain.budget.AmountSuggestion? {
         val today = LocalDate.now()
-        val ids = if (envelopeId != null && envelopeId != 0L) {
-            setOf(envelopeId)
-        } else {
-            val name = category?.trim()?.takeIf { it.isNotEmpty() && it != fr.baptiste.bank.domain.model.DEFAULT_CATEGORY } ?: return null
-            allEnvelopes().filter { it.group?.trim().equals(name, ignoreCase = true) }.map { it.id }.toSet()
-        }
-        if (ids.isEmpty()) return null
+        if (envelopeId == null || envelopeId == 0L) return null
+        val envelope = allEnvelopes().firstOrNull { it.id == envelopeId }
         val from = YearMonth.from(today).minusMonths(12).atDay(1)
         val spent = imputationDao.observeSpendings(from, today).first()
-            .filter { it.envelopeId in ids }
+            .filter { it.envelopeId == envelopeId }
             .map { it.date to Money(it.amountCents) }
-        return fr.baptiste.bank.domain.budget.suggestedAmount(spent, frequency, today, since = trackingStart(today).first())
+        val since = listOfNotNull(trackingStart(today).first(), envelope?.start?.let { YearMonth.from(it) }).maxOrNull()
+        return fr.baptiste.bank.domain.budget.suggestedAmount(spent, frequency, today, since = since)
     }
 
     /** Retire une enveloppe : elle n'a plus de période ensuite, mais reste dans les mois qu'elle a couverts. */
@@ -455,7 +463,11 @@ class BudgetRepository(
     }
 
     /** Nombre d'opérations ni rangées ni mises hors budget. */
-    val unsortedCount: Flow<Int> = transactionDao.observeUnsortedCount()
+    /** Opérations à trier, sans le salaire reconnu (il n'est pas une dépense et se range seul dans le revenu). */
+    val unsortedCount: Flow<Int> = combine(transactionDao.observeUnsortedCount(), transactionDao.observeUnsortedInflows(), settings.salary) { count, inflows, salary ->
+        val key = salary?.first ?: return@combine count
+        count - inflows.count { fr.baptiste.bank.domain.budget.salaryKey(it.label) == key }
+    }
 
     /**
      * Relie le compte bancaire synchronisé au compte de l'app. Le compte courant déjà créé pour
@@ -1112,13 +1124,18 @@ class BudgetRepository(
     /** Le mois en cours : dépensé par jour (hors épargne, comme le total du mois) et budget du mois. */
     fun monthPace(today: LocalDate = LocalDate.now()): Flow<fr.baptiste.bank.domain.budget.MonthPace?> {
         val month = YearMonth.from(today)
-        val types = combine(envelopes, archivedEnvelopes) { active, archived -> (active + archived).associate { it.id to it.type } }
-        val spent = imputationDao.observeSpendings(month.atDay(1), month.atEndOfMonth())
-        return combine(spendingYear(today.year, today), spent, types) { year, rows, byId ->
+        val known = combine(envelopes, archivedEnvelopes) { active, archived -> active + archived }
+        // Le mois précédent aussi : en début de mois, on se compare à la même date du mois d'avant.
+        val spent = imputationDao.observeSpendings(month.minusMonths(1).atDay(1), month.atEndOfMonth())
+        val year = combine(spendingYear(today.year, today), trackingStart(today)) { year, start -> year to start }
+        return combine(year, spent, known) { (year, start), rows, all ->
             val report = year.months.firstOrNull { it.month == month } ?: return@combine null
-            val counted = rows.filter { byId[it.envelopeId]?.let { type -> type != EnvelopeType.SAVINGS } == true }
-                .map { it.date to Money(it.amountCents) }
-            fr.baptiste.bank.domain.budget.monthPace(month, today, counted, report.budget)
+            // Même règle que le total du mois de l'analyse (countedSpendings), pour ce mois et le précédent.
+            val spendings = rows.map { Spending(it.envelopeId, it.date, Money(it.amountCents), it.wholePeriod) }
+            val counted = (fr.baptiste.bank.domain.budget.countedSpendings(month.minusMonths(1), all, spendings) +
+                fr.baptiste.bank.domain.budget.countedSpendings(month, all, spendings))
+                .map { it.date to it.amount }
+            fr.baptiste.bank.domain.budget.monthPace(month, today, counted, report.budget, previousTracked = month.minusMonths(1) >= start)
         }
     }
 

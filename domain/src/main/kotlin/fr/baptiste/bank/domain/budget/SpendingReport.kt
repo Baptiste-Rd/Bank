@@ -53,6 +53,16 @@ fun Envelope.monthlyBudget(month: YearMonth): Money {
     return monthShare(month, period, amountIn(period))
 }
 
+/**
+ * Les dépenses comptées dans [month] : celles des enveloppes connues, hors épargne. Une seule règle
+ * pour le total du mois de l'analyse ([monthSpending]) et le dépensé de l'accueil ([monthPace]) :
+ * les deux chiffres ne peuvent pas diverger.
+ */
+fun countedSpendings(month: YearMonth, envelopes: List<Envelope>, spendings: List<Spending>): List<Spending> {
+    val counted = envelopes.filter { it.type != EnvelopeType.SAVINGS }.map { it.id }.toSet()
+    return spendings.filter { YearMonth.from(it.date) == month && it.envelopeId in counted }
+}
+
 /** Dépenses de [month] par catégorie. [envelopes] : toutes, archivées comprises (leurs dépenses restent). */
 fun monthSpending(
     month: YearMonth,
@@ -64,8 +74,7 @@ fun monthSpending(
     toAccounts: Money = Money.ZERO,
 ): MonthSpending {
     if (!tracked) return MonthSpending(month, tracked = false, categories = emptyList())
-    val spentById = spendings
-        .filter { YearMonth.from(it.date) == month }
+    val spentById = countedSpendings(month, envelopes, spendings)
         .groupBy { it.envelopeId }
         .mapValues { (_, list) -> list.sumOfMoney { it.amount } }
     val lines = envelopes
@@ -92,28 +101,58 @@ fun monthSpending(
 }
 
 /** Une catégorie sur l'année : total, moyenne par mois renseigné, écart au budget (positif : dépassé). */
-data class CategoryYear(val name: String, val total: Money, val average: Money, val budget: Money) {
-    val gap: Money get() = total - budget
+/**
+ * Une catégorie sur l'année. [average] et [gap] ne portent que sur les mois terminés : un mois en
+ * cours (un loyer pas encore prélevé) ferait croire à une économie.
+ *
+ * @property total dépensé sur l'année, mois en cours compris.
+ * @property budget budget des mois terminés.
+ * @property completeSpent dépensé sur les mois terminés.
+ */
+data class CategoryYear(
+    val name: String,
+    val total: Money,
+    val average: Money,
+    val budget: Money,
+    val completeSpent: Money = total,
+) {
+    val gap: Money get() = completeSpent - budget
 }
 
-data class YearSpending(val year: Int, val months: List<MonthSpending>) {
+/**
+ * @property inProgress le mois en cours, s'il fait partie de l'année : il compte dans le total mais
+ *   pas dans les moyennes ni les écarts au budget.
+ */
+data class YearSpending(val year: Int, val months: List<MonthSpending>, val inProgress: YearMonth? = null) {
     val tracked: List<MonthSpending> get() = months.filter { it.tracked }
+
+    /** Mois renseignés et terminés : la base des moyennes et des écarts. */
+    val complete: List<MonthSpending> get() = tracked.filter { it.month != inProgress }
+
     val total: Money get() = tracked.sumOfMoney { it.total }
 
-    /** Moyenne par mois renseigné (zéro sans mois renseigné). */
-    val monthlyAverage: Money get() = if (tracked.isEmpty()) Money.ZERO else total.divideFloor(tracked.size.toLong())
+    /** Moyenne par mois renseigné terminé (zéro sans mois terminé). */
+    val monthlyAverage: Money get() = if (complete.isEmpty()) Money.ZERO else complete.sumOfMoney { it.total }.divideFloor(complete.size.toLong())
 
     val unsorted: Money get() = tracked.sumOfMoney { it.unsorted }
 
     /** Les catégories de l'année, la plus grosse en premier. */
     fun categories(): List<CategoryYear> {
-        val count = tracked.size.toLong()
-        if (count == 0L) return emptyList()
-        return tracked.flatMap { it.categories }
-            .groupBy { it.name }
+        if (tracked.isEmpty()) return emptyList()
+        val done = complete.map { it.month }.toSet()
+        val count = done.size.toLong()
+        return tracked.flatMap { month -> month.categories.map { month.month to it } }
+            .groupBy { it.second.name }
             .map { (name, list) ->
-                val total = list.sumOfMoney { it.spent }
-                CategoryYear(name, total, total.divideFloor(count), list.sumOfMoney { it.budget })
+                val finished = list.filter { it.first in done }.map { it.second }
+                val completeSpent = finished.sumOfMoney { it.spent }
+                CategoryYear(
+                    name = name,
+                    total = list.sumOfMoney { it.second.spent },
+                    average = if (count == 0L) Money.ZERO else completeSpent.divideFloor(count),
+                    budget = finished.sumOfMoney { it.budget },
+                    completeSpent = completeSpent,
+                )
             }
             .sortedByDescending { it.total }
     }
@@ -148,5 +187,5 @@ fun yearSpending(
             toAccountsByMonth[month] ?: Money.ZERO,
         )
     }
-    return YearSpending(year, months)
+    return YearSpending(year, months, inProgress = current.takeIf { it.year == year })
 }

@@ -34,7 +34,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyListScope
 import fr.baptiste.bank.domain.budget.EnvelopeLine
-import fr.baptiste.bank.domain.budget.dailyCapForTarget
+import fr.baptiste.bank.domain.budget.spendableForTarget
 import fr.baptiste.bank.domain.model.EnvelopeType
 import fr.baptiste.bank.domain.money.Money
 import fr.baptiste.bank.ui.components.InfoButton
@@ -300,13 +300,14 @@ private fun ago(then: java.time.Instant, now: java.time.Instant): String {
     }
 }
 
-/** Un conseil d'une ligne, tiré du plafond par jour. */
+/** Un conseil d'une ligne : ce qui reste à dépenser au quotidien pour tenir l'objectif (un total). */
 private fun adviceFor(dashboard: Dashboard): String? {
-    val cap = dashboard.dailyCapForTarget() ?: return null
+    val room = dashboard.spendableForTarget() ?: return null
+    val end = dashboard.today.lengthOfMonth()
     return when {
-        !cap.isPositive -> "Objectif hors d'atteinte ce mois-ci."
-        dashboard.savings.gapToTarget.isNegative -> "Au plus ${cap.formatted()} par jour pour atteindre l'objectif."
-        else -> "Au plus ${cap.formatted()} par jour pour rester au-dessus de l'objectif."
+        !room.isPositive -> "Objectif hors d'atteinte ce mois-ci."
+        dashboard.savings.gapToTarget.isNegative -> "Pour atteindre l'objectif : au plus ${room.formatted()} de quotidien d'ici le $end."
+        else -> "Pour rester au-dessus de l'objectif : au plus ${room.formatted()} de quotidien d'ici le $end."
     }
 }
 
