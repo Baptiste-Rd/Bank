@@ -48,7 +48,8 @@ class ClaudeBridge(
         val envId = envelopes.associate { it.id to opaqueId("env", salt, it.id) }
         val accounts = database.accountDao().active()
         val accId = accounts.associate { it.id to opaqueId("acc", salt, it.id) }
-        val rows = transactionDao.exportRows(from).groupBy { it.id }.values.map { it.first() }
+        val grouped = transactionDao.exportRows(from).groupBy { it.id }
+        val rows = grouped.values.map { it.first() }
         val salaryKey = repository.salary.first()?.first
         val labels = exportLabels(rows.map { Triple(it.rawLabel, it.alias, it.amountCents) }, salaryKey)
         val spent = database.imputationDao().spentByPeriod()
@@ -117,6 +118,13 @@ class ClaudeBridge(
                             .put("status", status(row))
                             .put("envelope", row.envelopeId?.let { envId[it] } ?: JSONObject.NULL)
                             .put("by_rule", row.mode == ImputationMode.RULE)
+                            .apply {
+                                // Opération répartie : chaque part, son enveloppe et son montant (positif).
+                                val parts = grouped[row.id].orEmpty().filter { it.envelopeId != null }
+                                if (parts.size > 1) {
+                                    put("parts", JSONArray(parts.map { JSONObject().put("envelope", envId[it.envelopeId]).put("amount", euros(kotlin.math.abs(it.partCents ?: 0))) }))
+                                }
+                            }
                     },
                 ),
             )
@@ -137,6 +145,18 @@ class ClaudeBridge(
                     val operation = item.text("operation") ?: return@mapNotNull null
                     val envelope = item.text("envelope") ?: return@mapNotNull null
                     PlanAction.Move(operation, envelope, item.text("name"), item.text("keyword"), reason, confidence)
+                }
+                "split" -> {
+                    val operation = item.text("operation") ?: return@mapNotNull null
+                    val list = item.optJSONArray("parts") ?: return@mapNotNull null
+                    val parts = (0 until list.length()).mapNotNull { i ->
+                        val part = list.optJSONObject(i) ?: return@mapNotNull null
+                        val envelope = part.text("envelope") ?: return@mapNotNull null
+                        val amount = part.amount("amount") ?: return@mapNotNull null
+                        envelope to amount
+                    }
+                    if (parts.size < 2) return@mapNotNull null
+                    PlanAction.Split(operation, parts, reason, confidence)
                 }
                 "rule" -> PlanAction.Rule(item.text("pattern") ?: return@mapNotNull null, item.text("envelope") ?: return@mapNotNull null, reason, confidence)
                 "rename" -> PlanAction.Rename(item.text("pattern") ?: return@mapNotNull null, item.text("name") ?: return@mapNotNull null, reason, confidence)
@@ -196,6 +216,16 @@ class ClaudeBridge(
             AssistedSortChoice(id, target, alias = action.name, keyword = action.keyword)
         }
         if (moves.isNotEmpty()) applied += repository.applyAssistedSort(moves).sorted
+        // Répartitions : les enveloppes créées plus haut comprises.
+        val splits = actions.filterIsInstance<PlanAction.Split>()
+        if (splits.isNotEmpty()) {
+            val byName = repository.envelopes.first().associateBy { envelopeNameKey(it.name) }
+            splits.forEach { action ->
+                val id = transactionId[action.operation] ?: return@forEach
+                val parts = action.parts.map { (ref, amount) -> byName[envelopeNameKey(targetName(ref))] to amount }
+                if (parts.all { it.first != null } && repository.splitOperation(id, parts.map { it.first!! to it.second })) applied++
+            }
+        }
         actions.filterIsInstance<PlanAction.Rule>().forEach { action ->
             if (repository.addRule(action.pattern, targetName(action.envelope))) applied++
         }

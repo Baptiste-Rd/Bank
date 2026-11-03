@@ -19,6 +19,9 @@ avec une case à cocher. N'invente pas d'autre champ ni d'autre type.
      "keyword": "PAUL", "reason": "rangé en Sorties, c'est une boulangerie", "confidence": "moyenne"},
     {"type": "move", "operation": "op_55aa01f3c0", "envelope": "hors budget",
      "reason": "virement vers soi-même", "confidence": "moyenne"},
+    {"type": "split", "operation": "op_3d21aa90bc",
+     "parts": [{"envelope": "env_4c0f11e2a9", "amount": 23.0}, {"envelope": "Maison", "amount": 10.0}],
+     "reason": "ticket joint : antivol et huile (vélo), ruban adhésif (maison)", "confidence": "haute"},
     {"type": "rule", "pattern": "BOULANGERIE", "envelope": "env_91be42aa07",
      "reason": "12 achats rangés à la main dans Courses", "confidence": "haute"},
     {"type": "rename", "pattern": "SAS LDC", "name": "Salle de sport",
@@ -35,9 +38,10 @@ avec une case à cocher. N'invente pas d'autre champ ni d'autre type.
 | --- | --- | --- |
 | `envelope` | `name`, `family` (`quotidien`, `charge`, `rare`, `épargne`), `amount` (euros) | Crée le budget (départ : le 1er du mois). Facultatif : `category`, `every` + `unit` (`mois`, `an`, `semaine` ; absent : chaque mois), `reset` (AAAA-MM-JJ, budget rare), `repeats` (faux : ponctuel). Créé seulement si le nom n'existe pas déjà. |
 | `move` | `operation` (`op_…`), `envelope` (`env_…`, nom d'une enveloppe créée par le plan, ou `hors budget`) | Range l'opération. Facultatif : `name` (nom affiché), `keyword` (texte qui rangera aussi les suivantes). |
+| `split` | `operation`, `parts` (au moins deux : `envelope` + `amount` en euros positifs) | Répartit l'opération entre ces enveloppes. La somme des parts doit faire exactement le montant de l'opération, sinon l'app l'ignore. |
 | `rule` | `pattern`, `envelope` | Tout libellé qui contient `pattern` ira dans l'enveloppe ; appliquée aussitôt à ce qui est à trier. |
 | `rename` | `pattern`, `name` | Tout libellé qui contient `pattern` s'affiche `name`. |
 | `flag` | `issue` | Rien n'est appliqué : Baptiste vérifie lui-même. Facultatif : `operation`, `note`. |
 
 Chaque action peut porter `reason` (une phrase, chiffrée si possible) et `confidence` (`haute`,
-`moyenne`, `basse`). L'app applique dans cet ordre : créations, rangements, règles, noms.
+`moyenne`, `basse`). L'app applique dans cet ordre : créations, rangements, répartitions, règles, noms.

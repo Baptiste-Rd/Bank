@@ -39,6 +39,18 @@ Reconnais la demande à la phrase de Baptiste ; s'il ne précise pas, propose ce
 | **Récap du budget** | « fais le point sur septembre » | Réalisé face au budget, enveloppe par enveloppe et par famille ; écarts chiffrés avec leur référence (« −40 € vs sept. ») ; projection fin de mois ou d'année. Pas de plan sauf erreur repérée. |
 | **Revue des habitudes** | « fais-moi une revue détaillée de mes habitudes » | Une page HTML soignée à partir de `templates/revue.html` (voir plus bas). |
 
+## Tickets et répartitions
+
+La banque ne voit qu'un montant par achat. Quand Baptiste joint une photo de ticket ou une capture de
+commande (ici ou au fil d'un projet Claude où il les dépose), lis les articles, retrouve l'opération
+dans l'export (même montant, date d'achat proche ; jusqu'à 45 jours d'écart d'inscription avec une
+carte à débit différé) et, si le ticket mélange des usages, propose une action `split` : une part par
+enveloppe, selon l'usage et non le magasin (le vélo dans Loisirs, le ruban adhésif dans Maison ;
+l'alcool d'une soirée dans Sorties même acheté au supermarché). La somme des parts doit faire
+exactement le montant de l'opération. Si une partie est minime (moins d'environ 10 % du ticket),
+propose plutôt de tout ranger dans l'usage majoritaire. Si une enveloppe manque (« Maison »),
+crée-la dans le même plan (`envelope`) avant la répartition. Si aucun ticket ne correspond, dis-le.
+
 ## Tes propres catégories d'analyse
 
 Tu es libre de regrouper les dépenses à ta façon pour l'analyse, plus finement que les enveloppes de

@@ -30,6 +30,14 @@ sealed interface PlanAction {
         override val confidence: String? = null,
     ) : PlanAction
 
+    /** Répartir une opération entre plusieurs enveloppes : [parts] (enveloppe, montant positif), somme = total. */
+    data class Split(
+        val operation: String,
+        val parts: List<Pair<String, Money>>,
+        override val reason: String? = null,
+        override val confidence: String? = null,
+    ) : PlanAction
+
     /** Ranger désormais tout libellé qui contient [pattern] dans [envelope]. */
     data class Rule(
         val pattern: String,

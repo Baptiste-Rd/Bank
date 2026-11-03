@@ -282,6 +282,10 @@ interface ImputationDao {
     @Query("DELETE FROM imputation WHERE envelope_id = :envelopeId")
     suspend fun deleteForEnvelope(envelopeId: Long)
 
+    /** Les parts d'une opération (une seule si elle n'est pas répartie). */
+    @Query("SELECT * FROM imputation WHERE transaction_id = :transactionId ORDER BY id")
+    suspend fun forTransaction(transactionId: Long): List<ImputationEntity>
+
     /** Dépensé par enveloppe et par période (report du reste d'un budget rare). */
     @Query("SELECT envelope_id AS envelopeId, period_key AS periodKey, SUM(amount_cents) AS amountCents FROM imputation GROUP BY envelope_id, period_key")
     suspend fun spentByPeriod(): List<PeriodSpent>
@@ -323,7 +327,7 @@ interface TransactionDao {
     /** Opérations rangées dans une enveloppe sur une période, les plus récentes d'abord. */
     @Query(
         """
-        SELECT t.id AS id, t.date AS date, t.amount_cents AS amount_cents,
+        SELECT t.id AS id, t.date AS date, -i.amount_cents AS amount_cents,
                COALESCE(t.alias, t.clean_label) AS display_label, t.clean_label AS clean_label,
                t.source AS source, t.ignored AS ignored, e.name AS envelope_names,
                i.whole_period AS whole_period, i.period_key AS period_key, ta.name AS transfer_account
@@ -476,7 +480,8 @@ interface TransactionDao {
         """
         SELECT t.id AS id, t.date AS date, t.booking_date AS bookingDate, t.amount_cents AS amountCents,
                t.raw_label AS rawLabel, t.alias AS alias, t.ignored AS ignored, t.transfer_account_id AS transferAccountId,
-               t.source AS source, t.account_id AS accountId, i.envelope_id AS envelopeId, i.mode AS mode
+               t.source AS source, t.account_id AS accountId, i.envelope_id AS envelopeId, i.mode AS mode,
+               i.amount_cents AS partCents
         FROM transaction_record t LEFT JOIN imputation i ON i.transaction_id = t.id
         WHERE t.date >= :from ORDER BY t.date, t.id
         """,
@@ -651,4 +656,6 @@ data class ExportRow(
     val accountId: Long,
     val envelopeId: Long?,
     val mode: fr.baptiste.bank.domain.model.ImputationMode?,
+    /** Montant de cette part dans l'enveloppe (positif pour une dépense). */
+    val partCents: Long? = null,
 )

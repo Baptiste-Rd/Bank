@@ -86,6 +86,12 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
     suspend fun suggestAmount(envelopeId: Long?, category: String?, frequency: fr.baptiste.bank.domain.period.Frequency) =
         repository.suggestAmount(envelopeId, category, frequency)
 
+    suspend fun operationSplit(id: Long): fr.baptiste.bank.data.OperationSplit? = repository.operationSplit(id)
+
+    fun splitOperation(id: Long, parts: List<Pair<fr.baptiste.bank.domain.model.Envelope, Money>>, onDone: (Boolean) -> Unit) {
+        viewModelScope.launch { onDone(repository.splitOperation(id, parts)) }
+    }
+
     /** Prépare l'export anonymisé pour Claude (texte JSON). */
     fun exportForClaude(onReady: (String) -> Unit) {
         viewModelScope.launch { onReady(repository.claude.export()) }

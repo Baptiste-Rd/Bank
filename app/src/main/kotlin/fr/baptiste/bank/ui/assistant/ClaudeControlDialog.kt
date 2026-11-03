@@ -187,6 +187,7 @@ private fun ColumnScope.ReviewPlan(
     val groups = listOf(
         "Budgets à créer" to plan.actions.withIndex().filter { it.value is PlanAction.CreateEnvelope },
         "Rangements" to plan.actions.withIndex().filter { it.value is PlanAction.Move },
+        "Répartitions" to plan.actions.withIndex().filter { it.value is PlanAction.Split },
         "Règles de tri" to plan.actions.withIndex().filter { it.value is PlanAction.Rule },
         "Noms" to plan.actions.withIndex().filter { it.value is PlanAction.Rename },
         "À vérifier toi-même" to plan.actions.withIndex().filter { it.value is PlanAction.Flag },
@@ -233,6 +234,7 @@ private fun envelopeLabel(ref: String, known: ClaudeBridge.Context?): String =
 
 private fun PlanAction.title(known: ClaudeBridge.Context?): String = when (this) {
     is PlanAction.Move -> known?.operationLabels?.get(operation) ?: "Opération introuvable ($operation)"
+    is PlanAction.Split -> known?.operationLabels?.get(operation) ?: "Opération introuvable ($operation)"
     is PlanAction.Rule -> "« $pattern »"
     is PlanAction.Rename -> "« $pattern »"
     is PlanAction.CreateEnvelope -> name
@@ -241,6 +243,7 @@ private fun PlanAction.title(known: ClaudeBridge.Context?): String = when (this)
 
 private fun PlanAction.detail(known: ClaudeBridge.Context?): String? = when (this) {
     is PlanAction.Move -> "→ ${envelopeLabel(envelope, known)}" + (name?.let { " · nommée « $it »" } ?: "")
+    is PlanAction.Split -> parts.joinToString(" · ") { (ref, amount) -> "${amount.formatted()} dans ${envelopeLabel(ref, known)}" }
     is PlanAction.Rule -> "va désormais dans ${envelopeLabel(envelope, known)}"
     is PlanAction.Rename -> "s'affiche « $name »"
     is PlanAction.CreateEnvelope -> "${amount.formatted()} · $family" + (every?.let { " · tous les $it ${unit ?: "mois"}" } ?: "") +

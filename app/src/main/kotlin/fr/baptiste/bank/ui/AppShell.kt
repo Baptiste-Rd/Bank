@@ -44,6 +44,7 @@ import fr.baptiste.bank.ui.operations.RenameOperationDialog
 import fr.baptiste.bank.ui.operations.RulesDialog
 import fr.baptiste.bank.ui.operations.SortOperationDialog
 import fr.baptiste.bank.ui.operations.DateCheckDialog
+import fr.baptiste.bank.ui.operations.SplitOperationDialog
 import fr.baptiste.bank.ui.assistant.ClaudeControlDialog
 import fr.baptiste.bank.ui.operations.UnsortDialog
 import fr.baptiste.bank.ui.transfers.CoverDialog
@@ -89,6 +90,7 @@ sealed interface OpenDialog {
     data object Bank : OpenDialog
     data class SortOperation(val operation: OperationRow, val preselectedEnvelopeId: Long? = null) : OpenDialog
     data class RenameOperation(val operation: OperationRow, val selectedEnvelopeId: Long? = null) : OpenDialog
+    data class SplitOperation(val operation: OperationRow, val selectedEnvelopeId: Long? = null) : OpenDialog
     data object Unsort : OpenDialog
 
     /** « Vérifier les dates » : débit de la carte, jours à corriger. */
@@ -332,6 +334,7 @@ fun AppDialogs(
             suggestedId = remember(current.operation.id) { viewModel.suggestedEnvelopeId(current.operation) }
                 ?.takeIf { id -> envelopes.any { it.id == id } },
             onRename = { selected -> controller.dialog = OpenDialog.RenameOperation(current.operation, selected) },
+            onSplit = { selected -> controller.dialog = OpenDialog.SplitOperation(current.operation, selected) },
             accounts = holdingAccounts,
             onTransferToAccount = { accountId, keyword ->
                 val name = holdingAccounts.firstOrNull { it.id == accountId }?.name.orEmpty()
@@ -345,6 +348,22 @@ fun AppDialogs(
                 }
                 close()
             },
+        )
+        is OpenDialog.SplitOperation -> SplitOperationDialog(
+            label = current.operation.label,
+            load = { viewModel.operationSplit(current.operation.id) },
+            envelopes = envelopes,
+            preselectedId = current.selectedEnvelopeId,
+            onSave = { parts ->
+                viewModel.splitOperation(current.operation.id, parts) { done ->
+                    controller.notify(
+                        if (done) parts.joinToString(" · ") { (envelope, amount) -> "${amount.formatted()} dans ${envelope.name}" }
+                        else "La répartition ne correspond pas au total.",
+                    )
+                }
+                close()
+            },
+            onDismiss = { controller.dialog = OpenDialog.SortOperation(current.operation, current.selectedEnvelopeId) },
         )
         is OpenDialog.RenameOperation -> RenameOperationDialog(
             operation = current.operation,

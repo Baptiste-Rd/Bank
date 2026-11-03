@@ -64,6 +64,8 @@ fun SortOperationDialog(
     accounts: List<HoldingAccount> = emptyList(),
     /** Le compte choisi, et le texte qui reconnaîtra les suivants (si la case est cochée). */
     onTransferToAccount: (accountId: Long, keyword: String?) -> Unit = { _, _ -> },
+    /** Répartir l'opération entre plusieurs enveloppes (reçoit l'enveloppe déjà choisie). */
+    onSplit: ((selectedEnvelopeId: Long?) -> Unit)? = null,
 ) {
     val currentName = operation.envelopeNames?.split(", ")?.firstOrNull()
     val currentId = envelopes.firstOrNull { it.name == currentName }?.id
@@ -159,6 +161,10 @@ fun SortOperationDialog(
                             )
                         }
                     }
+                }
+                // Un ticket qui mélange des usages (vélo et maison, courses et soirée) se répartit.
+                if (onSplit != null && operation.amountCents < 0) {
+                    TextButton(onClick = { onSplit(selectedId) }) { Text("Répartir entre plusieurs enveloppes") }
                 }
                 TextButton(onClick = onIgnore, modifier = Modifier.padding(top = 4.dp)) {
                     Text("Hors budget (salaire, virement entre comptes...)")

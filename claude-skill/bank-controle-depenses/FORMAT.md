@@ -45,6 +45,7 @@ Il couvre douze mois glissants au plus, depuis le début du suivi.
 | `operations[].source` | `banque` ou `saisie` (dépense entrée à la main). |
 | `operations[].status` | `rangée`, `à trier`, `hors budget`, `vers mes comptes` (virement vers un livret ou un placement : de l'épargne, pas une dépense). |
 | `operations[].by_rule` | Rangée par une règle de tri (sinon à la main ou par Claude). |
+| `operations[].parts` | Seulement pour une opération répartie : chaque part, son enveloppe et son montant (positif). `envelope` est alors la première part. |
 
 ## Ce qui n'y est jamais
 

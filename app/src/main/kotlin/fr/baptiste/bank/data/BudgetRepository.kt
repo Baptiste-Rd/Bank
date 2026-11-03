@@ -745,6 +745,41 @@ class BudgetRepository(
         AssistedSortResult(sorted = choices.size, createdEnvelopes = created)
     }
 
+    /** Le total d'une opération (positif) et ses parts actuelles (enveloppe, montant positif). */
+    suspend fun operationSplit(transactionId: Long): OperationSplit? {
+        val transaction = transactionDao.byId(transactionId) ?: return null
+        val sign = if (transaction.amountCents < 0) 1 else -1
+        val parts = imputationDao.forTransaction(transactionId).map { it.envelopeId to Money(it.amountCents * sign) }
+        return OperationSplit(Money(kotlin.math.abs(transaction.amountCents)), parts)
+    }
+
+    /**
+     * Répartit une opération entre plusieurs enveloppes ([parts] : montants positifs dont la somme
+     * fait le total). Remplace ses parts précédentes ; une saisie répartie garde sa répartition quand
+     * la ligne de la banque la remplace. Faux si la répartition ne colle pas au total.
+     */
+    suspend fun splitOperation(transactionId: Long, parts: List<Pair<Envelope, Money>>): Boolean = database.withTransaction {
+        val transaction = transactionDao.byId(transactionId) ?: return@withTransaction false
+        val total = Money(kotlin.math.abs(transaction.amountCents))
+        if (!fr.baptiste.bank.domain.bank.isValidSplit(total, parts.map { it.second })) return@withTransaction false
+        val sign = if (transaction.amountCents < 0) 1 else -1
+        imputationDao.deleteForTransaction(transactionId)
+        transactionDao.setIgnored(transactionId, false)
+        transactionDao.setTransferAccount(transactionId, null)
+        parts.forEach { (envelope, amount) ->
+            imputationDao.insert(
+                ImputationEntity(
+                    transactionId = transactionId,
+                    envelopeId = envelope.id,
+                    periodKey = envelope.periodContaining(transaction.date).key,
+                    amountCents = amount.cents * sign,
+                    mode = ImputationMode.MANUAL,
+                ),
+            )
+        }
+        true
+    }
+
     /** Le pont avec le skill Claude : export anonymisé, lecture et application d'un plan. */
     val claude: ClaudeBridge by lazy { ClaudeBridge(database, settings, this) }
 
@@ -1245,3 +1280,6 @@ private fun Envelope.toEntity() = EnvelopeEntity(
 
 /** Ce qui est rangé dans une enveloppe : annoncé avant une suppression définitive. */
 data class EnvelopeUsage(val bankCount: Int, val bankAmount: Money, val manualCount: Int, val manualAmount: Money)
+
+/** Une opération et ses parts : le total (positif) et, par enveloppe, le montant (positif). */
+data class OperationSplit(val total: Money, val parts: List<Pair<Long, Money>>)
