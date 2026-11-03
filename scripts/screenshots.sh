@@ -143,6 +143,8 @@ shot_budget glass-regles --es tab OPERATIONS --es dialog RULES
 shot_budget glass-verifier-dates --es tab OPERATIONS --es dialog DATES
 shot_budget glass-claude-controle --es tab HOME --es dialog CLAUDE
 shot_budget glass-claude-plan --es tab HOME --es dialog CLAUDE_PLAN
+# Plantage éventuel : la trace du dernier crash, jointe aux captures.
+adb logcat -d -b crash > "$OUT/crash.txt" 2>/dev/null || true
 shot_budget glass-nom-en-double --es tab BUDGET --es dialog DUPLICATE
 shot_budget glass-budget-rare --es tab BUDGET --es dialog RARE
 shot_budget glass-reglages-verre --es tab HOME --ez tuning true
