@@ -5,15 +5,21 @@ carte mentale, autocritique) est dans le document de refonte partagé avec Bapti
 
 ## Structure : quatre onglets, une question chacun
 
-| Onglet | Question | Contenu, dans l'ordre | Action principale |
-| --- | --- | --- | --- |
-| Aujourd'hui | Combien j'ai, et où j'en suis ce mois ? | Sur ton compte (solde réel, lu à…, dépensé du mois sur le budget, charges encore à prélever) · À trier (absent s'il n'y a rien) · Autres comptes (total, ≈ net, quatre comptes, versement du mois à faire) · Rythme du mois (écart, courbe cumulée face au budget) · Enveloppes (six lignes au plus, charges en une ligne) | Ajouter une dépense (+) |
-| Budget | Où va mon salaire ? | Bilan (mois terminé) · Plan du mois (barre : charges fixes, provisions, épargne, quotidien) · une carte par famille | Nouvelle enveloppe (+) |
-| Épargne | Combien vais-je mettre de côté ? | Épargne prévue + conseil · écarts à l'objectif et au mois précédent · six mois · sur tes comptes (livrets, investissement) · mis de côté · achats prévus | Mettre de côté ; + = achat prévu |
-| Dépenses | Où est parti l'argent ? Que s'est-il passé ? | Analyse \| Liste. Analyse : Mois (total réel, à trier et non comptés à part, une barre par catégorie avec le trait du budget, puis enveloppes, puis opérations) · Année (histogramme empilé, moyenne, mois non renseignés grisés, tableau par catégorie). Liste : à trier · outils du tri · historique par jour | Ajouter une dépense |
+Onglets, dans l'ordre : **Résumé** (où j'en suis ce mois ?), **Budget** (où va mon salaire ?),
+**Dépenses** (qu'ai-je dépensé ?), **Épargne** (combien j'épargne ?).
 
-Le menu ⋮ garde les réglages : salaire (lu à la banque), banque et synchronisation, contrôle avec Claude, vérifier les dates, journal des transferts, style, réglages du verre
-(développeur : panneau en bas, app en direct au-dessus), mises à jour.
+- Barre du haut, en verre : la roue des Réglages à gauche, le titre de l'onglet, le + à droite.
+  Le + ouvre « Ajouter » : Dépense (en premier), Achat prévu, Enveloppe, Mise de côté.
+- Barre des mois en tête de Résumé, Budget et Dépenses : un seul mois choisi pour les trois, puis
+  « Année » (sheet de l'année : toucher un mois y mène). Glisser horizontalement change de mois.
+  Épargne reste sur le mois en cours.
+- Résumé d'un mois terminé : ce qu'il a coûté, son bilan d'épargne, le chemin vers le détail.
+- Dépenses : Catégories | Opérations (les opérations du mois choisi, la file à trier en tête) ;
+  un bandeau « N dates d'achat à corriger » quand il y en a.
+- Bouton Claude : rond, en verre teinté, à droite de la barre d'onglets.
+- Réglages (sheet) : Salaire, Banque et synchronisation, Comptes, Noms et règles, Ajouts et
+  retraits, Vérifier les dates, Mises à jour ; réglages du verre et style classique après sept
+  touches sur le numéro de version.
 
 La fiche d'une enveloppe liste les dépenses de sa période ; toucher une dépense la déplace.
 
@@ -25,10 +31,14 @@ La fiche d'une enveloppe liste les dépenses de sa période ; toucher une dépen
 | Ce qui se dépense au jour le jour dans le mois | Budget du quotidien |
 | Salaire rangé dans aucune enveloppe | À répartir |
 | Ce qui reste dans une enveloppe | Reste |
-| Dépassement constaté / prévu | Dépassé · Prévu + |
+| Dépassement constaté / prévu | Dépassé · Prévu + (jamais « Prévu » pour un budget : « Budget ») |
 | Épargne de fin de mois | Épargne prévue |
 | Familles d'enveloppes (onglet Budget seulement) | Au quotidien · Charges fixes · Rares et ponctuels · Épargne |
-| Ce que l'on budgète et où l'on range une dépense | Enveloppe |
+| Ce que l'on budgète et où l'on range une dépense | Enveloppe (jamais « budget ») |
+| Mouvement d'argent entre enveloppes | Ajouts et retraits |
+| Nom choisi pour un libellé, rangement automatique | Noms et règles |
+| Défaire un rangement | Remettre à trier |
+| Chiffre de synthèse / opération | sans centimes / avec centimes |
 | Ce qui réunit des enveloppes pour les statistiques | Catégorie (« Autres » par défaut) ; jamais « groupe » |
 | Ce qu'une provision a déjà réuni pour sa période | Mis de côté (« 900 € mis de côté sur 1 800 € ») |
 | Répartir une provision sur les mois restants | « Mettre X € de côté par mois » (action) ; une provision qui n'y suffit pas est « en retard » |

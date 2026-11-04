@@ -56,7 +56,7 @@ internal fun rememberTabListState(): androidx.compose.foundation.lazy.LazyListSt
 internal fun glassContentPadding(): PaddingValues {
     val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    return PaddingValues(start = 16.dp, end = 16.dp, top = top + 12.dp, bottom = bottom + 112.dp)
+    return PaddingValues(start = 16.dp, end = 16.dp, top = top + 72.dp, bottom = bottom + 112.dp)
 }
 
 private val monthTitle = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.FRANCE)
@@ -66,14 +66,7 @@ internal fun LocalDate.monthTitle(): String = format(monthTitle).replaceFirstCha
 
 /** Titre d'écran, qui défile avec le contenu. La place à droite est celle des boutons flottants. */
 internal fun LazyListScope.largeTitle(title: String, subtitle: String? = null) {
-    item(key = "title") {
-        Column(modifier = Modifier.padding(start = 4.dp, end = 120.dp, top = 8.dp, bottom = 4.dp)) {
-            Text(title, style = MaterialTheme.typography.headlineLarge)
-            if (subtitle != null) {
-                Text(subtitle, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-    }
+    // Le titre de l'onglet est dans la barre du haut (lot 3) ; rien à ajouter dans la liste.
 }
 
 /**

@@ -1,6 +1,8 @@
 package fr.baptiste.bank.ui.glass
 
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.height
@@ -18,7 +20,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarData
 import androidx.compose.material3.SnackbarHost
@@ -43,7 +44,6 @@ import fr.baptiste.bank.banking.BankViewModel
 import fr.baptiste.bank.data.UiStyle
 import fr.baptiste.bank.domain.budget.EnvelopeLine
 import fr.baptiste.bank.ui.AppDialogs
-import fr.baptiste.bank.ui.AppMenuItems
 import fr.baptiste.bank.ui.BudgetViewModel
 import fr.baptiste.bank.ui.OpenDialog
 import fr.baptiste.bank.ui.Tab
@@ -83,10 +83,13 @@ fun GlassMainScreen(
     /** Ouvre directement le menu développeur (captures d'écran). */
     initialTuningOpen: Boolean = false,
     initialSpendingView: SpendingTabView = SpendingTabView.ANALYSIS,
+    /** Sheet ouverte au lancement (captures) : ADD ou SETTINGS. */
+    initialSheet: String? = null,
 ) {
     val controller = rememberAppController(initialTab, initialDialog)
     val dashboard by viewModel.dashboard.collectAsStateWithLifecycle()
     val operations by viewModel.operations.collectAsStateWithLifecycle()
+    val monthOperations by viewModel.monthOperations.collectAsStateWithLifecycle()
     val unsortedOperations by viewModel.unsortedOperations.collectAsStateWithLifecycle()
     val recurringExpenses by viewModel.recurringExpenses.collectAsStateWithLifecycle()
     // Épargne depuis janvier (année en cours) : affichée dans Épargne.
@@ -118,28 +121,46 @@ fun GlassMainScreen(
     // Lu pour que les propositions suivent l'historique du tri.
     val sortedHistory by viewModel.sortedHistory.collectAsStateWithLifecycle()
     val updateAvailable = rememberUpdateAvailable(updateViewModel)
-    var menuOpen by remember { mutableStateOf(false) }
     var spendingView by rememberSaveable { mutableStateOf(initialSpendingView) }
-    var analysisYear by rememberSaveable { mutableStateOf(initialBudgetView == BudgetView.YEAR) }
-    // En-tête de l'onglet Dépenses, commun aux deux vues.
+    // Sheets de l'ossature : Ajouter (+), Réglages (roue), Année (barre des mois).
+    var addOpen by rememberSaveable { mutableStateOf(initialSheet == "ADD") }
+    var settingsOpen by rememberSaveable { mutableStateOf(initialSheet == "SETTINGS") }
+    var yearOpen by rememberSaveable { mutableStateOf(initialBudgetView == BudgetView.YEAR) }
+    val dateCheck by viewModel.dateCheck.collectAsStateWithLifecycle()
+    // En-tête de l'onglet Dépenses, commun aux deux vues : le mois, les dates à corriger, la vue.
     val spendingHeader: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {
-        largeTitle("Dépenses")
-        // Une seule bascule : Mois · Année (l'analyse) · Liste (les opérations, avec ce qui est à trier).
-        item(key = "spending-view") {
-            val selected = when {
-                spendingView == SpendingTabView.LIST -> 2
-                analysisYear -> 1
-                else -> 0
-            }
-            SegmentedToggle(
-                listOf("Mois", "Année", if (unsortedCount > 0) "Liste · $unsortedCount" else "Liste"),
-                selected,
-            ) { index ->
-                spendingView = if (index == 2) SpendingTabView.LIST else SpendingTabView.ANALYSIS
-                if (index < 2) analysisYear = index == 1
+        item(key = "month-strip") { MonthStripBar() }
+        val corrections = dateCheck?.corrections.orEmpty().size
+        if (corrections > 0) {
+            item(key = "dates-banner") {
+                GlassCard(contentPadding = 16.dp, onClick = { controller.dialog = OpenDialog.DateCheck }) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            if (corrections > 1) "$corrections dates d'achat à corriger" else "1 date d'achat à corriger",
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text("Voir", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
             }
         }
+        item(key = "spending-view") {
+            SegmentedToggle(
+                listOf("Catégories", if (unsortedCount > 0) "Opérations · $unsortedCount" else "Opérations"),
+                if (spendingView == SpendingTabView.LIST) 1 else 0,
+            ) { index -> spendingView = if (index == 1) SpendingTabView.LIST else SpendingTabView.ANALYSIS }
+        }
     }
+    // Les mois proposés : depuis le début du suivi (douze mois au moins, trois ans au plus).
+    val now = YearMonth.now()
+    val firstMonth = maxOf(minOf(trackingStart ?: now.minusMonths(11), now.minusMonths(11)), now.minusMonths(36))
+    val monthNavigation = MonthNavigation(
+        selected = selectedMonth,
+        months = generateSequence(firstMonth) { it.plusMonths(1) }.takeWhile { it <= now }.toList(),
+        onSelect = viewModel::selectMonth,
+        onYear = { yearOpen = true },
+    )
 
     // Réglages du verre : ceux enregistrés, ou l'essai en cours quand le menu développeur est ouvert.
     val savedTuningText by viewModel.glassTuning.collectAsStateWithLifecycle()
@@ -165,18 +186,49 @@ fun GlassMainScreen(
         LocalScreenBackdrop provides screenBackdrop,
         LocalGlassTuning provides tuning,
         LocalTabListState provides listState,
+        LocalMonthNavigation provides monthNavigation,
     ) {
         GlassSurfaceColors(onBackground = true) {
         Column(Modifier.fillMaxSize()) {
         // Avec le menu développeur ouvert, l'app occupe le haut de l'écran et suit les réglages en direct.
         Box(Modifier.fillMaxWidth().weight(1f)) {
             // Couche enregistrée pour les éléments flottants : le fond liquide et le contenu.
-            Box(Modifier.fillMaxSize().layerBackdrop(screenBackdrop)) {
+            // Glisser horizontalement change de mois (Résumé, Budget, Dépenses).
+            val swipeMonths = controller.tab != Tab.SAVINGS
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .layerBackdrop(screenBackdrop)
+                    .then(
+                        if (!swipeMonths) Modifier else Modifier.pointerInput(Unit) {
+                            var total = 0f
+                            detectHorizontalDragGestures(
+                                onDragStart = { total = 0f },
+                                onDragEnd = {
+                                    if (total < -120f) viewModel.nextMonth()
+                                    if (total > 120f) viewModel.previousMonth()
+                                },
+                            ) { _, dragAmount -> total += dragAmount }
+                        },
+                    ),
+            ) {
                 LiquidBackground(Modifier.layerBackdrop(backgroundBackdrop))
                 val openEnvelope: (EnvelopeLine) -> Unit = { controller.dialog = OpenDialog.EnvelopeDetail(it.envelope.id) }
                 val cover: (EnvelopeLine) -> Unit = { controller.dialog = OpenDialog.Cover(it.envelope.id) }
                 when (controller.tab) {
-                    Tab.HOME -> {
+                    Tab.HOME -> if (selectedMonth != YearMonth.now()) {
+                        // Un mois terminé : ce qu'il a coûté et son bilan.
+                        val monthYearSpending by viewModel.monthYearSpending.collectAsStateWithLifecycle()
+                        GlassPastMonthContent(
+                            month = selectedMonth,
+                            report = monthYearSpending?.months?.firstOrNull { it.month == selectedMonth },
+                            dashboard = monthDashboard,
+                            transfers = monthTransfers,
+                            trackingStart = trackingStart,
+                            onEdit = { controller.dialog = OpenDialog.EnvelopeEditor(it) },
+                            onOpenTab = { controller.tab = it },
+                        )
+                    } else {
                         val pace by viewModel.monthPace.collectAsStateWithLifecycle()
                         GlassHomeContent(
                             dashboard = dashboard,
@@ -238,17 +290,18 @@ fun GlassMainScreen(
                             onTryPlan = { controller.dialog = OpenDialog.TryPlan() },
                         )
                     }
+                    // Épargne couvre tous les mois : elle reste sur le mois en cours.
                     Tab.SAVINGS -> GlassSavingsContent(
-                        dashboard = monthDashboard,
-                        history = monthHistory,
+                        dashboard = dashboard,
+                        history = savingsHistory,
                         onPutAside = { controller.dialog = OpenDialog.Move(it.envelope.id, incoming = true) },
                         onPlanPurchase = { controller.dialog = controller.primaryAction.second },
                         onOpenEnvelope = openEnvelope,
                         onCover = cover,
-                        selectedMonth = selectedMonth,
-                        canNextMonth = selectedMonth < YearMonth.now(),
-                        onPreviousMonth = viewModel::previousMonth,
-                        onNextMonth = viewModel::nextMonth,
+                        selectedMonth = YearMonth.now(),
+                        canNextMonth = false,
+                        onPreviousMonth = {},
+                        onNextMonth = {},
                         holdings = holdings,
                         onManageAccounts = { controller.dialog = OpenDialog.Accounts },
                         onOpenAccount = { controller.dialog = OpenDialog.AccountEdit(it) },
@@ -299,8 +352,8 @@ fun GlassMainScreen(
                             },
                             onSort = { spendingView = SpendingTabView.LIST },
                             envelopeOperations = viewModel::envelopeMonthOperations,
-                            showYear = analysisYear,
-                            onShowMonth = { analysisYear = false },
+                            showYear = false,
+                            onShowMonth = {},
                             monthReview = viewModel::monthReview,
                             onSaveReview = { month, text ->
                                 viewModel.saveMonthReview(month, text)
@@ -314,7 +367,7 @@ fun GlassMainScreen(
                         )
                     } else GlassOperationsContent(
                         header = spendingHeader,
-                        operations = operations,
+                        operations = monthOperations,
                         envelopes = envelopes + archived,
                         onDelete = viewModel::deleteExpense,
                         onSort = { controller.dialog = OpenDialog.SortOperation(it) },
@@ -372,57 +425,16 @@ fun GlassMainScreen(
             // Voile sous la barre d'état, pour que le contenu ne passe pas sous l'heure.
             StatusBarScrim(
                 modifier = Modifier.align(Alignment.TopCenter),
-                height = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 24.dp,
+                height = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 72.dp,
             )
-            // Barre du haut compacte, comme iOS : quand le grand titre a défilé, un fond opaque
-            // couvre la barre d'état et le titre de l'écran s'y affiche en petit.
-            CompactTopBar(
+            // Barre du haut : la roue des Réglages, le titre de l'onglet, le + qui ouvre « Ajouter ».
+            GlassTopBar(
                 title = controller.tab.title,
-                visible = collapsed,
+                onSettings = { settingsOpen = true },
+                onAdd = { addOpen = true },
+                settingsBadge = updateAvailable,
                 modifier = Modifier.align(Alignment.TopCenter),
             )
-
-            // En haut à droite : l'action de l'onglet (+) et le menu ⋮, comme dans les apps iOS.
-            Row(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .statusBarsPadding()
-                    .padding(top = 8.dp, end = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                val (label, target) = controller.primaryAction
-                GlassIconButton(
-                    painter = painterResource(R.drawable.ic_add),
-                    contentDescription = "Ajouter : $label",
-                    onClick = { controller.dialog = target },
-                    accent = true,
-                )
-                Box {
-                    GlassIconButton(
-                        painter = painterResource(R.drawable.ic_more),
-                        contentDescription = "Plus d'options",
-                        onClick = { menuOpen = true },
-                        badge = updateAvailable,
-                    )
-                    // Le menu s'affiche dans une fenêtre à part : il reprend les couleurs « sur verre ».
-                    GlassSurfaceColors(onBackground = false) {
-                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                            AppMenuItems(
-                                controller = controller,
-                                viewModel = viewModel,
-                                updateAvailable = updateAvailable,
-                                style = UiStyle.GLASS,
-                                onStyleChange = onStyleChange,
-                                onClose = { menuOpen = false },
-                                onOpenTuning = {
-                                    draftTuning = savedTuning
-                                    tuningOpen = true
-                                },
-                            )
-                        }
-                    }
-                }
-            }
 
             // Messages de confirmation, en verre, au-dessus de la barre d'onglets.
             SnackbarHost(
@@ -433,7 +445,17 @@ fun GlassMainScreen(
                     .padding(start = 16.dp, end = 16.dp, bottom = 92.dp),
             ) { data -> GlassSurfaceColors(onBackground = false) { GlassSnackbar(data) } }
 
-            // Barre d'onglets flottante et centrée, comme celle d'iOS 26.
+            // Barre d'onglets flottante, et le bouton Claude à sa droite (comme la recherche d'iOS 26).
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(bottom = 12.dp, start = 16.dp, end = 16.dp)
+                    .widthIn(max = 440.dp)
+                    .fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
             GlassTabBar(
                 items = Tab.entries.map { GlassTabItem(it.title, painterResource(it.icon)) },
                 selectedIndex = controller.tab.ordinal,
@@ -445,13 +467,10 @@ fun GlassMainScreen(
                     }
                     controller.tab = tab
                 },
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
-                    .padding(bottom = 12.dp)
-                    .widthIn(max = 380.dp)
-                    .fillMaxWidth(0.92f),
+                modifier = Modifier.weight(1f),
             )
+            ClaudeButton(onClick = { controller.dialog = OpenDialog.ClaudeControl() })
+            }
         }
         if (tuningOpen) {
             GlassTuningPanel(
@@ -477,6 +496,81 @@ fun GlassMainScreen(
 
         // Les fenêtres (dialogues, panneaux) reprennent les couleurs « sur verre » du thème.
         AppDialogs(controller, viewModel, updateViewModel)
+
+        if (addOpen) {
+            GlassSurfaceColors(onBackground = false) {
+                AddSheet(
+                    onPick = { choice ->
+                        addOpen = false
+                        controller.dialog = when (choice) {
+                            AddChoice.EXPENSE -> OpenDialog.Expense
+                            AddChoice.PLANNED -> OpenDialog.EnvelopeEditor(
+                                fr.baptiste.bank.domain.budget.plannedPurchase("", fr.baptiste.bank.domain.money.Money.ZERO, YearMonth.now().plusMonths(5), LocalDate.now()),
+                            )
+                            AddChoice.ENVELOPE -> OpenDialog.EnvelopeEditor(null)
+                            AddChoice.ASIDE -> envelopes.firstOrNull { it.type == fr.baptiste.bank.domain.model.EnvelopeType.SAVINGS }
+                                ?.let { OpenDialog.Move(it.id, incoming = true) }
+                                ?: OpenDialog.EnvelopeEditor(null)
+                        }
+                    },
+                    onDismiss = { addOpen = false },
+                )
+            }
+        }
+        if (settingsOpen) {
+            val salary by viewModel.salary.collectAsStateWithLifecycle()
+            val open: (OpenDialog) -> () -> Unit = { dialog -> { settingsOpen = false; controller.dialog = dialog } }
+            GlassSurfaceColors(onBackground = false) {
+                SettingsSheet(
+                    entries = listOf(
+                        SettingsEntry("Salaire", if (salary != null) "Lu à la banque" else "À confirmer", onClick = open(OpenDialog.Income)),
+                        SettingsEntry("Banque et synchronisation", bankConnection?.bankName, onClick = open(OpenDialog.Bank)),
+                        SettingsEntry("Comptes", "Livrets et placements", onClick = open(OpenDialog.Accounts)),
+                        SettingsEntry("Noms et règles", "${plural(aliases.size, "nom", "noms")} · ${plural(rules.size + transferRules.size, "règle", "règles")}", onClick = open(OpenDialog.Rules)),
+                        SettingsEntry("Ajouts et retraits", "Mouvements entre enveloppes", onClick = open(OpenDialog.Journal)),
+                        SettingsEntry("Vérifier les dates", null, onClick = open(OpenDialog.DateCheck)),
+                        SettingsEntry(if (updateAvailable) "Nouvelle version disponible" else "Mises à jour", badge = updateAvailable, onClick = open(OpenDialog.Updates)),
+                    ),
+                    developer = listOf(
+                        SettingsEntry("Réglages du verre", onClick = {
+                            settingsOpen = false
+                            draftTuning = savedTuning
+                            tuningOpen = true
+                        }),
+                        SettingsEntry("Passer au style classique", onClick = {
+                            settingsOpen = false
+                            onStyleChange(UiStyle.CLASSIC)
+                        }),
+                    ),
+                    version = "Bank · build ${fr.baptiste.bank.BuildConfig.VERSION_CODE}",
+                    onDismiss = { settingsOpen = false },
+                )
+            }
+        }
+        if (yearOpen) {
+            val yearSpending by viewModel.yearSpending.collectAsStateWithLifecycle()
+            GlassSurfaceColors(onBackground = false) {
+                YearSheet(
+                    year = selectedYear,
+                    spending = yearSpending,
+                    canNextYear = selectedYear < LocalDate.now().year,
+                    onPreviousYear = viewModel::previousYear,
+                    onNextYear = viewModel::nextYear,
+                    onSelectMonth = {
+                        viewModel.selectMonth(it)
+                        yearOpen = false
+                        if (controller.tab == Tab.SAVINGS) controller.tab = Tab.OPERATIONS
+                    },
+                    onSort = {
+                        yearOpen = false
+                        controller.tab = Tab.OPERATIONS
+                        spendingView = SpendingTabView.LIST
+                    },
+                    recurring = recurringExpenses,
+                    onDismiss = { yearOpen = false },
+                )
+            }
+        }
     }
 }
 
@@ -495,34 +589,5 @@ private fun GlassSnackbar(data: SnackbarData) {
         } else {
             TextButton(onClick = { data.dismiss() }) { Text("OK") }
         }
-    }
-}
-
-/** Titre compact de l'écran, sur un fond opaque, quand le grand titre a défilé. */
-@Composable
-private fun CompactTopBar(title: String, visible: Boolean, modifier: Modifier = Modifier) {
-    val alpha by androidx.compose.animation.core.animateFloatAsState(if (visible) 1f else 0f, label = "barre du haut")
-    if (alpha == 0f) return
-    val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    Box(
-        modifier
-            .fillMaxWidth()
-            .height(top + 64.dp)
-            .graphicsLayer { this.alpha = alpha }
-            .background(Glass.BaseTop),
-    ) {
-        Text(
-            title,
-            style = MaterialTheme.typography.titleMedium,
-            color = Color.White,
-            modifier = Modifier.align(Alignment.BottomStart).padding(start = 24.dp, bottom = 20.dp),
-        )
-        Box(
-            Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .height(1.dp)
-                .background(Color.White.copy(alpha = 0.10f)),
-        )
     }
 }

@@ -140,16 +140,7 @@ fun GlassAnalysisContent(
         header()
         when (period) {
             AnalysisPeriod.MONTH -> {
-                item(key = "analysis-month-switch") {
-                    PeriodSwitcher(
-                        label = month.label.replaceFirstChar { it.titlecase() },
-                        canPrevious = true,
-                        canNext = canNextMonth,
-                        onPrevious = onPreviousMonth,
-                        onNext = onNextMonth,
-                        note = if (month == current) "au ${java.time.LocalDate.now().dayOfMonth} ${monthName(month)}" else "Mois terminé",
-                    )
-                }
+
                 val report = monthYear?.takeIf { it.year == month.year }?.months?.firstOrNull { it.month == month }
                 when {
                     trackingStart != null && month < trackingStart ->
@@ -497,7 +488,7 @@ private fun SpendBar(spent: Money, budget: Money, scale: Long) {
 }
 
 /** L'année : total et moyenne, histogramme empilé, tableau par catégorie. */
-private fun LazyListScope.yearAnalysis(
+internal fun LazyListScope.yearAnalysis(
     report: YearSpending,
     onSort: () -> Unit,
     recurring: List<fr.baptiste.bank.domain.budget.RecurringExpense> = emptyList(),

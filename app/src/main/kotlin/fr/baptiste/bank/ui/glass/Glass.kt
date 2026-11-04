@@ -294,18 +294,19 @@ fun GlassIconButton(
     modifier: Modifier = Modifier,
     accent: Boolean = false,
     badge: Boolean = false,
+    size: Dp = 48.dp,
 ) {
     val backdrop = LocalScreenBackdrop.current
     val tuning = LocalGlassTuning.current
     Box(
         modifier = modifier
-            .size(48.dp)
+            .size(size)
             .glass(backdrop, tuning.floating, tuning.buttonOptics, tuning, accent = if (accent) Glass.Accent else null)
             .clip(CircleShape)
             .clickable(onClick = onClick, role = Role.Button),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(painter, contentDescription = contentDescription, tint = Color.White, modifier = Modifier.size(22.dp))
+        Icon(painter, contentDescription = contentDescription, tint = Color.White, modifier = Modifier.size(if (size > 48.dp) 26.dp else 22.dp))
         if (badge) {
             Box(
                 Modifier

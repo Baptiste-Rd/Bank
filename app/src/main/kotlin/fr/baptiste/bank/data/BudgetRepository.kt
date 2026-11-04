@@ -272,6 +272,10 @@ class BudgetRepository(
     fun recentOperations(limit: Int = 200): Flow<List<OperationRow>> =
         transactionDao.observeRecentOperations(limit)
 
+    /** Les opérations d'un mois. */
+    fun monthOperations(month: YearMonth): Flow<List<OperationRow>> =
+        transactionDao.observeOperationsBetween(month.atDay(1), month.atEndOfMonth())
+
     /** Crée ou met à jour une enveloppe ; renvoie son identifiant. */
     suspend fun saveEnvelope(envelope: Envelope): Long = database.withTransaction {
         val today = LocalDate.now()

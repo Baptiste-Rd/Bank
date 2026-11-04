@@ -104,16 +104,7 @@ fun GlassSavingsContent(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         largeTitle("Épargne")
-        item(key = "month-switch") {
-            PeriodSwitcher(
-                label = selectedMonth.label.replaceFirstChar { it.titlecase() },
-                canPrevious = true,
-                canNext = canNextMonth,
-                onPrevious = onPreviousMonth,
-                onNext = onNextMonth,
-                note = if (readOnly) "Mois terminé" else null,
-            )
-        }
+
         if (trackingStart != null && selectedMonth < trackingStart) {
             item(key = "not-tracked") { NotTrackedCard(selectedMonth, trackingStart) { onTrackMonth(selectedMonth) } }
             return@LazyColumn

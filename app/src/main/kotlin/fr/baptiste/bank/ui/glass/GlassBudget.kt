@@ -159,16 +159,7 @@ fun GlassBudgetContent(
         // l'année dans Épargne (chaque information n'a qu'une maison).
         run {
             run {
-                item(key = "month-switch") {
-                    PeriodSwitcher(
-                        label = month.label.replaceFirstChar { it.titlecase() },
-                        canPrevious = true,
-                        canNext = canNextMonth,
-                        onPrevious = onPreviousMonth,
-                        onNext = onNextMonth,
-                        note = if (isCurrentMonth) null else "Mois terminé",
-                    )
-                }
+                item(key = "month-switch") { MonthStripBar() }
                 if (trackingStart != null && month < trackingStart) {
                     item(key = "not-tracked") { NotTrackedCard(month, trackingStart) { onTrackMonth(month) } }
                 } else if (dashboard != null) {
@@ -506,7 +497,7 @@ private fun PlanBar(parts: List<PlanPart>, modifier: Modifier = Modifier) {
  * remettre de l'argent quelque part, on le prend sur l'épargne (« Ajouter » sur l'enveloppe).
  */
 @Composable
-private fun MonthReview(dashboard: Dashboard, onEdit: (Envelope) -> Unit, transfers: Money?) {
+internal fun MonthReview(dashboard: Dashboard, onEdit: (Envelope) -> Unit, transfers: Money?) {
     val savings = dashboard.savings
     val closings = dashboard.closings()
     val status = BankTheme.status

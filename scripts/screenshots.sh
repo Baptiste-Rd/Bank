@@ -151,6 +151,10 @@ shot_budget glass-reglages-verre --es tab HOME --ez tuning true
 shot_budget glass-claude-envoi --es tab OPERATIONS --es dialog ASSISTED
 shot_budget glass-claude-validation --es tab OPERATIONS --es dialog ASSISTED_REVIEW
 shot_budget glass-comptes --es tab SAVINGS --es dialog ACCOUNTS
+# Ossature (lot 3) : la sheet Ajouter, les Réglages, le Résumé d'un mois terminé.
+shot_budget glass-ajouter --es tab HOME --es sheet ADD
+shot_budget glass-reglages --es tab HOME --es sheet SETTINGS
+shot_budget glass-resume-mois-precedent --es tab HOME --ei monthsBack 1
 shot_budget glass-epargne-comptes --es tab SAVINGS
 adb shell input swipe 540 1900 540 700 900
 sleep 2

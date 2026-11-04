@@ -171,6 +171,12 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
 
     val operations: StateFlow<List<OperationRow>> = repository.recentOperations().asState(emptyList())
 
+    /** Les opérations du mois choisi dans la barre des mois (liste de l'onglet Dépenses). */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val monthOperations: StateFlow<List<OperationRow>> = _selectedMonth
+        .flatMapLatest { repository.monthOperations(it) }
+        .asState(emptyList())
+
     /** Dépenses de l'année du mois consulté (vue Mois de l'analyse). */
     @OptIn(ExperimentalCoroutinesApi::class)
     val monthYearSpending: StateFlow<YearSpending?> = _selectedMonth

@@ -34,7 +34,7 @@ import java.time.YearMonth
  * `demo` (base d'exemple séparée), `style` (GLASS ou CLASSIC, sans enregistrer le choix)
  * `tab` (HOME, BUDGET, SAVINGS ou OPERATIONS), `dialog` (BANK ou PLANNED), `monthsBack`
  * (nombre de mois en arrière), `budgetView` (YEAR pour la vue à l'année, Budget et Analyse) et
- * `spendingView` (LIST pour la liste des opérations de l'onglet Dépenses).
+ * `spendingView` (LIST pour la liste des opérations de l'onglet Dépenses) et `sheet` (ADD, SETTINGS).
  */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -113,6 +113,8 @@ class MainActivity : ComponentActivity() {
             else -> null
         }
         val initialTuningOpen = intent.getBooleanExtra(EXTRA_TUNING, false)
+        // Sheet de l'ossature ouverte au lancement (captures) : ADD (le +) ou SETTINGS (la roue).
+        val initialSheet = intent.getStringExtra(EXTRA_SHEET)
         val settings = container.settingsRepository
 
         setContent {
@@ -148,6 +150,7 @@ class MainActivity : ComponentActivity() {
                         initialBudgetView,
                         initialTuningOpen,
                         initialSpendingView,
+                        initialSheet,
                     )
                 }
                 UiStyle.CLASSIC -> BankTheme {
@@ -162,6 +165,7 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_STYLE = "style"
         const val EXTRA_TAB = "tab"
         const val EXTRA_DIALOG = "dialog"
+        const val EXTRA_SHEET = "sheet"
         const val EXTRA_MONTHS_BACK = "monthsBack"
         const val EXTRA_BUDGET_VIEW = "budgetView"
         const val EXTRA_SPENDING_VIEW = "spendingView"

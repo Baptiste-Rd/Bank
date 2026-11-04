@@ -106,7 +106,8 @@ fun GlassHomeContent(
         contentPadding = glassContentPadding(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        largeTitle("Aujourd'hui", LocalDate.now().format(todayTitle).replaceFirstChar { it.titlecase(Locale.FRANCE) })
+        item(key = "month-strip") { MonthStripBar() }
+        largeTitle("Résumé", LocalDate.now().format(todayTitle).replaceFirstChar { it.titlecase(Locale.FRANCE) })
         if (dashboard == null) {
             item { Box(Modifier.fillMaxWidth().padding(48.dp), Alignment.Center) { CircularProgressIndicator() } }
             return@LazyColumn

@@ -66,17 +66,17 @@ import java.time.YearMonth
 
 /** Quatre onglets, une question chacun (docs/refonte-ux.md). */
 enum class Tab(val title: String, @DrawableRes val icon: Int) {
-    /** Puis-je dépenser aujourd'hui ? */
-    HOME("Aujourd'hui", R.drawable.ic_home),
+    /** Où j'en suis ce mois ? */
+    HOME("Résumé", R.drawable.ic_home),
 
     /** Où va mon salaire ? */
     BUDGET("Budget", R.drawable.ic_budget),
 
-    /** Combien vais-je mettre de côté ? */
-    SAVINGS("Épargne", R.drawable.ic_savings),
-
-    /** Que s'est-il passé ? Où est parti l'argent ? */
+    /** Qu'ai-je dépensé ? */
     OPERATIONS("Dépenses", R.drawable.ic_list),
+
+    /** Combien j'épargne ? */
+    SAVINGS("Épargne", R.drawable.ic_savings),
 }
 
 /** Les fenêtres ouvertes sont décrites par un état unique : une seule s'affiche à la fois. */
