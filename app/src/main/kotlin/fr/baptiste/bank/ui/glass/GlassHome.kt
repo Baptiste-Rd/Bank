@@ -171,7 +171,8 @@ fun GlassHomeContent(
         }
 
         // 5. Les dernières dépenses.
-        val latest = recent.take(RECENT_OPERATIONS)
+        // Des dépenses : ni un virement vers un de mes comptes, ni une rentrée d'argent.
+        val latest = recent.filter { it.amountCents < 0 && it.transferAccount == null }.take(RECENT_OPERATIONS)
         if (latest.isNotEmpty()) {
             sectionHeader("recent-label", "Dernières dépenses", action = "Tout voir", onAction = { onOpenTab(Tab.OPERATIONS) })
             item(key = "recent") {

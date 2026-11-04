@@ -346,20 +346,13 @@ private fun LazyListScope.holdingsSection(
         GlassCard(contentPadding = 16.dp, verticalPadding = 4.dp) {
             Column(Modifier.padding(vertical = 12.dp)) {
                 Text(holdings.total.summary(), style = MaterialTheme.typography.titleLarge)
-                val previous = holdings.history.dropLast(1).lastOrNull()
+                // Une seule ligne d'aide : le net estimé et ce qui a été versé ce mois.
                 val parts = listOfNotNull(
-                    previous?.let { "${(holdings.total - it.total).signed()} depuis fin ${it.month.name()}" },
-                    holdings.transferredThisMonth.takeIf { it.isPositive }?.let { "${it.formatted()} versés ce mois" },
+                    holdings.netTotal.takeIf { holdings.estimatedTax.isPositive }?.let { "≈ ${it.summary()} net" },
+                    holdings.transferredThisMonth.takeIf { it.isPositive }?.let { "+${it.summary()} ce mois" },
                 )
                 if (parts.isNotEmpty()) {
                     Text(parts.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                if (holdings.estimatedTax.isPositive) {
-                    Text(
-                        "≈ ${holdings.netTotal.formatted()} après l'impôt estimé sur les plus-values (${holdings.estimatedTax.formatted()})",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                 }
                 GoalsBar(progress, monthlySavings, Modifier.padding(top = 12.dp).clickable(onClick = onEditGoals))
             }
@@ -450,43 +443,15 @@ private fun GoalsBar(progress: GoalsProgress, monthlySavings: Money, modifier: M
         }
         Text(
             if (progress.precautionReached) {
-                "Précaution atteinte : ${progress.available.formatted()} sur les livrets (objectif ${progress.goals.precaution.formatted()})"
+                "Précaution atteinte (${progress.goals.precaution.summary()})"
             } else {
-                "Précaution : il manque ${progress.precautionMissing.formatted()} sur les livrets (objectif ${progress.goals.precaution.formatted()})"
+                "Précaution : il manque ${progress.precautionMissing.summary()} sur ${progress.goals.precaution.summary()}"
             },
             style = MaterialTheme.typography.bodySmall,
             color = if (progress.precautionReached) status.good else MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 6.dp),
         )
-        Text(
-            when {
-                progress.beyond.isPositive -> "Total visé atteint, ${progress.beyond.formatted()} au-delà pour tes projets"
-                progress.totalReached -> "Total visé atteint (${progress.goals.total.formatted()})"
-                else -> "Total : ${progress.total.formatted()} sur ${progress.goals.total.formatted()}, il manque ${progress.totalMissing.formatted()}"
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        // Avec une échéance : ce qu'elle demande par mois, et si l'épargne prévue du mois suit.
-        progress.pace(java.time.LocalDate.now(), monthlySavings)?.let { pace ->
-            val by = progress.goals.totalBy?.label.orEmpty()
-            Text(
-                "Pour fin $by : ${pace.monthlyNeeded.formatted()} par mois sur ${pace.monthsLeft} mois",
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
-                modifier = Modifier.padding(top = 4.dp),
-            )
-            Text(
-                when {
-                    pace.onTrack -> "Ton épargne prévue ce mois (${pace.monthlyPace.formatted()}) suit ce rythme."
-                    pace.reachedAt != null ->
-                        "À ton rythme actuel (${pace.monthlyPace.formatted()} par mois), atteint fin ${pace.reachedAt?.label}."
-                    else -> "Ce mois-ci, rien n'est mis de côté : à ce rythme, l'objectif n'avance pas."
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = if (pace.onTrack) status.good else status.warning,
-            )
-        }
+        // Le total visé et son rythme vivent dans la fenêtre des objectifs (toucher la barre).
     }
 }
 
