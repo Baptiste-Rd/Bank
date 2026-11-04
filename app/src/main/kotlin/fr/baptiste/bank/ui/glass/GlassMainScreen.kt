@@ -387,7 +387,7 @@ fun GlassMainScreen(
                             (salary ?: fr.baptiste.bank.domain.budget.SalaryCandidate(
                                 label = operation.bankLabel,
                                 key = fr.baptiste.bank.domain.budget.salaryKey(operation.bankLabel),
-                                lastAmount = Money(operation.amountCents),
+                                lastAmount = fr.baptiste.bank.domain.money.Money(operation.amountCents),
                                 lastDate = operation.date,
                                 months = 1,
                                 typicalDay = operation.date.dayOfMonth,
