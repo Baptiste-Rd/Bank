@@ -77,24 +77,28 @@ fun SortCardsSheet(
     // Les opérations passées (« Plus tard ») reviennent à la fin du tour.
     var skipped by remember { mutableIntStateOf(0) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        val index = if (operations.isEmpty()) 0 else skipped % operations.size
+        // En-tête comme toute sheet : « Fermer » à gauche, à la même marge partout.
+        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = onDismiss) { Text("Fermer") }
+            Text(
+                if (operations.isEmpty()) "À trier" else "À trier · ${index + 1} sur ${operations.size}",
+                style = MaterialTheme.typography.titleMedium,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(Modifier.width(72.dp))
+        }
         Column(
             Modifier.fillMaxWidth().padding(horizontal = 24.dp).navigationBarsPadding().padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (operations.isEmpty()) {
-                Text("À trier", style = MaterialTheme.typography.titleMedium)
                 Text("Tout est trié", style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp))
-                Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("Fermer") }
                 return@Column
             }
-            val index = skipped % operations.size
             val operation = operations[index]
             val suggested = proposal(operation)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = onDismiss) { Text("Fermer") }
-                Text("À trier · ${index + 1} sur ${operations.size}", style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
-                Spacer(Modifier.width(72.dp))
-            }
             SwipeCard(
                 key = operation.id,
                 onRight = { if (suggested != null) onAccept(operation, suggested) },
@@ -114,7 +118,7 @@ fun SortCardsSheet(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = { skipped++ }, modifier = Modifier.weight(1f)) { Text("Plus tard") }
                     if (suggested != null) {
-                        Button(onClick = { onAccept(operation, suggested) }, modifier = Modifier.weight(2f)) { Text(suggested.label, maxLines = 1) }
+                        fr.baptiste.bank.ui.components.PrimaryButton(suggested.label, onClick = { onAccept(operation, suggested) }, modifier = Modifier.weight(2f))
                     }
                 }
             }
@@ -143,7 +147,7 @@ private fun SwipeCard(key: Long, onRight: () -> Unit, onLeft: () -> Unit, conten
     Column(
         Modifier
             .fillMaxWidth()
-            .heightIn(min = 220.dp)
+            .heightIn(min = 180.dp)
             .graphicsLayer {
                 translationX = offset.value
                 rotationZ = offset.value / 60f

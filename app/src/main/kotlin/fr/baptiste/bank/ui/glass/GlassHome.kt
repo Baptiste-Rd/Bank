@@ -347,7 +347,6 @@ private fun PaceCard(pace: MonthPace) {
     val below = pace.gap < Money.ZERO - tolerance
     // Le chiffre d'abord (« 143 € sur 1 497 € »), puis une puce signée (règles 1 et 4 du doc UX).
     GlassCard(contentPadding = 16.dp) {
-        Text("Rythme du mois", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text("${pace.spent.summary()} sur ${pace.budget.summary()}", style = MaterialTheme.typography.titleLarge)
         fr.baptiste.bank.ui.components.StatusChip(
             if (above || below) "${pace.gap.signed()} vs rythme prévu" else "Dans le rythme",

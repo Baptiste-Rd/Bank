@@ -209,7 +209,7 @@ fun GlassAnalysisContent(
                     report.toAccounts.takeIf { it.isPositive }?.let { InfoLine("Pas compté : viré vers tes comptes", it.formatted()) },
                 ),
             note = (if (report.budget.isPositive) "Budget du mois : ${report.budget.formatted()}. " else "") +
-                "L'épargne n'est pas une dépense.",
+                "Sur chaque barre, le trait marque le budget de la catégorie. L'épargne n'est pas une dépense.",
             onDismiss = { info = null },
             // L'option du mois vit ici, avec ce qui est compté (un mois terminé seulement).
             extra = if (report.month < current) ({
@@ -598,7 +598,7 @@ internal fun LazyListScope.yearAnalysis(
                     Text(category.name, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            "${category.average.formatted()} / mois",
+                            "${category.average.summary()} / mois",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -610,13 +610,13 @@ internal fun LazyListScope.yearAnalysis(
                     }
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text(category.total.formatted(), style = MaterialTheme.typography.titleMedium)
+                    Text(category.total.summary(), style = MaterialTheme.typography.titleMedium)
                     if (category.budget.isPositive) {
                         val gap = category.gap
                         Text(
                             when {
-                                gap.isPositive -> "+${gap.formatted()} sur le budget"
-                                gap.isNegative -> "${(-gap).formatted()} sous le budget"
+                                gap.isPositive -> "+${gap.summary()} sur le budget"
+                                gap.isNegative -> "${(-gap).summary()} sous le budget"
                                 else -> "pile dans le budget"
                             },
                             style = MaterialTheme.typography.bodySmall,
@@ -636,7 +636,7 @@ internal fun LazyListScope.yearAnalysis(
     // Ce qui revient chaque mois : abonnements, forfaits, prélèvements.
     if (recurring.isNotEmpty()) {
         val total = recurring.fold(Money.ZERO) { sum, it -> sum + it.monthly }
-        sectionHeader("analysis-recurring-label", "Chaque mois", trailing = "${total.formatted()} / mois")
+        sectionHeader("analysis-recurring-label", "Chaque mois", trailing = "${total.summary()} / mois")
         item(key = "analysis-recurring") {
             GlassRowsCard(recurring.take(8), inset = 0.dp) { expense ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -648,7 +648,7 @@ internal fun LazyListScope.yearAnalysis(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    Text(expense.monthly.formatted(), style = MaterialTheme.typography.titleMedium)
+                    Text(expense.monthly.summary(), style = MaterialTheme.typography.titleMedium)
                 }
             }
         }

@@ -122,7 +122,8 @@ data class MonthNavigation(
 val LocalMonthNavigation = compositionLocalOf<MonthNavigation?> { null }
 
 private fun YearMonth.shortName(): String {
-    val name = month.getDisplayName(TextStyle.FULL_STANDALONE, Locale.FRANCE).replaceFirstChar { it.titlecase(Locale.FRANCE) }
+    // Noms courts (« Sept. », « Oct. ») : trois mois et « Année » tiennent dans la largeur.
+    val name = month.getDisplayName(TextStyle.SHORT_STANDALONE, Locale.FRANCE).replaceFirstChar { it.titlecase(Locale.FRANCE) }
     return if (year == YearMonth.now().year) name else "$name ${year % 100}"
 }
 

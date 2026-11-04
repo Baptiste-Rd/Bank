@@ -157,7 +157,7 @@ fun GlassSavingsContent(
 
         // 5. Ce qui est mis de côté.
         if (savingsLines.isNotEmpty()) {
-            sectionHeader("put-aside-label", "Mis de côté", dot = accent)
+            sectionHeader("put-aside-label", "Mis de côté")
             item(key = "put-aside") {
                 GlassRowsCard(savingsLines) { line ->
                     EnvelopeRow(
@@ -202,7 +202,7 @@ fun GlassSavingsContent(
             sectionHeader(
                 "history-label",
                 "Mois par mois",
-                trailing = yearSavings?.let { "${it.formatted()} depuis janvier" } ?: "objectif ${outlook.target.formatted()}",
+                trailing = yearSavings?.let { "${it.summary()} depuis janvier" } ?: "objectif ${outlook.target.summary()}",
             )
             item(key = "history") {
                 GlassCard(contentPadding = 16.dp) {
@@ -386,12 +386,12 @@ private fun HoldingsLineChart(history: List<fr.baptiste.bank.domain.budget.Holdi
     Column {
         Row {
             Text(
-                "${history.first().total.formatted()} fin ${history.first().month.name()}",
+                "${history.first().total.summary()} fin ${history.first().month.name()}",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),
             )
-            Text(history.last().total.formatted(), style = MaterialTheme.typography.labelMedium)
+            Text(history.last().total.summary(), style = MaterialTheme.typography.labelMedium)
         }
         androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(96.dp).padding(vertical = 8.dp)) {
             // Un point au centre de chaque colonne : aligné sur le nom du mois en dessous.
@@ -461,7 +461,7 @@ private fun HoldingGroup(title: String, subtotal: Money, lines: List<HoldingLine
     fr.baptiste.bank.ui.components.RowDivider(0.dp)
     Row(Modifier.padding(top = 10.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(title, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-        Text(subtotal.formatted(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(subtotal.summary(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     lines.forEach { line ->
         Row(
@@ -477,11 +477,11 @@ private fun HoldingGroup(title: String, subtotal: Money, lines: List<HoldingLine
                 )
             }
             Column(horizontalAlignment = Alignment.End) {
-                Text(line.balance?.formatted() ?: "–", style = MaterialTheme.typography.titleMedium)
+                Text(line.balance?.summary() ?: "–", style = MaterialTheme.typography.titleMedium)
                 // Placement renseigné : ce qui resterait après impôt si tout était retiré aujourd'hui.
                 line.estimate?.let { estimate ->
                     Text(
-                        "≈ ${estimate.net.formatted()} net",
+                        "≈ ${estimate.net.summary()} net",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

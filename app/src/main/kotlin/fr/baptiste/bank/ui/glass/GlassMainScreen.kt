@@ -117,6 +117,7 @@ fun GlassMainScreen(
     val trackingStart by viewModel.trackingStart.collectAsStateWithLifecycle()
     val firstOperationDate by viewModel.firstOperationDate.collectAsStateWithLifecycle()
     val salaryCandidates by viewModel.salaryCandidates.collectAsStateWithLifecycle()
+    val salaryKeyConfirmed by viewModel.salary.collectAsStateWithLifecycle()
     val monthTransfers by remember(selectedMonth) { viewModel.transfersToAccounts(selectedMonth) }
         .collectAsStateWithLifecycle(null)
     val aliases by viewModel.aliases.collectAsStateWithLifecycle()
@@ -138,7 +139,7 @@ fun GlassMainScreen(
         item(key = "month-strip") { MonthStripBar() }
         item(key = "spending-view") {
             SegmentedToggle(
-                listOf("Catégories", if (unsortedCount > 0) "Opérations · $unsortedCount" else "Opérations"),
+                listOf("Catégories", if (unsortedCount > 0 && selectedMonth == YearMonth.now()) "Opérations · $unsortedCount" else "Opérations"),
                 if (spendingView == SpendingTabView.LIST) 1 else 0,
             ) { index -> spendingView = if (index == 1) SpendingTabView.LIST else SpendingTabView.ANALYSIS }
         }
@@ -382,7 +383,16 @@ fun GlassMainScreen(
                         // d'argent sans historique (salaire, remboursement) va hors budget.
                         proposal = { operation ->
                             val salary = salaryCandidates.firstOrNull { operation.amountCents > 0 && it.key == fr.baptiste.bank.domain.budget.salaryKey(operation.bankLabel) }
-                            salary?.let { SortProposal(null, "C'est le salaire ?", salary = it) }
+                            // Une rentrée d'au moins 300 € : peut-être le salaire, même vu une seule fois.
+                            (salary ?: fr.baptiste.bank.domain.budget.SalaryCandidate(
+                                label = operation.bankLabel,
+                                key = fr.baptiste.bank.domain.budget.salaryKey(operation.bankLabel),
+                                lastAmount = Money(operation.amountCents),
+                                lastDate = operation.date,
+                                months = 1,
+                                typicalDay = operation.date.dayOfMonth,
+                            ).takeIf { operation.amountCents >= 30_000 && salaryKeyConfirmed == null })
+                                ?.let { SortProposal(null, "C'est le salaire ?", salary = it) }
                                 ?: viewModel.suggestedEnvelopeId(operation, sortedHistory)
                                     ?.let { id -> envelopes.firstOrNull { it.id == id } }
                                     ?.let { SortProposal(it, it.name) }
@@ -542,7 +552,7 @@ fun GlassMainScreen(
                         SettingsEntry("Historique", plural(journal.count { !it.undone }, "changement", "changements"), onClick = open(OpenDialog.History)),
                         SettingsEntry("Ajouts et retraits", "Mouvements entre enveloppes", onClick = open(OpenDialog.Journal)),
                         SettingsEntry("Vérifier les dates", if (corrections > 0) plural(corrections, "date à corriger", "dates à corriger") else null, badge = corrections > 0, onClick = open(OpenDialog.DateCheck)),
-                        SettingsEntry(if (updateAvailable) "Nouvelle version disponible" else "Mises à jour", badge = updateAvailable, onClick = open(OpenDialog.Updates)),
+                        SettingsEntry("Mises à jour", if (updateAvailable) "Nouvelle version disponible" else null, badge = updateAvailable, onClick = open(OpenDialog.Updates)),
                     ),
                     developer = listOf(
                         SettingsEntry("Réglages du verre", onClick = {

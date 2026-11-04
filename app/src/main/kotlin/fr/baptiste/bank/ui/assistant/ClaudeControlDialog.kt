@@ -1,5 +1,6 @@
 package fr.baptiste.bank.ui.assistant
 
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.Icon
@@ -89,9 +90,14 @@ fun ClaudeControlDialog(
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF0B1328), contentColor = Color.White) {
             Column(Modifier.statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 12.dp)) {
-                    TextButton(onClick = onDismiss) { Text("Fermer") }
-                    Text("Claude", style = MaterialTheme.typography.titleLarge, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.weight(1f))
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 12.dp).offset(x = (-12).dp)) {
+                    // Une seule sortie, toujours à gauche : « Fermer » à l'accueil, « Retour » ensuite.
+                    when (step) {
+                        ControlStep.HOME -> TextButton(onClick = onDismiss) { Text("Fermer") }
+                        ControlStep.PASTE -> TextButton(onClick = { step = ControlStep.HOME }) { Text("Retour") }
+                        ControlStep.REVIEW -> TextButton(onClick = { step = ControlStep.PASTE }) { Text("Retour") }
+                    }
+                    Text(when (step) { ControlStep.HOME -> "Claude"; ControlStep.PASTE -> "Réponse de Claude"; ControlStep.REVIEW -> "Plan de Claude" }, style = MaterialTheme.typography.titleLarge, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.weight(1f))
                     Box(Modifier.width(72.dp))
                 }
                 when (step) {
@@ -127,7 +133,6 @@ fun ClaudeControlDialog(
                             modifier = Modifier.fillMaxWidth().weight(1f).padding(top = 12.dp).heightIn(min = 160.dp),
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
-                            TextButton(onClick = { step = ControlStep.HOME }) { Text("Retour") }
                             Box(Modifier.weight(1f))
                             OutlinedButton(onClick = { readClipboard(context)?.let { reply = it; error = null } }) { Text("Coller") }
                             Button(enabled = reply.isNotBlank(), onClick = {
@@ -177,7 +182,7 @@ private fun ColumnScope.HomeStep(
         )
         ClaudeAction("Coller une réponse", "Un plan à valider, rien n'est appliqué avant", onPaste)
         Text(
-            "Partagé : jours, montants, libellés nettoyés et enveloppes. Jamais d'IBAN, de numéro ni de solde.",
+            "Ni IBAN, ni numéro, ni solde ne sont partagés.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -262,11 +267,10 @@ private fun ColumnScope.ReviewPlan(
         }
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
-        TextButton(onClick = onBack) { Text("Retour") }
-        Box(Modifier.weight(1f))
-        Button(enabled = count > 0, onClick = {
+        // « Retour » est en haut à gauche : une seule sortie.
+        fr.baptiste.bank.ui.components.PrimaryButton("Appliquer ($count)", enabled = count > 0, modifier = Modifier.fillMaxWidth(), onClick = {
             onApply(plan.actions.filterIndexed { index, action -> checked[index] == true && action !is PlanAction.Flag })
-        }) { Text("Appliquer ($count)") }
+        })
     }
 }
 

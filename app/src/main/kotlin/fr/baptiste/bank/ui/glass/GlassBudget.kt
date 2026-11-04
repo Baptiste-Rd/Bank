@@ -424,7 +424,8 @@ internal fun MonthReview(dashboard: Dashboard, onEdit: (Envelope) -> Unit, trans
         val onAccount = closing.onAccount
         if (onAccount != null && savings.forecast.isPositive) {
             Column(Modifier.padding(top = 8.dp)) {
-                ReviewLine("Virée vers tes comptes", closing.transferred ?: Money.ZERO)
+                // Un bloc qui n'a rien à dire n'apparaît pas (règle 6) : pas de « +0 € ».
+                closing.transferred?.takeIf { it.cents != 0L }?.let { ReviewLine("Virée vers tes comptes", it) }
                 when {
                     onAccount.isPositive -> ReviewLine("Encore sur le compte courant", onAccount)
                     onAccount.isNegative -> ReviewLine("Pris sur l'argent déjà sur le compte", onAccount)

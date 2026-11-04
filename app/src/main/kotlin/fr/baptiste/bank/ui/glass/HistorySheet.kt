@@ -100,7 +100,7 @@ fun HistorySheet(entries: List<JournalLine>, onUndo: (JournalLine) -> Unit, onDi
                 }
             }
             }
-            item {
+            if (entries.isNotEmpty()) item {
                 Text(
                     "Les 10 derniers changements",
                     style = MaterialTheme.typography.labelSmall,

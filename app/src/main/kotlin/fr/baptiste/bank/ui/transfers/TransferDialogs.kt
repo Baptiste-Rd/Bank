@@ -334,14 +334,12 @@ fun EnvelopeSheet(
             }
             if (onCover != null) {
                 // « Couvrir » ne disait pas ce qu'il faisait : on ajoute de l'argent, pris sur l'épargne.
-                Button(onClick = onCover, modifier = Modifier.fillMaxWidth()) { Text("Ajouter de l'argent") }
+                fr.baptiste.bank.ui.components.PrimaryButton("Ajouter de l'argent", onClick = onCover, modifier = Modifier.fillMaxWidth())
             }
             // Provision en retard : l'action principale de la fiche.
             val proposal = line.catchUp
             if (isProvision && proposal != null && onCatchUp != null) {
-                Button(onClick = { onCatchUp(proposal.from) }, modifier = Modifier.fillMaxWidth()) {
-                    Text("Mettre ${proposal.monthlyShare.summary()} de côté par mois")
-                }
+                fr.baptiste.bank.ui.components.PrimaryButton("Mettre ${proposal.monthlyShare.summary()} de côté par mois", onClick = { onCatchUp(proposal.from) }, modifier = Modifier.fillMaxWidth())
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 OutlinedButton(onClick = onAdd, modifier = Modifier.weight(1f)) { Text("Ajouter") }

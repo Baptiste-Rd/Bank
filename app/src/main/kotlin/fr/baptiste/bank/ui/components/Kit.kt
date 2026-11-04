@@ -166,3 +166,17 @@ fun SheetHeader(title: String, onCancel: () -> Unit, action: String, enabled: Bo
         }
     }
 }
+
+/**
+ * Bouton principal d'une sheet : le même bleu plein, texte blanc, que le bouton principal en verre
+ * des écrans (un seul style d'action principale dans toute l'app).
+ */
+@Composable
+fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+    androidx.compose.material3.Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier,
+        colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB), contentColor = Color.White),
+    ) { Text(text, maxLines = 1) }
+}

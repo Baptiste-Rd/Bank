@@ -1,5 +1,6 @@
 package fr.baptiste.bank.ui.assistant
 
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -108,11 +109,12 @@ fun AssistedSortDialog(
         )
     }
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         // Fond plein : la fenêtre passe devant l'app, son texte doit rester lisible.
         Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF0B1328), contentColor = Color.White) {
             Column(Modifier.statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 12.dp)) {
+                    TextButton(onClick = onDismiss, modifier = Modifier.offset(x = (-12).dp)) { Text("Fermer") }
                     Column(Modifier.weight(1f)) {
                         Text("Trier avec Claude", style = MaterialTheme.typography.titleLarge)
                         Text(
@@ -125,7 +127,6 @@ fun AssistedSortDialog(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    TextButton(onClick = onDismiss) { Text("Fermer") }
                 }
                 when (step) {
                     Step.SEND -> SendStep(
