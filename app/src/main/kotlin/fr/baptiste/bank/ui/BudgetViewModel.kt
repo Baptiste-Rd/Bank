@@ -1,5 +1,6 @@
 package fr.baptiste.bank.ui
 
+import kotlinx.coroutines.flow.first
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewModelScope
@@ -240,6 +241,22 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
         perform { repository.addTransfers(legs, envelopeId, incoming, reason) }
 
     fun cancelTransfer(id: Long) = perform { repository.cancelTransfer(id) }
+
+    /** Les dix derniers changements, annulables un par un. */
+    val journal: StateFlow<List<fr.baptiste.bank.data.JournalLine>> = repository.journal.asState(emptyList())
+
+    /** Annule un changement de l'historique ; [onDone] reçoit son libellé (null s'il l'était déjà). */
+    fun undo(entryId: Long, onDone: (String?) -> Unit = {}) {
+        viewModelScope.launch { onDone(repository.undo(entryId)) }
+    }
+
+    /** Annule le dernier changement (le bouton « Annuler » du message qui le confirme). */
+    fun undoLast(onDone: (String?) -> Unit = {}) {
+        viewModelScope.launch {
+            val last = repository.journal.first().firstOrNull { !it.undone }
+            onDone(last?.let { repository.undo(it.id) })
+        }
+    }
 
     fun addReserveTransfer(envelopeId: Long, amount: Money, reason: String?) =
         perform { repository.addReserveTransfer(envelopeId, amount, reason) }

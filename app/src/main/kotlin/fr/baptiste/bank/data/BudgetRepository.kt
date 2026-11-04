@@ -2,6 +2,7 @@ package fr.baptiste.bank.data
 
 import androidx.room.withTransaction
 import fr.baptiste.bank.data.local.AccountEntity
+import fr.baptiste.bank.ui.format.formatted
 import fr.baptiste.bank.data.local.BankDatabase
 import fr.baptiste.bank.data.local.BalanceEntity
 import fr.baptiste.bank.data.local.EnvelopeEntity
@@ -85,6 +86,90 @@ class BudgetRepository(
     private val imputationDao = database.imputationDao()
     private val transactionDao = database.transactionDao()
     private val transferDao = database.transferDao()
+    private val journalDao = database.journalDao()
+
+    // --- Historique des changements (annulables) ---
+
+    /** Les dix derniers changements, le plus récent en premier. */
+    val journal: Flow<List<JournalLine>> = journalDao.observeRecent().map { rows ->
+        rows.map { JournalLine(it.id, it.at, it.label, it.undone) }
+    }
+
+    /** Changements en cours de regroupement (un tri assisté, un plan) : une seule entrée à la fin. */
+    private var batch: MutableList<JournalPayload>? = null
+
+    /** État actuel de ces opérations, à garder avant de les changer. */
+    private suspend fun snapshot(ids: Collection<Long>): List<OperationState> = ids.distinct().mapNotNull { id ->
+        val transaction = transactionDao.byId(id) ?: return@mapNotNull null
+        OperationState(id, transaction.ignored, transaction.transferAccountId, imputationDao.forTransaction(id).map { it.copy(id = 0) })
+    }
+
+    /** État d'une opération à trier (rangée par une règle juste après). */
+    private fun unsortedState(id: Long) = OperationState(id, ignored = false, transferAccountId = null, imputations = emptyList())
+
+    private suspend fun envelopeState(id: Long): JournalPayload {
+        val before = envelopeDao.byId(id) ?: return JournalPayload()
+        return JournalPayload(envelopesBefore = listOf(before), allocationsBefore = database.allocationDao().forEnvelope(id).map { it.copy(id = 0) })
+    }
+
+    private suspend fun record(label: String, payload: JournalPayload) {
+        batch?.let { it += payload; return }
+        if (payload.isEmpty) return
+        journalDao.insert(fr.baptiste.bank.data.local.JournalEntity(at = System.currentTimeMillis(), label = label, payload = payload.encode()))
+        journalDao.trim()
+    }
+
+    /** Regroupe les changements faits par [block] en une seule entrée [label]. */
+    private suspend fun <T> batched(label: String, block: suspend () -> T): T {
+        if (batch != null) return block()
+        val parts = mutableListOf<JournalPayload>()
+        batch = parts
+        val result = try {
+            block()
+        } finally {
+            batch = null
+        }
+        record(label, parts.fold(JournalPayload()) { all, part -> all + part })
+        return result
+    }
+
+    private suspend fun operationLabel(id: Long): String =
+        transactionDao.byId(id)?.let { it.alias ?: it.cleanLabel } ?: "Opération"
+
+    /**
+     * Annule un changement de l'historique : chaque chose retrouve son état d'avant ce changement.
+     * Renvoie son libellé, ou null s'il était déjà annulé.
+     */
+    suspend fun undo(entryId: Long): String? = database.withTransaction {
+        val entry = journalDao.byId(entryId) ?: return@withTransaction null
+        if (entry.undone) return@withTransaction null
+        val payload = JournalPayload.decode(entry.payload)
+        payload.manualCreated.forEach { id ->
+            imputationDao.deleteForTransaction(id)
+            transactionDao.deleteManual(id)
+        }
+        payload.transfersCreated.forEach { transferDao.cancel(it) }
+        database.ruleDao().delete(payload.rulesCreated)
+        payload.rulesRemoved.forEach { database.ruleDao().insert(it) }
+        database.transferRuleDao().delete(payload.transferRulesCreated)
+        payload.envelopesBefore.forEach { before ->
+            envelopeDao.upsert(before)
+            database.allocationDao().deleteForEnvelope(before.id)
+            database.allocationDao().insertAll(payload.allocationsBefore.filter { it.envelopeId == before.id })
+        }
+        val existing = envelopeDao.allIds().toSet() - payload.envelopesCreated.toSet()
+        payload.operations.forEach { state ->
+            if (transactionDao.byId(state.transactionId) == null) return@forEach
+            imputationDao.deleteForTransaction(state.transactionId)
+            transactionDao.setIgnored(state.transactionId, state.ignored)
+            transactionDao.setTransferAccount(state.transactionId, state.transferAccountId)
+            // Une enveloppe supprimée depuis ne peut plus recevoir sa part : l'opération reste à trier.
+            state.imputations.filter { it.envelopeId in existing }.forEach { imputationDao.insert(it.copy(id = 0)) }
+        }
+        payload.envelopesCreated.forEach { deleteEnvelope(it) }
+        journalDao.markUndone(entryId)
+        entry.label
+    }
 
     val envelopes: Flow<List<Envelope>> = combine(envelopeDao.observeActive(), database.allocationDao().observeAll()) { entities, allocations ->
         entities.withPeriods(allocations)
@@ -243,13 +328,17 @@ class BudgetRepository(
                 reason = reason?.takeIf { it.isNotBlank() },
             )
         }
-        if (rows.isNotEmpty()) transferDao.insertAll(rows)
+        if (rows.isEmpty()) return
+        val ids = transferDao.insertAll(rows)
+        val name = envelopeDao.byId(envelopeId)?.name.orEmpty()
+        val total = Money(rows.sumOf { it.amountCents })
+        record(if (incoming) "${total.formatted()} ajoutés à $name" else "${total.formatted()} retirés de $name", JournalPayload(transfersCreated = ids))
     }
 
     /** Met [amount] de côté dans une enveloppe depuis la réserve : le mois n'est pas touché. */
     suspend fun addReserveTransfer(envelopeId: Long, amount: Money, reason: String?, date: LocalDate = LocalDate.now()) {
         if (!amount.isPositive) return
-        transferDao.insertAll(
+        val ids = transferDao.insertAll(
             listOf(
                 TransferEntity(
                     effectiveDate = date,
@@ -261,6 +350,7 @@ class BudgetRepository(
                 ),
             ),
         )
+        record("${amount.formatted()} mis de côté dans ${envelopeDao.byId(envelopeId)?.name.orEmpty()}", JournalPayload(transfersCreated = ids))
     }
 
     suspend fun cancelTransfer(id: Long) {
@@ -283,6 +373,17 @@ class BudgetRepository(
 
     /** Crée ou met à jour une enveloppe ; renvoie son identifiant. */
     suspend fun saveEnvelope(envelope: Envelope): Long = database.withTransaction {
+        val before = if (envelope.id != 0L) envelopeState(envelope.id) else null
+        val id = saveEnvelopeUnrecorded(envelope)
+        if (before != null) {
+            record("${envelope.name} modifiée", before)
+        } else {
+            record("Nouvelle enveloppe ${envelope.name}", JournalPayload(envelopesCreated = listOf(id)))
+        }
+        id
+    }
+
+    private suspend fun saveEnvelopeUnrecorded(envelope: Envelope): Long {
         val today = LocalDate.now()
         // Une nouvelle enveloppe part du 1er du mois : une dépense plus ancienne n'y compte pas.
         val toSave = if (envelope.id == 0L && envelope.start == null) envelope.copy(start = today.withDayOfMonth(1)) else envelope
@@ -314,7 +415,7 @@ class BudgetRepository(
         // Upsert renvoie -1 pour une mise à jour : l'identifiant est alors celui qu'on avait.
         val id = if (envelope.id != 0L) envelope.id else rowId
         ensurePeriods(today)
-        id
+        return id
     }
 
     /**
@@ -408,7 +509,9 @@ class BudgetRepository(
     /** Retire une enveloppe : elle n'a plus de période ensuite, mais reste dans les mois qu'elle a couverts. */
     suspend fun archiveEnvelope(id: Long) {
         ensurePeriods()
+        val before = envelopeState(id)
         envelopeDao.archive(id, LocalDate.now())
+        record("${before.envelopesBefore.firstOrNull()?.name.orEmpty()} arrêtée", before)
     }
 
     /** Enveloppes archivées : elles gardent leurs dépenses et peuvent être restaurées. */
@@ -460,6 +563,7 @@ class BudgetRepository(
                     wholePeriod = wholePeriod,
                 ),
             )
+            record("Dépense $label (${amount.formatted()})", JournalPayload(manualCreated = listOf(transactionId)))
         }
     }
 
@@ -587,23 +691,37 @@ class BudgetRepository(
     suspend fun sortOperation(transactionId: Long, envelope: Envelope, ruleKeyword: String?): Int =
         database.withTransaction {
             val transaction = transactionDao.byId(transactionId) ?: return@withTransaction 0
+            val before = snapshot(listOf(transactionId))
+            val label = "${transaction.alias ?: transaction.cleanLabel} → ${envelope.name}"
             imputationDao.deleteForTransaction(transactionId)
             transactionDao.setIgnored(transactionId, false)
             transactionDao.setTransferAccount(transactionId, null)
             imputationDao.insert(transaction.imputationIn(envelope, ImputationMode.MANUAL))
             val keyword = ruleKeyword?.trim().orEmpty()
-            if (keyword.isEmpty()) return@withTransaction 0
+            if (keyword.isEmpty()) {
+                record(label, JournalPayload(operations = before))
+                return@withTransaction 0
+            }
             val ruleDao = database.ruleDao()
             // Un même motif ne mène qu'à une enveloppe : la nouvelle règle remplace l'ancienne.
             val key = normalizeLabel(keyword)
-            ruleDao.delete(ruleDao.all().filter { normalizeLabel(it.pattern) == key }.map { it.id })
+            val replaced = ruleDao.all().filter { normalizeLabel(it.pattern) == key }
+            ruleDao.delete(replaced.map { it.id })
             val rule = RuleEntity(matchType = RuleMatchType.CONTAINS, pattern = keyword, envelopeId = envelope.id)
-            ruleDao.insert(rule)
+            val ruleId = ruleDao.insert(rule)
             val single = listOf(rule.toDomain())
-            transactionDao.unsorted()
+            val others = transactionDao.unsorted()
                 .filter { single.matchingFor(it) != null }
                 .onEach { imputationDao.insert(it.imputationIn(envelope, ImputationMode.RULE)) }
-                .size
+            record(
+                if (others.isEmpty()) label else "$label, et ${others.size} autre${if (others.size > 1) "s" else ""}",
+                JournalPayload(
+                    operations = before + others.map { unsortedState(it.id) },
+                    rulesCreated = listOf(ruleId),
+                    rulesRemoved = replaced.map { it.copy(id = 0) },
+                ),
+            )
+            others.size
         }
 
     /**
@@ -720,7 +838,9 @@ class BudgetRepository(
      * crée les nouvelles enveloppes (à 0 €, à budgéter), range chaque opération, la renomme et crée
      * les règles demandées. Rend le nombre d'opérations traitées et les enveloppes créées.
      */
-    suspend fun applyAssistedSort(choices: List<AssistedSortChoice>): AssistedSortResult = database.withTransaction {
+    suspend fun applyAssistedSort(choices: List<AssistedSortChoice>): AssistedSortResult = batched("Tri avec Claude (${choices.size})") { applyAssistedSortUnbatched(choices) }
+
+    private suspend fun applyAssistedSortUnbatched(choices: List<AssistedSortChoice>): AssistedSortResult = database.withTransaction {
         val active = activeEnvelopes()
         val byKey = active.associateBy { envelopeNameKey(it.name) }.toMutableMap()
         val created = mutableListOf<String>()
@@ -784,9 +904,11 @@ class BudgetRepository(
         val total = Money(kotlin.math.abs(transaction.amountCents))
         if (!fr.baptiste.bank.domain.bank.isValidSplit(total, parts.map { it.second })) return@withTransaction false
         val sign = if (transaction.amountCents < 0) 1 else -1
+        val before = snapshot(listOf(transactionId))
         imputationDao.deleteForTransaction(transactionId)
         transactionDao.setIgnored(transactionId, false)
         transactionDao.setTransferAccount(transactionId, null)
+        record("${transaction.alias ?: transaction.cleanLabel} répartie en ${parts.size}", JournalPayload(operations = before))
         parts.forEach { (envelope, amount) ->
             imputationDao.insert(
                 ImputationEntity(
@@ -844,6 +966,10 @@ class BudgetRepository(
      * (enveloppe null). Renvoie le nombre d'opérations rangées.
      */
     suspend fun acceptProposals(choices: List<Pair<Long, Envelope?>>): Int = database.withTransaction {
+        record(
+            if (choices.size == 1) "${operationLabel(choices.first().first)} → ${choices.first().second?.name ?: "hors budget"}" else "${choices.size} opérations rangées",
+            JournalPayload(operations = snapshot(choices.map { it.first })),
+        )
         var done = 0
         for ((transactionId, envelope) in choices) {
             val transaction = transactionDao.byId(transactionId) ?: continue
@@ -862,6 +988,10 @@ class BudgetRepository(
 
     /** Remet des opérations « à trier » (annulation d'une validation). */
     suspend fun unsortOperations(ids: List<Long>) = database.withTransaction {
+        record(
+            if (ids.size == 1) "${operationLabel(ids.first())} remise à trier" else "${ids.size} opérations remises à trier",
+            JournalPayload(operations = snapshot(ids)),
+        )
         for (id in ids) {
             imputationDao.deleteForTransaction(id)
             transactionDao.setIgnored(id, false)
@@ -871,6 +1001,7 @@ class BudgetRepository(
 
     suspend fun ignoreOperation(transactionId: Long) {
         database.withTransaction {
+            record("${operationLabel(transactionId)} hors budget", JournalPayload(operations = snapshot(listOf(transactionId))))
             imputationDao.deleteForTransaction(transactionId)
             transactionDao.setIgnored(transactionId, true)
             transactionDao.setTransferAccount(transactionId, null)
@@ -883,24 +1014,30 @@ class BudgetRepository(
      */
     suspend fun markTransferToAccount(transactionId: Long, accountId: Long, keyword: String? = null): Int =
         database.withTransaction {
+            val before = snapshot(listOf(transactionId))
+            val label = "${operationLabel(transactionId)} → ${accountDao.byId(accountId)?.name.orEmpty()}"
             imputationDao.deleteForTransaction(transactionId)
             transactionDao.setIgnored(transactionId, true)
             transactionDao.setTransferAccount(transactionId, accountId)
             val text = keyword?.trim().orEmpty()
-            if (text.isEmpty()) return@withTransaction 0
+            if (text.isEmpty()) {
+                record(label, JournalPayload(operations = before))
+                return@withTransaction 0
+            }
             // Les suivants seront reconnus seuls ; un même motif ne mène qu'à un compte.
             val dao = database.transferRuleDao()
             val key = normalizeLabel(text)
             dao.delete(dao.all().filter { normalizeLabel(it.pattern) == key }.map { it.id })
-            dao.insert(TransferRuleEntity(pattern = text, accountId = accountId))
+            val ruleId = dao.insert(TransferRuleEntity(pattern = text, accountId = accountId))
             val single = listOf(TransferRule(0, text, accountId))
-            transactionDao.unsorted()
+            val others = transactionDao.unsorted()
                 .filter { it.source != TransactionSource.MANUAL && it.id != transactionId && single.transferFor(it) != null }
                 .onEach {
                     transactionDao.setIgnored(it.id, true)
                     transactionDao.setTransferAccount(it.id, accountId)
                 }
-                .size
+            record(label, JournalPayload(operations = before + others.map { unsortedState(it.id) }, transferRulesCreated = listOf(ruleId)))
+            others.size
         }
 
     /** Règles de virement, pour l'écran Règles et alias. */
@@ -1039,10 +1176,12 @@ class BudgetRepository(
         months: Int,
         monthlySavings: Money?,
         reductions: Map<Long, Money> = emptyMap(),
-    ) = database.withTransaction {
+    ) = batched("Plan appliqué : $name") { database.withTransaction {
         val today = LocalDate.now()
         // Réductions : un montant plus bas pour chacune des périodes du projet, pas pour toujours.
         if (reductions.isNotEmpty()) {
+            // Les périodes réduites : l'historique garde celles d'avant.
+            reductions.keys.forEach { record("", envelopeState(it)) }
             val byId = activeEnvelopes().associateBy { it.id }
             val allocationDao = database.allocationDao()
             for ((id, cut) in reductions) {
@@ -1074,7 +1213,7 @@ class BudgetRepository(
                 saveEnvelope(envelope.copy(amount = monthlySavings, frequency = fr.baptiste.bank.domain.period.Frequency.MONTHLY))
             }
         }
-    }
+    } }
 
     /** Opérations d'une enveloppe sur un mois, avec la part qui lui revient (analyse des dépenses). */
     fun envelopeMonthOperations(envelopeId: Long, month: YearMonth): Flow<List<OperationRow>> =

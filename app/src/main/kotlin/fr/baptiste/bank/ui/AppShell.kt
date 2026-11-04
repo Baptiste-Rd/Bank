@@ -84,6 +84,8 @@ sealed interface OpenDialog {
     data object Income : OpenDialog
     data object Updates : OpenDialog
     data object Journal : OpenDialog
+    /** Les dix derniers changements, annulables. */
+    data object History : OpenDialog
     /** [returnToSort] : création lancée depuis le tri d'une opération, où l'on revient ensuite. */
     data class EnvelopeEditor(val envelope: Envelope?, val returnToSort: OperationRow? = null) : OpenDialog
     data object Bank : OpenDialog
@@ -238,13 +240,14 @@ fun AppDialogs(
                             append("Rangée dans ${envelope.name}.")
                             if (others > 0) append(" La règle a rangé $others autre(s) opération(s).")
                         },
-                    )
+                        "Annuler",
+                    ) { viewModel.undoLast() }
                 }
                 close()
             },
             onIgnore = {
                 viewModel.ignoreOperation(current.operation.id)
-                controller.notify("Opération mise hors budget.")
+                controller.notify("Opération mise hors budget.", "Annuler") { viewModel.undoLast() }
                 close()
             },
             onDismiss = ::close,
@@ -256,7 +259,7 @@ fun AppDialogs(
             onSplit = { selected -> controller.dialog = OpenDialog.SplitOperation(current.operation, selected) },
             onUnsort = {
                 viewModel.unsortOperations(listOf(current.operation.id))
-                controller.notify("${current.operation.label} : remise à trier.")
+                controller.notify("${current.operation.label} : remise à trier.", "Annuler") { viewModel.undoLast() }
                 close()
             },
             accounts = holdingAccounts,
@@ -280,10 +283,11 @@ fun AppDialogs(
             preselectedId = current.selectedEnvelopeId,
             onSave = { parts ->
                 viewModel.splitOperation(current.operation.id, parts) { done ->
-                    controller.notify(
-                        if (done) parts.joinToString(" · ") { (envelope, amount) -> "${amount.formatted()} dans ${envelope.name}" }
-                        else "La répartition ne correspond pas au total.",
-                    )
+                    if (done) {
+                        controller.notify(parts.joinToString(" · ") { (envelope, amount) -> "${amount.formatted()} dans ${envelope.name}" }, "Annuler") { viewModel.undoLast() }
+                    } else {
+                        controller.notify("La répartition ne correspond pas au total.")
+                    }
                 }
                 close()
             },
@@ -464,6 +468,16 @@ fun AppDialogs(
                 onDeleteAlias = viewModel::deleteAlias,
                 transferRules = transferRules,
                 onDeleteTransferRule = viewModel::deleteTransferRule,
+                onDismiss = ::close,
+            )
+        }
+        OpenDialog.History -> {
+            val entries by viewModel.journal.collectAsStateWithLifecycle()
+            fr.baptiste.bank.ui.glass.HistorySheet(
+                entries = entries,
+                onUndo = { entry ->
+                    viewModel.undo(entry.id) { label -> if (label != null) controller.notify("Annulé : $label") }
+                },
                 onDismiss = ::close,
             )
         }

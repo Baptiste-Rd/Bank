@@ -411,16 +411,12 @@ fun GlassMainScreen(
                                     }
                                 }
                             } else {
-                                controller.notify("${operation.label} : hors budget", "Annuler") {
-                                    viewModel.unsortOperations(listOf(operation.id))
-                                }
+                                controller.notify("${operation.label} : hors budget", "Annuler") { viewModel.undoLast() }
                             }
                         },
                         onAcceptAll = { ready ->
                             viewModel.acceptProposals(ready.map { (operation, proposal) -> operation.id to proposal.envelope }) { done ->
-                                controller.notify("$done opération(s) rangée(s).", "Annuler") {
-                                    viewModel.unsortOperations(ready.map { it.first.id })
-                                }
+                                controller.notify("$done opération(s) rangée(s).", "Annuler") { viewModel.undoLast() }
                             }
                         },
                         onApplyRules = {
@@ -536,6 +532,7 @@ fun GlassMainScreen(
         }
         if (settingsOpen) {
             val salary by viewModel.salary.collectAsStateWithLifecycle()
+            val journal by viewModel.journal.collectAsStateWithLifecycle()
             val open: (OpenDialog) -> () -> Unit = { dialog -> { settingsOpen = false; controller.dialog = dialog } }
             GlassSurfaceColors(onBackground = false) {
                 SettingsSheet(
@@ -544,6 +541,7 @@ fun GlassMainScreen(
                         SettingsEntry("Banque et synchronisation", bankConnection?.bankName, onClick = open(OpenDialog.Bank)),
                         SettingsEntry("Comptes", "Livrets et placements", onClick = open(OpenDialog.Accounts)),
                         SettingsEntry("Noms et règles", "${plural(aliases.size, "nom", "noms")} · ${plural(rules.size + transferRules.size, "règle", "règles")}", onClick = open(OpenDialog.Rules)),
+                        SettingsEntry("Historique", plural(journal.count { !it.undone }, "changement annulable", "changements annulables"), onClick = open(OpenDialog.History)),
                         SettingsEntry("Ajouts et retraits", "Mouvements entre enveloppes", onClick = open(OpenDialog.Journal)),
                         SettingsEntry("Vérifier les dates", null, onClick = open(OpenDialog.DateCheck)),
                         SettingsEntry(if (updateAvailable) "Nouvelle version disponible" else "Mises à jour", badge = updateAvailable, onClick = open(OpenDialog.Updates)),

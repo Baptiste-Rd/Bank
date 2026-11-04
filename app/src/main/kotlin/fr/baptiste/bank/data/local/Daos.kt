@@ -169,6 +169,12 @@ interface EnvelopeDao {
     @Query("UPDATE envelope SET archived = 0, retired_on = NULL WHERE id = :id")
     suspend fun restore(id: Long)
 
+    @Query("SELECT * FROM envelope WHERE id = :id")
+    suspend fun byId(id: Long): EnvelopeEntity?
+
+    @Query("SELECT id FROM envelope")
+    suspend fun allIds(): List<Long>
+
     @Query("SELECT * FROM envelope WHERE archived = 0")
     suspend fun active(): List<EnvelopeEntity>
 
@@ -199,6 +205,12 @@ interface AllocationDao {
 
     @Query("DELETE FROM allocation WHERE envelope_id = :envelopeId AND period_key = :periodKey")
     suspend fun delete(envelopeId: Long, periodKey: String)
+
+    @Query("SELECT * FROM allocation WHERE envelope_id = :envelopeId")
+    suspend fun forEnvelope(envelopeId: Long): List<AllocationEntity>
+
+    @Query("DELETE FROM allocation WHERE envelope_id = :envelopeId")
+    suspend fun deleteForEnvelope(envelopeId: Long)
 
     @Insert
     suspend fun insert(allocation: AllocationEntity): Long
@@ -645,7 +657,7 @@ data class TransferRow(
 @Dao
 interface TransferDao {
     @Insert
-    suspend fun insertAll(transfers: List<TransferEntity>)
+    suspend fun insertAll(transfers: List<TransferEntity>): List<Long>
 
     @Query("DELETE FROM transfer WHERE source_envelope_id = :envelopeId OR target_envelope_id = :envelopeId")
     suspend fun deleteForEnvelope(envelopeId: Long)
@@ -709,3 +721,23 @@ data class ExportRow(
     /** Montant de cette part dans l'enveloppe (positif pour une dépense). */
     val partCents: Long? = null,
 )
+
+@Dao
+interface JournalDao {
+    @Insert
+    suspend fun insert(entry: JournalEntity): Long
+
+    /** Les dix derniers changements, le plus récent en premier. */
+    @Query("SELECT * FROM journal_entry ORDER BY at DESC, id DESC LIMIT 10")
+    fun observeRecent(): Flow<List<JournalEntity>>
+
+    @Query("SELECT * FROM journal_entry WHERE id = :id")
+    suspend fun byId(id: Long): JournalEntity?
+
+    @Query("UPDATE journal_entry SET undone = 1 WHERE id = :id")
+    suspend fun markUndone(id: Long)
+
+    /** On ne garde que les dix derniers. */
+    @Query("DELETE FROM journal_entry WHERE id NOT IN (SELECT id FROM journal_entry ORDER BY at DESC, id DESC LIMIT 10)")
+    suspend fun trim()
+}

@@ -260,3 +260,18 @@ data class TransferRuleEntity(
     val pattern: String,
     @ColumnInfo(name = "account_id") val accountId: Long,
 )
+
+/**
+ * Historique des changements faits à la main (tri, répartition, enveloppe, transfert...), pour
+ * pouvoir les annuler. [payload] décrit en JSON l'état d'avant (voir data/Journal.kt). On garde
+ * les dix derniers.
+ */
+@Entity(tableName = "journal_entry")
+data class JournalEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    /** Instant du changement, en millisecondes. */
+    val at: Long,
+    val label: String,
+    val payload: String,
+    @ColumnInfo(defaultValue = "0") val undone: Boolean = false,
+)
