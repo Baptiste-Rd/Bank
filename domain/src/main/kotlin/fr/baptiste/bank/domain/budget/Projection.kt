@@ -25,8 +25,9 @@ const val MIN_DAYS_FOR_PROJECTION = 10
 /**
  * Estime la dépense de fin de période.
  *
- * Avant [minDays] jours écoulés, on ne prolonge rien : la projection est le dépensé, sans alerte
- * (58 € de courses en trois jours ne font pas 580 € dans le mois). Ensuite, les jours restants sont
+ * Avant [minDays] jours écoulés, on ne prolonge pas le rythme du mois, et aucune alerte n'est levée
+ * (58 € de courses en trois jours ne font pas 580 € dans le mois) : les jours restants sont comptés
+ * au rythme de [habit] s'il est connu, sinon la projection est le dépensé. Ensuite, les jours restants sont
  * comptés à un rythme qui mélange celui de la période et [habit], la dépense habituelle d'une
  * période entière (moyenne des douze derniers mois) : le rythme de la période pèse d'autant plus
  * que la période avance. Sans habitude connue, seul le rythme de la période compte.
@@ -60,6 +61,9 @@ fun project(
     val paced = spent - lumpSum
     val tooEarly = elapsed < minOf(minDays.toLong(), length) && remaining > 0 && paced.isPositive
     val projected = when {
+        // Début de période : le rythme habituel seul (l'épargne prévue du 4 ne suppose plus qu'on ne dépensera rien).
+        remaining > 0 && elapsed < minOf(minDays.toLong(), length) && habit != null && habit.isPositive ->
+            spent + (habit * remaining).divideCeil(length)
         elapsed == 0L || remaining == 0L || tooEarly || !paced.isPositive -> spent
         habit == null || !habit.isPositive -> lumpSum + (paced * length).divideCeil(elapsed)
         // Rythme des jours restants : (écoulés/durée) × rythme de la période + (restants/durée) ×

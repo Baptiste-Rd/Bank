@@ -40,6 +40,13 @@ import fr.baptiste.bank.domain.model.EnvelopeType
 import fr.baptiste.bank.domain.model.categoryChoices
 import fr.baptiste.bank.domain.model.storedCategory
 import fr.baptiste.bank.domain.model.suggestCategory
+import fr.baptiste.bank.domain.model.IdeaUse
+import fr.baptiste.bank.domain.model.searchCatalog
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import fr.baptiste.bank.domain.money.Money
 import fr.baptiste.bank.domain.money.parseMoney
 import fr.baptiste.bank.domain.period.Frequency
@@ -229,12 +236,30 @@ fun EnvelopeDialog(
         return
     }
 
-    AlertDialog(
+    // Une sheet, comme toute saisie : Annuler et Enregistrer en haut (lot 5 de la refonte).
+    var catalogOpen by rememberSaveable { mutableStateOf(false) }
+    var catalogQuery by rememberSaveable { mutableStateOf("") }
+    var proposedCategory by rememberSaveable { mutableStateOf<String?>(null) }
+    androidx.compose.material3.ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text(if (isExisting) "Modifier l'enveloppe" else "Nouvelle enveloppe") },
-        text = {
-            BlurBehindWindow()
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
+        sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+            SheetHeader(
+                title = if (isExisting) "Modifier l'enveloppe" else "Nouvelle enveloppe",
+                onCancel = onDismiss,
+                action = "Enregistrer",
+                enabled = draft != null,
+                onAction = { draft?.let(onSave) },
+            )
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier
+                    .padding(horizontal = 24.dp)
+                    .navigationBarsPadding()
+                    .imePadding()
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 24.dp),
+            ) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = {
@@ -251,6 +276,62 @@ fun EnvelopeDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
+                // Noms tout faits : le nom, et pour une création sa catégorie et son usage.
+                TextButton(onClick = { catalogOpen = !catalogOpen }) {
+                    Text(if (catalogOpen) "Fermer la liste des noms" else "Choisir un nom tout fait")
+                }
+                if (catalogOpen) {
+                    OutlinedTextField(
+                        value = catalogQuery,
+                        onValueChange = { catalogQuery = it },
+                        label = { Text("Chercher un nom") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    val ideas = remember(catalogQuery) { searchCatalog(catalogQuery) }
+                    androidx.compose.foundation.lazy.LazyColumn(Modifier.fillMaxWidth().height(280.dp)) {
+                        ideas.groupBy { it.theme }.forEach { (theme, list) ->
+                            item(key = "theme-$theme") {
+                                Text(theme, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
+                            }
+                            items(list.size, key = { "idea-" + list[it].name }) { index ->
+                                val idea = list[index]
+                                Row(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            name = idea.name
+                                            catalogOpen = false
+                                            if (!isExisting) {
+                                                category = idea.category
+                                                newCategory = null
+                                                categoryChosen = true
+                                                use = idea.use.toUse()
+                                            } else if (idea.category != category) {
+                                                // Une enveloppe existante ne change que de nom, sauf si on accepte la catégorie.
+                                                proposedCategory = idea.category
+                                            }
+                                        }
+                                        .padding(vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(idea.name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                                    Text("${idea.category} · ${idea.use.toUse().label.lowercase()}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                }
+                proposedCategory?.let { proposed ->
+                    AssistChip(
+                        onClick = {
+                            category = proposed
+                            newCategory = null
+                            proposedCategory = null
+                        },
+                        label = { Text("Ranger aussi dans $proposed") },
+                    )
+                }
                 Text("C'est pour", style = MaterialTheme.typography.labelMedium)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Use.entries.forEach { option ->
@@ -416,12 +497,14 @@ fun EnvelopeDialog(
                     }
                 }
             }
-        },
-        confirmButton = {
-            TextButton(enabled = draft != null, onClick = { draft?.let(onSave) }) { Text("Enregistrer") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } },
-    )
+    }
+}
+
+private fun IdeaUse.toUse(): Use = when (this) {
+    IdeaUse.DAILY -> Use.DAILY
+    IdeaUse.FIXED -> Use.FIXED
+    IdeaUse.RARE -> Use.RARE
+    IdeaUse.SAVINGS -> Use.SAVINGS
 }
 
 @Composable

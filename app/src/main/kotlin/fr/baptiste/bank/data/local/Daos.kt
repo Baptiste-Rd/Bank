@@ -593,6 +593,26 @@ interface TransactionDao {
     )
     fun observeOperationsBetween(from: java.time.LocalDate, to: java.time.LocalDate): Flow<List<OperationRow>>
 
+    /** Recherche dans les libellés (nom choisi, libellé nettoyé ou d'origine), tous les mois. */
+    @Query(
+        """
+        SELECT t.id AS id, t.date AS date, t.amount_cents AS amount_cents,
+               COALESCE(t.alias, t.clean_label) AS display_label, t.clean_label AS clean_label,
+               t.source AS source, t.ignored AS ignored, group_concat(e.name, ', ') AS envelope_names,
+               COALESCE(MAX(i.whole_period), 0) AS whole_period, MAX(i.period_key) AS period_key,
+               ta.name AS transfer_account
+        FROM transaction_record t
+        LEFT JOIN imputation i ON i.transaction_id = t.id
+        LEFT JOIN envelope e ON e.id = i.envelope_id
+        LEFT JOIN account ta ON ta.id = t.transfer_account_id
+        WHERE t.alias LIKE :pattern OR t.clean_label LIKE :pattern OR t.raw_label LIKE :pattern
+        GROUP BY t.id
+        ORDER BY t.date DESC, t.id DESC
+        LIMIT 60
+        """,
+    )
+    fun searchOperations(pattern: String): Flow<List<OperationRow>>
+
     /** Toutes les opérations de la banque à trier (pas seulement les plus récentes), les plus récentes d'abord. */
     @Query(
         """

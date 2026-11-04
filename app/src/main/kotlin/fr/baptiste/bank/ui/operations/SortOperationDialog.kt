@@ -66,6 +66,8 @@ fun SortOperationDialog(
     onTransferToAccount: (accountId: Long, keyword: String?) -> Unit = { _, _ -> },
     /** Répartir l'opération entre plusieurs enveloppes (reçoit l'enveloppe déjà choisie). */
     onSplit: ((selectedEnvelopeId: Long?) -> Unit)? = null,
+    /** Remettre à trier une opération déjà rangée (ou mise hors budget). */
+    onUnsort: (() -> Unit)? = null,
 ) {
     val currentName = operation.envelopeNames?.split(", ")?.firstOrNull()
     val currentId = envelopes.firstOrNull { it.name == currentName }?.id
@@ -101,6 +103,9 @@ fun SortOperationDialog(
                     val context = LocalContext.current
                     Row {
                         TextButton(onClick = { onRename(selectedId) }) { Text("Renommer") }
+                        if (onUnsort != null && (operation.envelopeNames != null || operation.ignored || operation.transferAccount != null)) {
+                            TextButton(onClick = onUnsort) { Text("Remettre à trier") }
+                        }
                         // Un libellé obscur : Claude dit qui est derrière (libellé anonymisé, montant, date).
                         TextButton(onClick = {
                             openClaudeWith(context, labelQuestion(operation.bankLabel, operation.amountCents, operation.date))

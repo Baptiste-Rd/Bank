@@ -171,6 +171,8 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
 
     val operations: StateFlow<List<OperationRow>> = repository.recentOperations().asState(emptyList())
 
+    fun searchOperations(query: String) = repository.searchOperations(query)
+
     /** Les opérations du mois choisi dans la barre des mois (liste de l'onglet Dépenses). */
     @OptIn(ExperimentalCoroutinesApi::class)
     val monthOperations: StateFlow<List<OperationRow>> = _selectedMonth

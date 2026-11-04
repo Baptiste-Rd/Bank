@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AlertDialog
@@ -133,4 +134,27 @@ fun InfoSheet(title: String, lines: List<InfoLine>, note: String? = null, onDism
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Compris") } },
     )
+}
+
+/**
+ * En-tête d'une sheet de saisie, comme sur iOS : « Annuler » à gauche, le titre, l'action à droite
+ * (désactivée tant que la saisie n'est pas valable).
+ */
+@Composable
+fun SheetHeader(title: String, onCancel: () -> Unit, action: String, enabled: Boolean, onAction: () -> Unit) {
+    androidx.compose.foundation.layout.Row(
+        androidx.compose.ui.Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+    ) {
+        TextButton(onClick = onCancel) { Text("Annuler") }
+        Text(
+            title,
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = androidx.compose.ui.Modifier.weight(1f),
+        )
+        TextButton(onClick = onAction, enabled = enabled) {
+            Text(action, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+        }
+    }
 }

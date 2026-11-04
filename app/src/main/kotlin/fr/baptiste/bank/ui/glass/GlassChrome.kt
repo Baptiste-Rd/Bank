@@ -46,6 +46,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import fr.baptiste.bank.R
 import fr.baptiste.bank.domain.budget.YearSpending
+import fr.baptiste.bank.ui.format.formatted
 import fr.baptiste.bank.ui.theme.BankTheme
 import java.time.YearMonth
 import java.time.format.TextStyle
@@ -300,4 +301,94 @@ fun YearSheet(
             }
         }
     }
+}
+
+/** Ce que la recherche peut ouvrir. */
+sealed interface SearchHit {
+    data class Category(val name: String) : SearchHit
+    data class EnvelopeHit(val envelope: fr.baptiste.bank.domain.model.Envelope) : SearchHit
+    data class Operation(val row: fr.baptiste.bank.data.local.OperationRow) : SearchHit
+}
+
+/**
+ * Recherche de l'onglet Dépenses. Elle suit le mois choisi (« Tous les mois » l'élargit) ; vide,
+ * elle liste toutes les catégories et leurs enveloppes, pour parcourir.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SearchSheet(
+    month: YearMonth,
+    envelopes: List<fr.baptiste.bank.domain.model.Envelope>,
+    monthOperations: List<fr.baptiste.bank.data.local.OperationRow>,
+    searchAll: (String) -> kotlinx.coroutines.flow.Flow<List<fr.baptiste.bank.data.local.OperationRow>>,
+    onOpen: (SearchHit) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var query by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf("") }
+    var allMonths by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+    val key = fr.baptiste.bank.domain.bank.envelopeNameKey(query)
+    val allRows by androidx.compose.runtime.produceState(emptyList<fr.baptiste.bank.data.local.OperationRow>(), query, allMonths) {
+        if (allMonths && query.isNotBlank()) searchAll(query).collect { value = it } else value = emptyList()
+    }
+    val monthName = month.month.getDisplayName(TextStyle.FULL_STANDALONE, Locale.FRANCE)
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Column(Modifier.padding(horizontal = 16.dp)) {
+            androidx.compose.material3.OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                placeholder = { Text("Catégorie, enveloppe, dépense") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Row(Modifier.padding(vertical = 8.dp)) {
+                SegmentedToggle(listOf(monthName.replaceFirstChar { it.titlecase(Locale.FRANCE) }, "Tous les mois"), if (allMonths) 1 else 0) { allMonths = it == 1 }
+            }
+        }
+        val categories = envelopes.map { it.group?.trim()?.takeIf { g -> g.isNotEmpty() } ?: fr.baptiste.bank.domain.model.DEFAULT_CATEGORY }.distinct().sorted()
+        fun matches(text: String) = key.isNotBlank() && fr.baptiste.bank.domain.bank.envelopeNameKey(text).contains(key)
+        LazyColumn(Modifier.navigationBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp)) {
+            if (key.isBlank()) {
+                // Recherche vide : tout parcourir.
+                categories.forEach { category ->
+                    item(key = "c-$category") { SheetRow(category, "Catégorie") { onOpen(SearchHit.Category(category)) } }
+                    envelopes.filter { (it.group?.trim()?.takeIf { g -> g.isNotEmpty() } ?: fr.baptiste.bank.domain.model.DEFAULT_CATEGORY) == category }
+                        .forEach { envelope -> item(key = "e-${envelope.id}") { SheetRow("    " + envelope.name) { onOpen(SearchHit.EnvelopeHit(envelope)) } } }
+                }
+                return@LazyColumn
+            }
+            val foundCategories = categories.filter(::matches)
+            val foundEnvelopes = envelopes.filter { matches(it.name) }
+            val rows = if (allMonths) allRows else monthOperations.filter { matches(it.label) || matches(it.bankLabel) }
+            if (foundCategories.isNotEmpty()) item { SearchTitle("Catégories") }
+            foundCategories.forEach { item(key = "fc-$it") { SheetRow(it) { onOpen(SearchHit.Category(it)) } } }
+            if (foundEnvelopes.isNotEmpty()) item { SearchTitle("Enveloppes") }
+            foundEnvelopes.forEach { e -> item(key = "fe-${e.id}") { SheetRow(e.name, e.group) { onOpen(SearchHit.EnvelopeHit(e)) } } }
+            if (rows.isNotEmpty()) item { SearchTitle(if (allMonths) "Opérations, tous les mois" else "Opérations de $monthName") }
+            rows.forEach { row ->
+                item(key = "o-${row.id}") {
+                    val amount = fr.baptiste.bank.domain.money.Money(row.amountCents)
+                    SheetRow(
+                        row.label,
+                        "${row.date.dayOfMonth} ${row.date.month.getDisplayName(TextStyle.FULL_STANDALONE, Locale.FRANCE)} · " +
+                            (if (amount.isPositive) "+" else "") + amount.formatted(),
+                    ) { onOpen(SearchHit.Operation(row)) }
+                }
+            }
+            if (foundCategories.isEmpty() && foundEnvelopes.isEmpty() && rows.isEmpty()) {
+                item {
+                    Text(
+                        if (allMonths) "Aucun résultat." else "Rien en $monthName. Essaie « Tous les mois ».",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(24.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchTitle(text: String) {
+    Text(text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 24.dp, top = 16.dp, bottom = 4.dp))
 }

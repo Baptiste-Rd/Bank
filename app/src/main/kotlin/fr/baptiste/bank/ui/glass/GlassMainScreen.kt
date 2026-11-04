@@ -127,10 +127,17 @@ fun GlassMainScreen(
     var addOpen by rememberSaveable { mutableStateOf(initialSheet == "ADD") }
     var settingsOpen by rememberSaveable { mutableStateOf(initialSheet == "SETTINGS") }
     var yearOpen by rememberSaveable { mutableStateOf(initialBudgetView == BudgetView.YEAR) }
+    var searchOpen by rememberSaveable { mutableStateOf(initialSheet == "SEARCH") }
     val dateCheck by viewModel.dateCheck.collectAsStateWithLifecycle()
     // En-tête de l'onglet Dépenses, commun aux deux vues : le mois, les dates à corriger, la vue.
     val spendingHeader: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {
         item(key = "month-strip") { MonthStripBar() }
+        // La recherche : discrète, en tête de Dépenses ; elle suit le mois choisi.
+        item(key = "search") {
+            GlassCard(contentPadding = 14.dp, onClick = { searchOpen = true }) {
+                Text("Rechercher une catégorie, une dépense…", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
         val corrections = dateCheck?.corrections.orEmpty().size
         if (corrections > 0) {
             item(key = "dates-banner") {
@@ -257,6 +264,7 @@ fun GlassMainScreen(
                             income = monthIncome,
                             recent = operations,
                             onOpenOperation = { controller.dialog = OpenDialog.SortOperation(it) },
+                            salary = income,
                         )
                     }
                     Tab.BUDGET -> {
@@ -549,6 +557,28 @@ fun GlassMainScreen(
                     ),
                     version = "Bank · build ${fr.baptiste.bank.BuildConfig.VERSION_CODE}",
                     onDismiss = { settingsOpen = false },
+                )
+            }
+        }
+        if (searchOpen) {
+            GlassSurfaceColors(onBackground = false) {
+                SearchSheet(
+                    month = selectedMonth,
+                    envelopes = envelopes,
+                    monthOperations = monthOperations,
+                    searchAll = viewModel::searchOperations,
+                    onOpen = { hit ->
+                        searchOpen = false
+                        when (hit) {
+                            is SearchHit.Category -> {
+                                controller.tab = Tab.OPERATIONS
+                                spendingView = SpendingTabView.ANALYSIS
+                            }
+                            is SearchHit.EnvelopeHit -> controller.dialog = OpenDialog.EnvelopeDetail(hit.envelope.id)
+                            is SearchHit.Operation -> controller.dialog = OpenDialog.SortOperation(hit.row)
+                        }
+                    },
+                    onDismiss = { searchOpen = false },
                 )
             }
         }

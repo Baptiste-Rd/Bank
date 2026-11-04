@@ -272,6 +272,10 @@ class BudgetRepository(
     fun recentOperations(limit: Int = 200): Flow<List<OperationRow>> =
         transactionDao.observeRecentOperations(limit)
 
+    /** Opérations dont le libellé contient [query], tous les mois (les 60 plus récentes). */
+    fun searchOperations(query: String): Flow<List<OperationRow>> =
+        transactionDao.searchOperations("%" + query.trim().replace("%", "").replace("_", "") + "%")
+
     /** Les opérations d'un mois. */
     fun monthOperations(month: YearMonth): Flow<List<OperationRow>> =
         transactionDao.observeOperationsBetween(month.atDay(1), month.atEndOfMonth())

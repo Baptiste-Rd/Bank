@@ -109,7 +109,11 @@ fun GlassHomeContent(
     /** Opérations les plus récentes (les trois premières sont montrées). */
     recent: List<OperationRow> = emptyList(),
     onOpenOperation: (OperationRow) -> Unit = {},
+    /** Salaire retenu pour le mois (celui du tableau de bord), pour le détail du reste. */
+    salary: Money? = null,
 ) {
+    var showRest by rememberSaveable { mutableStateOf(false) }
+    if (showRest && dashboard != null) RestDetailSheet(dashboard, salary) { showRest = false }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         state = rememberTabListState(),
@@ -124,7 +128,7 @@ fun GlassHomeContent(
         val today = dashboard.today
 
         // 1. Le reste du mois et par jour.
-        item(key = "hero") { MonthHero(dashboard, pace) }
+        item(key = "hero") { MonthHero(dashboard, pace, onInfo = { showRest = true }) }
 
         // 2. À trier.
         if (unsortedCount > 0) {
@@ -195,9 +199,10 @@ fun GlassHomeContent(
 
 /** Deux grands chiffres côte à côte, puis une seule pastille de comparaison. */
 @Composable
-private fun MonthHero(dashboard: Dashboard, pace: MonthPace?) {
+private fun MonthHero(dashboard: Dashboard, pace: MonthPace?, onInfo: () -> Unit) {
     val rest = dashboard.dailyBudget - dashboard.dailySpent
-    GlassCard(strong = true, contentPadding = 20.dp) {
+    // Toucher les chiffres en montre le calcul (séance : « d'où vient ce reste ? »).
+    GlassCard(strong = true, contentPadding = 20.dp, onClick = onInfo) {
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Column(Modifier.weight(1f)) {
                 Text("Reste du mois", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -393,4 +398,46 @@ private fun Legend(color: Color, label: String, dashed: Boolean = false) {
         Spacer(Modifier.width(6.dp))
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+}
+
+/**
+ * Le calcul du reste du mois, ligne à ligne : le salaire, ce qui est réservé aux autres enveloppes,
+ * le budget du quotidien, ce qui est déjà dépensé. Le solde du compte n'y entre pas.
+ */
+@Composable
+private fun RestDetailSheet(dashboard: Dashboard, salary: Money?, onDismiss: () -> Unit) {
+    fun share(vararg types: fr.baptiste.bank.domain.model.EnvelopeType) =
+        dashboard.envelopes.filter { it.envelope.type in types }.fold(Money.ZERO) { sum, it -> sum + it.monthlyShare }
+    val charges = share(fr.baptiste.bank.domain.model.EnvelopeType.FIXED)
+    val rare = share(
+        fr.baptiste.bank.domain.model.EnvelopeType.RECURRING,
+        fr.baptiste.bank.domain.model.EnvelopeType.ANNUAL,
+        fr.baptiste.bank.domain.model.EnvelopeType.PLANNED,
+    )
+    val savings = share(fr.baptiste.bank.domain.model.EnvelopeType.SAVINGS)
+    val rest = dashboard.dailyBudget - dashboard.dailySpent
+    val lines = buildList {
+        if (salary != null) {
+            add(fr.baptiste.bank.ui.components.InfoLine("Salaire du mois", salary.formatted()))
+            if (charges.isPositive) add(fr.baptiste.bank.ui.components.InfoLine("Charges fixes", "−" + charges.formatted()))
+            if (rare.isPositive) add(fr.baptiste.bank.ui.components.InfoLine("Rares et ponctuels (part du mois)", "−" + rare.formatted()))
+            if (savings.isPositive) add(fr.baptiste.bank.ui.components.InfoLine("Épargne", "−" + savings.formatted()))
+            // Ce qui a été ajouté ou retiré aux enveloppes ce mois-ci (le reste de l'écart).
+            val moves = dashboard.dailyBudget - (salary - charges - rare - savings)
+            if (moves.cents != 0L) add(fr.baptiste.bank.ui.components.InfoLine("Ajouts et retraits du mois", moves.signed()))
+        }
+        add(fr.baptiste.bank.ui.components.InfoLine("Budget du quotidien", dashboard.dailyBudget.formatted()))
+        add(fr.baptiste.bank.ui.components.InfoLine("   dont enveloppes du quotidien", dashboard.dailyAssigned.formatted()))
+        dashboard.unallocated?.takeIf { it.cents != 0L }?.let { add(fr.baptiste.bank.ui.components.InfoLine("   dont à répartir", it.formatted())) }
+        add(fr.baptiste.bank.ui.components.InfoLine("Déjà dépensé au quotidien", "−" + dashboard.dailySpent.formatted()))
+        add(fr.baptiste.bank.ui.components.InfoLine("Reste du mois", rest.formatted()))
+    }
+    fr.baptiste.bank.ui.components.InfoSheet(
+        title = "D'où vient le reste du mois",
+        lines = lines,
+        note = (if (salary == null) "Sans salaire confirmé, le budget du quotidien est la somme des enveloppes du quotidien. " else "") +
+            "Par jour : ce reste divisé par les ${dashboard.daysRemaining} jours restants, aujourd'hui compris. " +
+            "Le solde du compte n'entre pas dans ce calcul : l'argent des mois passés est dans « Disponible sur le compte ».",
+        onDismiss = onDismiss,
+    )
 }

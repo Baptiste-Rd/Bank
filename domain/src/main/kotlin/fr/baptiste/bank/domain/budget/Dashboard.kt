@@ -233,12 +233,18 @@ fun computeDashboard(
     // Épargne : objectif, transferts du mois, reste du quotidien au rythme actuel, dépassements.
     val savingsLines = lines.filter { it.envelope.type == EnvelopeType.SAVINGS }
     val savingsIds = savingsLines.map { it.envelope.id }.toSet()
+    // Habitude du quotidien : la somme des habitudes des enveloppes quotidiennes ; sans historique,
+    // on suppose que le budget du quotidien sera dépensé (une épargne prévue prudente).
+    // (Ce budget ne sert qu'en début de mois : ensuite, sans historique, seul le rythme du mois compte.)
+    val dailyHabit = dailyLines.mapNotNull { habits[it.envelope.id] }.takeIf { it.isNotEmpty() }?.sumOfMoney { it }
+        ?: dailyBudget.takeIf { it.isPositive && month.daysElapsedAt(today) < MIN_DAYS_FOR_PROJECTION }
     val dailyProjected = project(
         spent = dailyThisMonth.sumOfMoney { it.amount },
         available = dailyBudget,
         period = month,
         today = today,
         lumpSum = catchUps.sumOfMoney { it.amount },
+        habit = dailyHabit,
     ).projected
     // Un dépassement compte le mois où sa période se termine (un mois pour une charge mensuelle,
     // le mois de l'achat pour un achat prévu) : pas une fois par mois tant qu'il dure.

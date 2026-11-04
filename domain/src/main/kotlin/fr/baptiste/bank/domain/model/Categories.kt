@@ -62,6 +62,8 @@ private val categoryHints: List<Pair<String, List<String>>> = listOf(
  * commencer un mot du nom (« eau » reconnaît « Eau », pas « Cadeaux »).
  */
 fun suggestCategory(envelopeName: String): String? {
+    // Un nom du catalogue donne toujours sa catégorie ; sinon, les indices.
+    catalogIdea(envelopeName)?.let { return it.category }
     val key = envelopeNameKey(envelopeName).replace(Regex("""[^A-Z0-9 ]"""), " ")
     if (key.isBlank()) return null
     val padded = " " + key.replace(Regex("""\s+"""), " ").trim()

@@ -155,6 +155,8 @@ shot_budget glass-comptes --es tab SAVINGS --es dialog ACCOUNTS
 shot_budget glass-ajouter --es tab HOME --es sheet ADD
 shot_budget glass-reglages --es tab HOME --es sheet SETTINGS
 shot_budget glass-resume-mois-precedent --es tab HOME --ei monthsBack 1
+# Lot 5 : la recherche (le formulaire d'enveloppe en sheet : glass-budget-rare).
+shot_budget glass-recherche --es tab OPERATIONS --es sheet SEARCH
 shot_budget glass-epargne-comptes --es tab SAVINGS
 adb shell input swipe 540 1900 540 700 900
 sleep 2

@@ -335,6 +335,11 @@ fun AppDialogs(
                 ?.takeIf { id -> envelopes.any { it.id == id } },
             onRename = { selected -> controller.dialog = OpenDialog.RenameOperation(current.operation, selected) },
             onSplit = { selected -> controller.dialog = OpenDialog.SplitOperation(current.operation, selected) },
+            onUnsort = {
+                viewModel.unsortOperations(listOf(current.operation.id))
+                controller.notify("${current.operation.label} : remise à trier.")
+                close()
+            },
             accounts = holdingAccounts,
             onTransferToAccount = { accountId, keyword ->
                 val name = holdingAccounts.firstOrNull { it.id == accountId }?.name.orEmpty()

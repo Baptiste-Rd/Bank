@@ -115,4 +115,14 @@ class ProjectionTest {
         val alone = project(Money.euros(150), Money.euros(320), november, LocalDate.of(2026, 11, 10))
         assertEquals(Money.euros(450), alone.projected)
     }
+
+    @Test
+    fun `early in the month the remaining days follow the habit, without alert`() {
+        // Le 4 novembre : 113 € dépensés au quotidien, 1 100 € d'habitude par mois. Les 26 jours
+        // restants au rythme habituel : 113 + 1 100 × 26 / 30 = 1 066,34 €. L'épargne prévue ne suppose
+        // plus qu'on ne dépensera rien d'ici la fin du mois.
+        val result = project(Money.euros(113), Money.euros(1000), november, LocalDate.of(2026, 11, 4), habit = Money.euros(1100))
+        assertEquals(Money(106634), result.projected)
+        assertFalse(result.isAlert)
+    }
 }
