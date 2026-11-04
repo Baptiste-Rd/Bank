@@ -350,7 +350,7 @@ fun GlassMainScreen(
                             envelopeOperations = viewModel::envelopeMonthOperations,
                             onSetMonthCounted = { month, counted ->
                                 viewModel.setMonthCounted(month, counted)
-                                controller.notify(if (counted) "${month.label.replaceFirstChar { it.uppercase() }} compté dans les moyennes." else "${month.label.replaceFirstChar { it.uppercase() }} écarté des moyennes.")
+                                controller.notify("${month.label.replaceFirstChar { it.uppercase() }} : ${if (counted) "mois de référence" else "hors référence"}")
                             },
                             showYear = false,
                             onShowMonth = {},

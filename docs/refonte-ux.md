@@ -52,13 +52,15 @@ La fiche d'une enveloppe liste les dépenses de sa période ; toucher une dépen
 | Répartir une provision sur les mois restants | « Mettre X € de côté par mois » (action) ; une provision qui n'y suffit pas est « en retard » |
 | Ce qui est sur le compte courant hors budget du mois | Disponible sur le compte |
 | Mois avant le début du suivi | Non renseigné |
+| Mois qui sert aux moyennes, aux montants proposés et à l'épargne de l'année | Mois de référence ; sinon « Hors référence » (un mois incomplet l'est par défaut) |
+| Revenir sur un changement | Annuler ; la liste des dix derniers est l'« Historique » |
 | Valeur d'un placement après l'impôt estimé | Net (toujours précédé de « ≈ ») |
 
 Les six types du calcul (`EnvelopeType`) restent dans les données et le formulaire ; l'écran les
 regroupe en quatre familles (`ui/envelopes/Families.kt`). Famille et catégorie ne se mélangent pas :
 la famille dit comment l'argent se dépense (onglet Budget), la catégorie dit à quoi il sert (onglet
-Dépenses). Dans Budget, une catégorie ne regroupe des enveloppes que si elle en réunit au moins deux
-dans la même famille.
+Dépenses). Dans Budget, les enveloppes sont en lignes plates dans leur famille, avec la couleur de
+leur catégorie.
 
 ## Grammaire visuelle
 

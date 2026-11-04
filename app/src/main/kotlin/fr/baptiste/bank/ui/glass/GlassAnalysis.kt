@@ -317,7 +317,7 @@ private fun LazyListScope.monthAnalysis(
                     val gap = report.total - report.budget
                     add(gap.signedVs("budget") to if (gap.isPositive) fr.baptiste.bank.ui.components.StatusKind.OVER else fr.baptiste.bank.ui.components.StatusKind.GAIN)
                 }
-                if (!counted) add("Hors moyennes" to fr.baptiste.bank.ui.components.StatusKind.GOOD)
+                if (!counted) add("Hors référence" to fr.baptiste.bank.ui.components.StatusKind.GOOD)
             }
             if (chips.isNotEmpty()) {
                 androidx.compose.foundation.layout.FlowRow(
@@ -400,14 +400,17 @@ private fun CountedLine(month: YearMonth, counted: Boolean, onChange: (Boolean) 
     val first = LocalFirstOperationDate.current
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
         Column(Modifier.weight(1f)) {
-            Text("Compter dans les moyennes", style = MaterialTheme.typography.bodyMedium)
-            if (fr.baptiste.bank.domain.budget.isPartialFirstMonth(month, first) && first != null) {
-                Text(
-                    "Données à partir du ${first.dayOfMonth} ${monthName(month)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            // Un mot court ; ce qu'il change tient en une ligne (règles 2 et 3 du doc UX).
+            Text("Mois de référence", style = MaterialTheme.typography.bodyMedium)
+            Text(
+                if (fr.baptiste.bank.domain.budget.isPartialFirstMonth(month, first) && first != null) {
+                    "Incomplet : données dès le ${first.dayOfMonth}"
+                } else {
+                    "Sert aux moyennes et aux montants proposés"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         androidx.compose.material3.Switch(checked = counted, onCheckedChange = onChange)
     }
