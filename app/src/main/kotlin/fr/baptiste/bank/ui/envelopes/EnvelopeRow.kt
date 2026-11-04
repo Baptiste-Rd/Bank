@@ -39,20 +39,19 @@ import fr.baptiste.bank.ui.components.RowActionButton
 import fr.baptiste.bank.ui.components.StatusChip
 import fr.baptiste.bank.ui.components.StatusKind
 import fr.baptiste.bank.ui.format.formatted
+import fr.baptiste.bank.ui.format.summary
 import fr.baptiste.bank.ui.format.label
 import fr.baptiste.bank.ui.theme.BankTheme
 
 /**
- * Une enveloppe, lue de gauche à droite comme une ligne de relevé :
- * - la pastille de sa catégorie (avec un [accent]) ;
- * - son nom, et une ligne de détail : « 306,60 € sur 320,00 € · octobre 2026 » ;
- * - à droite, ce qu'il reste, le chiffre qu'on cherche ;
+ * Une enveloppe, comme dans le prototype testé (lot « encarts ») :
+ * - le point de couleur (avec un [accent]), le nom, et à droite ce qu'il reste ;
  * - la barre de ce qui est consommé ;
- * - si elle dérape : une puce de statut (« Dépassé 0,50 € », « Prévu +32,03 € ») et le bouton
- *   Couvrir, au lieu d'une phrase.
- * La couleur de la barre et des puces suit le statut : [accent] (ou le bleu) dans le budget,
- * ambre si le rythme mène au dépassement, rouge si c'est dépassé.
+ * - une seule ligne dessous : une puce si elle dérape (« Dépassé 0,50 € », « Prévu +32 € »),
+ *   sinon « 55 € sur 320 € » ; à droite, ce que le chiffre veut dire (« reste »).
+ * Aucun bouton dans la ligne : on agit depuis la fiche de l'enveloppe ([onCover] n'est plus montré).
  */
+@Suppress("UNUSED_PARAMETER")
 @Composable
 fun EnvelopeRow(
     line: EnvelopeLine,
@@ -68,12 +67,10 @@ fun EnvelopeRow(
         line.projection.isAlert -> status.warning
         else -> accent ?: status.good
     }
-    // Ce que la ligne montre dépend de la famille : ce qu'il reste pour une enveloppe de
-    // dépense, ce qui est mis de côté pour l'épargne et pour un achat prévu.
     val today = LocalDate.now()
     val display = when (line.envelope.type) {
         EnvelopeType.SAVINGS -> RowDisplay(
-            detail = "${line.envelope.amount.formatted()} ${line.envelope.frequency.label}",
+            detail = "${line.envelope.amount.summary()} ${line.envelope.frequency.label}",
             value = line.available,
             caption = "ce mois",
             ratio = null,
@@ -81,34 +78,18 @@ fun EnvelopeRow(
         EnvelopeType.PLANNED -> {
             val saved = line.envelope.savedSoFar(today)
             RowDisplay(
-                detail = "${line.monthlyShare.formatted()} par mois · jusqu'à ${line.envelope.purchaseMonth?.label.orEmpty()}",
+                detail = "${line.monthlyShare.summary()} par mois · ${line.envelope.purchaseMonth?.label.orEmpty()}",
                 value = saved,
-                caption = "sur ${line.envelope.amount.formatted()}",
+                caption = "sur ${line.envelope.amount.summary()}",
                 ratio = if (line.envelope.amount.isPositive) saved.cents.toFloat() / line.envelope.amount.cents else 0f,
             )
         }
         else -> RowDisplay(
-            // Un transfert (couverture, ajout) se lit à part : « 550 € sur 400 € +150 € ».
-            // La période n'est écrite que si elle n'est pas le mois affiché (l'écran le dit déjà).
-            detail = (
-                if (line.transferred.cents == 0L) {
-                    "${line.spent.formatted()} sur ${line.available.formatted()}"
-                } else {
-                    val sign = if (line.transferred.isNegative) "−" else "+"
-                    "${line.spent.formatted()} sur ${line.allocated.formatted()} $sign${Money(kotlin.math.abs(line.transferred.cents)).formatted()}"
-                }
-            ) + if (line.period is fr.baptiste.bank.domain.period.Period.Month) "" else " · ${line.period.shortLabel}",
+            // « 55 € sur 320 € », la période seulement si ce n'est pas le mois affiché.
+            detail = "${line.spent.summary()} sur ${line.available.summary()}" +
+                if (line.period is fr.baptiste.bank.domain.period.Period.Month) "" else " · ${line.period.shortLabel}",
             value = line.remaining,
             caption = "reste",
-            // Provision sur plusieurs mois : ce qui est déjà mis de côté pour la fin de la période.
-            extra = if ((line.envelope.type == EnvelopeType.ANNUAL || line.envelope.type == EnvelopeType.RECURRING) &&
-                line.period.endInclusive.isAfter(line.period.start.plusMonths(1))
-            ) {
-                "${line.funded.formatted()} mis de côté sur ${line.allocated.formatted()}" +
-                    if (line.catchUp != null) " · en retard" else ""
-            } else {
-                null
-            },
             ratio = when {
                 line.available.isPositive -> (line.spent.cents.toFloat() / line.available.cents).coerceIn(0f, 1f)
                 line.spent.isPositive -> 1f
@@ -129,41 +110,20 @@ fun EnvelopeRow(
     ) {
         if (accent != null) CategoryAvatar(line.envelope.name, accent)
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(verticalAlignment = Alignment.Top) {
-                Column(Modifier.weight(1f)) {
-                    Text(line.envelope.name, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium))
-                    Text(
-                        if (retiredOn != null) "Arrêtée le ${retiredOn.formatted()} · ${display.detail}" else display.detail,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    display.extra?.let {
-                        Text(
-                            it,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    line.envelope.name,
+                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
                 Spacer(Modifier.width(12.dp))
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        display.value.formatted(),
-                        style = MaterialTheme.typography.titleMedium,
-                        // Un reste positif est un bénéfice : vert. Ce qui est mis de côté (épargne, achat
-                        // prévu) reste neutre : ce n'est pas un reste.
-                        color = when {
-                            display.value.isNegative -> status.over
-                            display.caption == "reste" && display.value.isPositive -> status.gain
-                            else -> MaterialTheme.colorScheme.onSurface
-                        },
-                    )
-                    Text(display.caption, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                Text(
+                    display.value.summary(),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (display.value.isNegative) status.over else MaterialTheme.colorScheme.onSurface,
+                )
             }
             val ratio = display.ratio
             if (ratio != null) LinearProgressIndicator(
@@ -175,16 +135,26 @@ fun EnvelopeRow(
                 drawStopIndicator = {},
                 modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
             )
-            if (line.needsCover) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
-                    if (overspent) {
-                        StatusChip("Dépassé ${(-line.remaining).formatted()}", StatusKind.OVER)
-                    } else {
-                        StatusChip("Prévu +${line.projection.overrun.formatted()}", StatusKind.WARNING)
-                    }
-                    Spacer(Modifier.weight(1f))
-                    if (onCover != null) RowActionButton("Couvrir", onClick = onCover)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                when {
+                    retiredOn != null -> Text(
+                        "Arrêtée le ${retiredOn.formatted()}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
+                    )
+                    overspent -> Box(Modifier.weight(1f)) { StatusChip("Dépassé ${(-line.remaining).summary()}", StatusKind.OVER) }
+                    line.projection.isAlert -> Box(Modifier.weight(1f)) { StatusChip("Prévu +${line.projection.overrun.summary()}", StatusKind.WARNING) }
+                    else -> Text(
+                        display.detail,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
                 }
+                Text(display.caption, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
