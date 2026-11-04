@@ -8,7 +8,8 @@ carte mentale, autocritique) est dans le document de refonte partagé avec Bapti
 Onglets, dans l'ordre : **Résumé** (où j'en suis ce mois ?), **Budget** (où va mon salaire ?),
 **Dépenses** (qu'ai-je dépensé ?), **Épargne** (combien j'épargne ?).
 
-- Barre du haut, en verre : la roue des Réglages à gauche, le titre de l'onglet, le + à droite.
+- Barre du haut, en verre et opaque quand le contenu défile dessous : la roue des Réglages à
+  gauche, le titre de l'onglet au centre, la loupe (Rechercher) et le + à droite.
   Le + ouvre « Ajouter » : Dépense (en premier), Achat prévu, Enveloppe, Mise de côté.
 - Barre des mois en tête de Résumé, Budget et Dépenses : un seul mois choisi pour les trois, puis
   « Année » (sheet de l'année : toucher un mois y mène). Glisser horizontalement change de mois.
@@ -21,13 +22,17 @@ Onglets, dans l'ordre : **Résumé** (où j'en suis ce mois ?), **Budget** (où 
 - Épargne : épargne prévue et « Mettre de côté » ; Mes comptes (livrets et placements) ; Mis de
   côté ; Achats prévus (« Ajouter ») ; Essayer un plan ; Mois par mois.
 - Une catégorie se repère à son point de couleur (plus d'initiale) ; une catégorie dépliable
-  porte un chevron.
-- Dépenses : Catégories | Opérations (les opérations du mois choisi, la file à trier en tête) ;
-  un bandeau « N dates d'achat à corriger » quand il y en a.
+  porte un chevron, une catégorie sans dépense du mois n'en a pas. Les en-têtes de famille n'ont
+  pas de point (les couleurs des familles restent dans la barre du plan et sa légende).
+- Dépenses : la barre des mois, puis Catégories | Opérations, rien d'autre en en-tête. Opérations :
+  « N dates d'achat à corriger » (s'il y en a), la file À trier avec « Trier une par une », puis
+  les opérations du mois. Le total du mois : le chiffre et une puce signée ; le reste dans ⓘ.
 - Bouton Claude : rond, en verre teinté, à droite de la barre d'onglets.
-- Réglages (sheet) : Salaire, Banque et synchronisation, Comptes, Noms et règles, Ajouts et
-  retraits, Vérifier les dates, Mises à jour ; réglages du verre et style classique après sept
-  touches sur le numéro de version.
+- Réglages (sheet) : Salaire, Banque et synchronisation, Comptes, Noms et règles, Historique,
+  Ajouts et retraits, Vérifier les dates, Mises à jour ; les réglages du verre après sept touches
+  sur le numéro de version (menu développeur, rien d'autre).
+- Claude : un seul écran (trier ce qui attend, contrôler les dépenses, coller une réponse) et une
+  ligne sur ce qui est partagé.
 
 La fiche d'une enveloppe liste les dépenses de sa période ; toucher une dépense la déplace.
 
@@ -164,7 +169,7 @@ Un chiffre affiché à plusieurs endroits vient d'une seule fonction du module `
 Chaque carte suit la même règle : un chiffre clé, une ligne d'aide au plus, le reste derrière ⓘ ou un repli.
 
 - **Ligne d'enveloppe** : nom et reste (euros ronds), une barre, une ligne « X € sur Y € » ou une puce d'état. Aucun bouton dans la ligne ; les lignes sont plates dans leur famille (plus de groupe par catégorie dans Budget).
-- **Fiche d'enveloppe** : le reste en grand, une ligne « dépensé sur disponible · période », une puce si l'enveloppe dérape, « Ajouter de l'argent » seulement dans ce cas, Ajouter et Retirer, les dépenses. Le détail (Budget, Ajouts, Dépensé, Reste), les périodes passées et les ajouts et retraits sont repliés dans « Historique ».
+- **Fiche d'enveloppe** : le reste en grand, une ligne « dépensé sur disponible · période » (pour une provision : « mis de côté sur … », la puce « En retard » et « Mettre X € de côté par mois » en action principale), une puce si l'enveloppe dérape, « Ajouter de l'argent » seulement dans ce cas, Ajouter et Retirer, les dépenses. Le détail (Budget, Ajouts, Dépensé, Reste), les périodes passées et les ajouts et retraits sont repliés dans « Détail et mois passés » (« Historique » est réservé à la liste des annulations).
 - **« Couvrir » devient « Ajouter de l'argent »** : la fenêtre dit combien il manque, d'où vient l'argent et ce que devient le reste du mois. Le bouton n'existe que dans la fiche.
 - **Formulaire d'enveloppe** : Nom, C'est pour, Combien, Catégorie (et la remise à zéro pour un budget rare). Le départ, le rythme, la suite d'un budget rare et la protection sont dans « Plus d'options ».
 - **Plan du mois** : la barre et sa légende seulement ; « Essayer un plan » vit dans Épargne.
