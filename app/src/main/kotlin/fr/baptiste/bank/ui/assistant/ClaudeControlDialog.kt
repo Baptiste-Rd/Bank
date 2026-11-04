@@ -1,5 +1,6 @@
 package fr.baptiste.bank.ui.assistant
 
+import androidx.compose.foundation.layout.width
 import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.Icon
 import androidx.compose.ui.draw.clip
@@ -84,12 +85,14 @@ fun ClaudeControlDialog(
     var error by remember { mutableStateOf<String?>(null) }
     var exporting by remember { mutableStateOf(false) }
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    // Plein écran jusque sous la barre de gestes : l'écran du dessous ne dépasse plus en bas.
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF0B1328), contentColor = Color.White) {
             Column(Modifier.statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 12.dp)) {
-                    Text("Claude", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
                     TextButton(onClick = onDismiss) { Text("Fermer") }
+                    Text("Claude", style = MaterialTheme.typography.titleLarge, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.weight(1f))
+                    Box(Modifier.width(72.dp))
                 }
                 when (step) {
                     ControlStep.HOME -> HomeStep(

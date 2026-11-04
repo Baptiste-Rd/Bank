@@ -36,7 +36,7 @@ private val wholeEuroFormat: NumberFormat = NumberFormat.getCurrencyInstance(Loc
 fun Money.summary(): String {
     if (kotlin.math.abs(cents) < 1000 && cents % 100 != 0L) return formatted()
     return wholeEuroFormat.format(Math.round(cents / 100.0).toDouble())
-        .replace(' ', ' ')
+        .replace('\u202F', '\u00A0')
         .replace('-', '−')
 }
 

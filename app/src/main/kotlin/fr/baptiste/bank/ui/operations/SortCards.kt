@@ -1,5 +1,6 @@
 package fr.baptiste.bank.ui.operations
 
+import androidx.compose.foundation.layout.width
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -90,8 +91,9 @@ fun SortCardsSheet(
             val operation = operations[index]
             val suggested = proposal(operation)
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("À trier · ${index + 1} sur ${operations.size}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                 TextButton(onClick = onDismiss) { Text("Fermer") }
+                Text("À trier · ${index + 1} sur ${operations.size}", style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
+                Spacer(Modifier.width(72.dp))
             }
             SwipeCard(
                 key = operation.id,

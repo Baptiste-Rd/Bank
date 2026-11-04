@@ -734,6 +734,9 @@ interface JournalDao {
     @Query("SELECT * FROM journal_entry WHERE id = :id")
     suspend fun byId(id: Long): JournalEntity?
 
+    @Query("DELETE FROM journal_entry")
+    suspend fun clear()
+
     @Query("UPDATE journal_entry SET undone = 1 WHERE id = :id")
     suspend fun markUndone(id: Long)
 

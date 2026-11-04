@@ -158,7 +158,7 @@ fun GlassOperationsContent(
             )
             if (onSortCards != null) {
                 item(key = "to-sort-cards") {
-                    GlassPillButton("Trier une par une", onClick = onSortCards)
+                    fr.baptiste.bank.ui.components.RowActionButton("Trier une par une", onClick = onSortCards)
                 }
             }
             item(key = "to-sort") {
@@ -255,7 +255,8 @@ fun GlassOperationsContent(
 private const val QUEUE_LIMIT = 30
 
 /** Ce que l'app propose pour une opération à trier : une enveloppe, ou hors budget ([envelope] null). */
-data class SortProposal(val envelope: Envelope?, val label: String)
+/** [salary] : la rentrée ressemble au salaire ; l'accepter le confirme (il sort alors de la file). */
+data class SortProposal(val envelope: Envelope?, val label: String, val salary: fr.baptiste.bank.domain.budget.SalaryCandidate? = null)
 
 /**
  * Une opération à valider : sa proposition sous le libellé, une coche pour l'accepter. Sans
@@ -281,7 +282,7 @@ private fun QueueRow(operation: OperationRow, proposal: SortProposal?, onAccept:
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    proposal?.label ?: "À choisir",
+                    proposal?.label ?: "À trier",
                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
                     color = if (proposal != null) MaterialTheme.colorScheme.onSurface else BankTheme.status.warning,
                     maxLines = 1,

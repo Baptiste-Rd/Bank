@@ -216,7 +216,7 @@ private fun SheetRow(title: String, detail: String? = null, badge: Boolean = fal
 enum class AddChoice(val title: String, val detail: String) {
     EXPENSE("Dépense", "Un achat, un paiement"),
     PLANNED("Achat prévu", "Un prix et une date"),
-    ENVELOPE("Enveloppe", "Un nouveau budget"),
+    ENVELOPE("Enveloppe", "Un montant à suivre"),
     ASIDE("Mise de côté", "Vers l'épargne"),
 }
 

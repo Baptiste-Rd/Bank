@@ -345,7 +345,7 @@ fun EnvelopeDialog(
                     value = amountText,
                     onValueChange = { amountText = it },
                     label = when {
-                        use == Use.RARE && !isExisting -> "Combien ? (premier budget)"
+                        use == Use.RARE && !isExisting -> "Combien"
                         use == Use.SAVINGS -> "Combien mettre de côté ?"
                         else -> "Combien par période ?"
                     },
@@ -594,7 +594,10 @@ private fun summary(envelope: Envelope, today: LocalDate): String {
         else -> {
             val first = envelope.amountIn(period)
             val share = envelope.monthShare(YearMonth.from(today), period, first)
-            "${first.summary()} pour le ${period.endInclusive.text()} · ${share.summary()} par mois"
+            // La même date que la remise à zéro choisie : « d'ici le 1er janv. ».
+            val reset = period.endInclusive.plusDays(1)
+            val day = if (reset.dayOfMonth == 1) "1er" else "${reset.dayOfMonth}"
+            "${first.summary()} d'ici le $day ${reset.format(java.time.format.DateTimeFormatter.ofPattern("MMM", java.util.Locale.FRANCE))} · ${share.summary()} par mois"
         }
     }
 }

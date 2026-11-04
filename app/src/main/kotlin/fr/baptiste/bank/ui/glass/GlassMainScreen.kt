@@ -1,5 +1,6 @@
 package fr.baptiste.bank.ui.glass
 
+import fr.baptiste.bank.ui.format.summary
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.input.pointer.pointerInput
@@ -115,6 +116,7 @@ fun GlassMainScreen(
     val savingsGoals by viewModel.savingsGoals.collectAsStateWithLifecycle()
     val trackingStart by viewModel.trackingStart.collectAsStateWithLifecycle()
     val firstOperationDate by viewModel.firstOperationDate.collectAsStateWithLifecycle()
+    val salaryCandidates by viewModel.salaryCandidates.collectAsStateWithLifecycle()
     val monthTransfers by remember(selectedMonth) { viewModel.transfersToAccounts(selectedMonth) }
         .collectAsStateWithLifecycle(null)
     val aliases by viewModel.aliases.collectAsStateWithLifecycle()
@@ -379,12 +381,19 @@ fun GlassMainScreen(
                         // Proposition : l'enveloppe de ce libellé d'après l'historique ; une rentrée
                         // d'argent sans historique (salaire, remboursement) va hors budget.
                         proposal = { operation ->
-                            viewModel.suggestedEnvelopeId(operation, sortedHistory)
-                                ?.let { id -> envelopes.firstOrNull { it.id == id } }
-                                ?.let { SortProposal(it, it.name) }
+                            val salary = salaryCandidates.firstOrNull { operation.amountCents > 0 && it.key == fr.baptiste.bank.domain.budget.salaryKey(operation.bankLabel) }
+                            salary?.let { SortProposal(null, "C'est le salaire ?", salary = it) }
+                                ?: viewModel.suggestedEnvelopeId(operation, sortedHistory)
+                                    ?.let { id -> envelopes.firstOrNull { it.id == id } }
+                                    ?.let { SortProposal(it, it.name) }
                                 ?: if (operation.amountCents > 0) SortProposal(null, "Hors budget") else null
                         },
-                        onAccept = { operation, proposal ->
+                        onAccept = onAccept@{ operation, proposal ->
+                            proposal.salary?.let { candidate ->
+                                viewModel.confirmSalary(candidate, candidate.paysNextMonth)
+                                controller.notify("Salaire reconnu : ${candidate.lastAmount.summary()}.")
+                                return@onAccept
+                            }
                             viewModel.acceptProposals(listOf(operation.id to proposal.envelope))
                             val envelope = proposal.envelope
                             if (envelope != null) {
@@ -400,7 +409,9 @@ fun GlassMainScreen(
                                 controller.notify("${operation.label} : hors budget", "Annuler") { viewModel.undoLast() }
                             }
                         },
-                        onAcceptAll = { ready ->
+                        onAcceptAll = { all ->
+                            // Le salaire se confirme à part, d'un geste explicite.
+                            val ready = all.filter { it.second.salary == null }
                             viewModel.acceptProposals(ready.map { (operation, proposal) -> operation.id to proposal.envelope }) { done ->
                                 controller.notify("$done opération(s) rangée(s).", "Annuler") { viewModel.undoLast() }
                             }
@@ -424,7 +435,7 @@ fun GlassMainScreen(
             // Voile sous la barre d'état, pour que le contenu ne passe pas sous l'heure.
             StatusBarScrim(
                 modifier = Modifier.align(Alignment.TopCenter),
-                height = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 72.dp,
+                height = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 92.dp,
             )
             // Barre du haut : la roue des Réglages, le titre de l'onglet, le + qui ouvre « Ajouter ».
             GlassTopBar(
@@ -528,7 +539,7 @@ fun GlassMainScreen(
                         SettingsEntry("Banque et synchronisation", bankConnection?.bankName, onClick = open(OpenDialog.Bank)),
                         SettingsEntry("Comptes", "Livrets et placements", onClick = open(OpenDialog.Accounts)),
                         SettingsEntry("Noms et règles", "${plural(aliases.size, "nom", "noms")} · ${plural(rules.size + transferRules.size, "règle", "règles")}", onClick = open(OpenDialog.Rules)),
-                        SettingsEntry("Historique", plural(journal.count { !it.undone }, "changement annulable", "changements annulables"), onClick = open(OpenDialog.History)),
+                        SettingsEntry("Historique", plural(journal.count { !it.undone }, "changement", "changements"), onClick = open(OpenDialog.History)),
                         SettingsEntry("Ajouts et retraits", "Mouvements entre enveloppes", onClick = open(OpenDialog.Journal)),
                         SettingsEntry("Vérifier les dates", if (corrections > 0) plural(corrections, "date à corriger", "dates à corriger") else null, badge = corrections > 0, onClick = open(OpenDialog.DateCheck)),
                         SettingsEntry(if (updateAvailable) "Nouvelle version disponible" else "Mises à jour", badge = updateAvailable, onClick = open(OpenDialog.Updates)),

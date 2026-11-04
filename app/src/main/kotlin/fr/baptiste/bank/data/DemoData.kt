@@ -28,6 +28,8 @@ object DemoData {
     suspend fun seedIfEmpty(database: BankDatabase, repository: BudgetRepository, today: LocalDate = LocalDate.now()) {
         repository.setMonthlyIncome(Money.euros(2400))
         database.withTransaction { seed(repository, today) }
+        // L'installation de la démo n'est pas un changement de l'utilisateur : l'historique part vide.
+        database.journalDao().clear()
     }
 
     private suspend fun seed(repository: BudgetRepository, today: LocalDate) {

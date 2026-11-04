@@ -82,7 +82,7 @@ import java.util.Locale
 private val hour = DateTimeFormatter.ofPattern("H 'h' mm", Locale.FRANCE)
 private val dayMonth = DateTimeFormatter.ofPattern("d MMM", Locale.FRANCE)
 
-internal fun Money.signed(): String = if (isNegative) "−${(-this).formatted()}" else "+${formatted()}"
+internal fun Money.signed(): String = if (isNegative) "−${(-this).summary()}" else "+${summary()}"
 
 /** Dépenses récentes montrées sur le Résumé ; les autres sont dans Dépenses › Opérations. */
 private const val RECENT_OPERATIONS = 3
@@ -232,9 +232,10 @@ private fun MonthHero(dashboard: Dashboard, pace: MonthPace?, onInfo: () -> Unit
             val gap = pace.spent - previous
             val before = pace.month.minusMonths(1)
             val day = minOf(pace.cumulative.size, before.lengthOfMonth())
-            val name = before.month.getDisplayName(java.time.format.TextStyle.FULL_STANDALONE, Locale.FRANCE)
+            val name = before.month.getDisplayName(java.time.format.TextStyle.SHORT, Locale.FRANCE)
+            // « dépensés » : sous le reste du mois, un « +104 € » seul se lirait comme un reste plus haut.
             StatusChip(
-                "${if (gap.isNegative) "−" else "+"}${(if (gap.isNegative) -gap else gap).summary()} vs $day $name",
+                "${if (gap.isNegative) "−" else "+"}${(if (gap.isNegative) -gap else gap).summary()} dépensés vs $day $name",
                 if (gap.isPositive) StatusKind.WARNING else StatusKind.GAIN,
                 Modifier.padding(top = 10.dp),
             )
@@ -344,20 +345,18 @@ private fun PaceCard(pace: MonthPace) {
     val tolerance = maxOf(pace.budget.divideFloor(50), Money.euros(10))
     val above = pace.gap > tolerance
     val below = pace.gap < Money.ZERO - tolerance
+    // Le chiffre d'abord (« 143 € sur 1 497 € »), puis une puce signée (règles 1 et 4 du doc UX).
     GlassCard(contentPadding = 16.dp) {
-        Text(
+        Text("Rythme du mois", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("${pace.spent.summary()} sur ${pace.budget.summary()}", style = MaterialTheme.typography.titleLarge)
+        fr.baptiste.bank.ui.components.StatusChip(
             if (above || below) "${pace.gap.signed()} vs rythme prévu" else "Dans le rythme",
-            style = MaterialTheme.typography.titleMedium,
-            color = when {
-                above -> status.warning
-                below -> status.gain
-                else -> MaterialTheme.colorScheme.onSurface
+            when {
+                above -> fr.baptiste.bank.ui.components.StatusKind.WARNING
+                below -> fr.baptiste.bank.ui.components.StatusKind.GAIN
+                else -> fr.baptiste.bank.ui.components.StatusKind.GOOD
             },
-        )
-        Text(
-            "Prévu à ce jour : ${pace.expected.formatted()}",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp),
         )
         val spentColor = if (above) status.warning else status.good
         val paceColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -383,8 +382,8 @@ private fun PaceCard(pace: MonthPace) {
             pace.cumulative.lastOrNull()?.let { drawCircle(spentColor, 4.dp.toPx(), Offset(x(pace.cumulative.size), y(it.cents))) }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(top = 8.dp)) {
-            Legend(spentColor, "Dépensé ${pace.spent.formatted()}")
-            Legend(paceColor, "Budget ${pace.budget.formatted()}", dashed = true)
+            Legend(spentColor, "Dépensé")
+            Legend(paceColor, "Rythme prévu", dashed = true)
         }
     }
 }

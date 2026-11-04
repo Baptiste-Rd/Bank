@@ -1,5 +1,9 @@
 package fr.baptiste.bank.ui.glass
 
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.material3.TextButton
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,7 +15,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -30,17 +33,18 @@ import java.util.Locale
 private val hour = DateTimeFormatter.ofPattern("HH:mm", Locale.FRANCE)
 private val day = DateTimeFormatter.ofPattern("d MMMM", Locale.FRANCE)
 
-/** « Aujourd'hui, 14:05 », « Hier, 9:12 », sinon « 3 novembre, 9:12 ». */
-private fun whenLabel(at: Long): String {
-    val time = Instant.ofEpochMilli(at).atZone(ZoneId.systemDefault())
+private fun dayOf(at: Long): LocalDate = Instant.ofEpochMilli(at).atZone(ZoneId.systemDefault()).toLocalDate()
+
+private fun hourOf(at: Long): String = Instant.ofEpochMilli(at).atZone(ZoneId.systemDefault()).format(hour)
+
+/** « Aujourd'hui », « Hier », sinon « 3 novembre ». */
+private fun dayTitle(date: LocalDate): String {
     val today = LocalDate.now()
-    val date = time.toLocalDate()
-    val dayText = when (date) {
+    return when (date) {
         today -> "Aujourd'hui"
         today.minusDays(1) -> "Hier"
         else -> date.format(day)
     }
-    return "$dayText, ${time.format(hour)}"
 }
 
 /**
@@ -52,7 +56,13 @@ private fun whenLabel(at: Long): String {
 fun HistorySheet(entries: List<JournalLine>, onUndo: (JournalLine) -> Unit, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         LazyColumn(Modifier.navigationBarsPadding().padding(bottom = 16.dp)) {
-            item { Text("Historique", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 24.dp, bottom = 8.dp)) }
+            item {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = onDismiss) { Text("Fermer") }
+                    Text("Historique", style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
+                    Spacer(Modifier.width(72.dp))
+                }
+            }
             if (entries.isEmpty()) {
                 item {
                     Text(
@@ -63,7 +73,12 @@ fun HistorySheet(entries: List<JournalLine>, onUndo: (JournalLine) -> Unit, onDi
                     )
                 }
             }
-            items(entries, key = { it.id }) { entry ->
+            // Un en-tête par jour, l'heure seule sur chaque ligne.
+            entries.groupBy { dayOf(it.at) }.forEach { (day, list) ->
+            item(key = "day-$day") {
+                Text(dayTitle(day), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 24.dp, top = 12.dp, bottom = 4.dp))
+            }
+            items(list, key = { it.id }) { entry ->
                 Column {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
@@ -74,15 +89,16 @@ fun HistorySheet(entries: List<JournalLine>, onUndo: (JournalLine) -> Unit, onDi
                                 color = if (entry.undone) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                             )
                             Text(
-                                if (entry.undone) "Annulé" else whenLabel(entry.at),
+                                if (entry.undone) "Annulé" else hourOf(entry.at),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                        if (!entry.undone) OutlinedButton(onClick = { onUndo(entry) }) { Text("Annuler") }
+                        if (!entry.undone) TextButton(onClick = { onUndo(entry) }) { Text("Annuler") }
                     }
-                    HorizontalDivider(Modifier.padding(start = 24.dp), color = Color.White.copy(alpha = 0.08f))
+                    HorizontalDivider(Modifier.padding(horizontal = 24.dp), color = Color.White.copy(alpha = 0.08f))
                 }
+            }
             }
             item {
                 Text(

@@ -328,7 +328,6 @@ private fun LazyListScope.monthAnalysis(
                     chips.forEach { (text, kind) -> fr.baptiste.bank.ui.components.StatusChip(text, kind) }
                 }
             }
-            if (report.unsorted.isPositive) UnsortedLine(report.unsorted, onSort)
         }
     }
     if (report.categories.isEmpty()) {
@@ -339,7 +338,7 @@ private fun LazyListScope.monthAnalysis(
         }
         return
     }
-    sectionHeader("analysis-categories-label", "Par catégorie", trailing = "trait : budget du mois")
+    sectionHeader("analysis-categories-label", "Par catégorie")
     item(key = "analysis-categories") {
         val scale = report.categories.maxOf { maxOf(it.spent.cents, it.budget.cents) }.coerceAtLeast(1L)
         GlassCard(contentPadding = 16.dp, verticalPadding = 4.dp) {
@@ -433,10 +432,12 @@ private fun UnsortedLine(amount: Money, onSort: () -> Unit) {
 /** Une catégorie : nom, dépensé sur budget, barre (le trait marque le budget). */
 @Composable
 private fun CategoryRow(category: CategorySpent, scale: Long, expanded: Boolean, onClick: () -> Unit, average: Money? = null) {
+    // Une catégorie sans dépense ce mois-ci n'a rien à déplier : ni chevron, ni toucher.
+    val expandable = category.envelopes.any { it.spent.isPositive }
     Column(
         Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick, role = Role.Button, onClickLabel = if (expanded) "Masquer les enveloppes" else "Voir les enveloppes")
+            .then(if (expandable) Modifier.clickable(onClick = onClick, role = Role.Button, onClickLabel = if (expanded) "Masquer les enveloppes" else "Voir les enveloppes") else Modifier)
             .padding(vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -449,25 +450,31 @@ private fun CategoryRow(category: CategorySpent, scale: Long, expanded: Boolean,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            Text(category.spent.formatted(), style = MaterialTheme.typography.titleMedium)
+            Text(category.spent.summary(), style = MaterialTheme.typography.titleMedium)
             // Le chevron dit que la ligne se déplie (séance de test : les sous-catégories passaient inaperçues).
-            androidx.compose.material3.Icon(
-                androidx.compose.ui.res.painterResource(fr.baptiste.bank.R.drawable.ic_chevron_right),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 4.dp).size(18.dp).graphicsLayer { rotationZ = if (expanded) 90f else 0f },
-            )
+            if (expandable) {
+                androidx.compose.material3.Icon(
+                    androidx.compose.ui.res.painterResource(fr.baptiste.bank.R.drawable.ic_chevron_right),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 4.dp).size(18.dp).graphicsLayer { rotationZ = if (expanded) 90f else 0f },
+                )
+            } else {
+                androidx.compose.foundation.layout.Spacer(Modifier.padding(start = 4.dp).size(18.dp))
+            }
         }
         SpendBar(category.spent, category.budget, scale, categoryColor(category.name))
-        Text(
-            buildString {
-                append(if (category.budget.isPositive) "sur ${category.budget.formatted()}" else "hors budget du mois")
-                if (category.over.isPositive) append(" · dépassé de ${category.over.formatted()}")
-                else if (average != null && average.isPositive) append(" · d'habitude ${average.summary()}")
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = if (category.over.isPositive) BankTheme.status.over else MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        // Une seule référence par ligne (le budget) ; un dépassement en puce (règle 4 du doc UX).
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                if (category.budget.isPositive) "sur ${category.budget.summary()}" else "hors budget du mois",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (category.over.isPositive) {
+                fr.baptiste.bank.ui.components.StatusChip("Dépassé · +${category.over.summary()}", fr.baptiste.bank.ui.components.StatusKind.OVER)
+            }
+        }
     }
 }
 
@@ -486,14 +493,14 @@ private fun EnvelopeSpentRow(line: EnvelopeSpent, onClick: () -> Unit) {
             Text(line.envelope.name, style = MaterialTheme.typography.bodyMedium)
             if (line.budget.isPositive) {
                 Text(
-                    "sur ${line.budget.formatted()}",
+                    "sur ${line.budget.summary()}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
         Text(
-            line.spent.formatted(),
+            line.spent.summary(),
             style = MaterialTheme.typography.bodyMedium,
             color = if (line.budget.isPositive && line.spent > line.budget) BankTheme.status.over else MaterialTheme.colorScheme.onSurface,
         )
@@ -553,14 +560,12 @@ internal fun LazyListScope.yearAnalysis(
                     val done = report.complete.size
                     when {
                         done == 0 -> "Premier mois en cours : pas encore de moyenne."
-                        else -> "${report.monthlyAverage.formatted()} par mois en moyenne, sur $done mois terminé${if (done > 1) "s" else ""}" +
-                            if (report.inProgress != null) " (le mois en cours n'y entre pas)" else ""
+                        else -> "${report.monthlyAverage.summary()} par mois en moyenne"
                     }
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (report.unsorted.isPositive) UnsortedLine(report.unsorted, onSort)
         }
     }
     if (tracked.isEmpty()) return

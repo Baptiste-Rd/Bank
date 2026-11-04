@@ -468,7 +468,10 @@ fun GlassBanner(modifier: Modifier = Modifier, content: @Composable RowScope.() 
  */
 @Composable
 fun StatusBarScrim(modifier: Modifier = Modifier, height: Dp) {
+    // Opaque sous la barre d'état et la barre du haut, puis un fondu court : le contenu qui
+    // défile ne se lit plus à travers le titre et les boutons.
     Canvas(modifier.fillMaxWidth().height(height)) {
-        drawRect(Brush.verticalGradient(listOf(Glass.BaseTop, Glass.BaseTop.copy(alpha = 0f))))
+        val solid = ((size.height - 28.dp.toPx()) / size.height).coerceIn(0f, 1f)
+        drawRect(Brush.verticalGradient(0f to Glass.BaseTop, solid to Glass.BaseTop, 1f to Glass.BaseTop.copy(alpha = 0f)))
     }
 }

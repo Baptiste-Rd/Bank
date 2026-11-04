@@ -263,7 +263,6 @@ private fun LazyListScope.monthContent(
             "label-$family",
             family.label,
             trailing = if (family == EnvelopeFamily.DAILY) "${total.summary()} en enveloppes" else "${total.summary()} / mois",
-            dot = family.color,
         )
         item(key = "group-$family") {
             // Des lignes plates, comme dans le prototype : nom, reste, barre, une ligne d'état.
@@ -411,7 +410,9 @@ internal fun MonthReview(dashboard: Dashboard, onEdit: (Envelope) -> Unit, trans
     val closings = dashboard.closings()
     val status = BankTheme.status
     GlassCard(strong = true, contentPadding = 16.dp) {
-        Text("Bilan de ${dashboard.today.monthTitle().substringBefore(' ').lowercase()}", style = MaterialTheme.typography.titleMedium)
+        val reviewed = dashboard.today.monthTitle().substringBefore(' ').lowercase()
+        // « Bilan d'octobre », « Bilan de mars » : l'élision devant une voyelle.
+        Text(if (reviewed.first() in "aeiouâéèêîôû") "Bilan d'$reviewed" else "Bilan de $reviewed", style = MaterialTheme.typography.titleMedium)
         Text(
             savings.forecast.summary(),
             style = MaterialTheme.typography.titleLarge,
@@ -533,7 +534,7 @@ private fun AccountLine(label: String, amount: Money, strong: Boolean = false, p
             modifier = Modifier.weight(1f),
         )
         Text(
-            amount.formatted(),
+            amount.summary(),
             style = MaterialTheme.typography.titleSmall,
             color = when {
                 amount.isNegative -> BankTheme.status.warning

@@ -318,37 +318,29 @@ fun EnvelopeSheet(
                 style = MaterialTheme.typography.displaySmall,
                 color = if (line.remaining.isNegative) BankTheme.status.over else MaterialTheme.colorScheme.onSurface,
             )
+            // Une provision dit ce qui est mis de côté ; les autres, ce qui est dépensé (une seule ligne).
+            val isProvision = line.envelope.type.isProvision && line.envelope.type != fr.baptiste.bank.domain.model.EnvelopeType.PLANNED &&
+                line.period.endInclusive.isAfter(line.period.start.plusMonths(1))
             Text(
-                "${line.spent.summary()} sur ${line.available.summary()} · ${line.period.label}",
+                if (isProvision) "${line.funded.summary()} mis de côté sur ${line.allocated.summary()} · ${line.period.label}"
+                else "${line.spent.summary()} sur ${line.available.summary()} · ${line.period.label}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             when {
                 line.remaining.isNegative -> fr.baptiste.bank.ui.components.StatusChip("Dépassé ${(-line.remaining).summary()}", fr.baptiste.bank.ui.components.StatusKind.OVER)
                 line.projection.isAlert -> fr.baptiste.bank.ui.components.StatusChip("Prévu +${line.projection.overrun.summary()}", fr.baptiste.bank.ui.components.StatusKind.WARNING)
+                isProvision && line.catchUp != null -> fr.baptiste.bank.ui.components.StatusChip("En retard", fr.baptiste.bank.ui.components.StatusKind.WARNING)
             }
             if (onCover != null) {
                 // « Couvrir » ne disait pas ce qu'il faisait : on ajoute de l'argent, pris sur l'épargne.
                 Button(onClick = onCover, modifier = Modifier.fillMaxWidth()) { Text("Ajouter de l'argent") }
             }
-            // Provision : ce qui est déjà mis de côté, et le rattrapage s'il en faut un (une ligne).
-            if (line.envelope.type.isProvision && line.envelope.type != fr.baptiste.bank.domain.model.EnvelopeType.PLANNED &&
-                line.period.endInclusive.isAfter(line.period.start.plusMonths(1))
-            ) {
-                Text(
-                    "${line.funded.summary()} mis de côté sur ${line.allocated.summary()}",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                val proposal = line.catchUp
-                if (proposal != null && onCatchUp != null) {
-                    Text(
-                        "Suivi commencé en ${proposal.from.label} : il manque ce qui n'a pas été mis de côté avant.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    OutlinedButton(onClick = { onCatchUp(proposal.from) }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Mettre ${proposal.monthlyShare.summary()} de côté par mois")
-                    }
+            // Provision en retard : l'action principale de la fiche.
+            val proposal = line.catchUp
+            if (isProvision && proposal != null && onCatchUp != null) {
+                Button(onClick = { onCatchUp(proposal.from) }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Mettre ${proposal.monthlyShare.summary()} de côté par mois")
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
@@ -376,9 +368,9 @@ fun EnvelopeSheet(
                                 Text(
                                     // Antérieure au départ : rangée ici, mais hors du reste (voir Envelope.start).
                                     if (line.envelope.countsOn(operation.date)) {
-                                        operation.date.formatted()
+                                        operation.date.dayShort()
                                     } else {
-                                        "${operation.date.formatted()} · avant le départ, non comptée"
+                                        "${operation.date.dayShort()} · avant le départ, non comptée"
                                     },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -390,7 +382,10 @@ fun EnvelopeSheet(
                 }
             }
             // L'historique, replié : le détail du chiffre, les périodes passées, les ajouts et retraits.
-            TextButton(onClick = { showHistory = !showHistory }) { Text(if (showHistory) "Masquer l'historique" else "Historique") }
+            // « Historique » est réservé à la liste des annulations (Réglages) : ici, les mois passés.
+            TextButton(onClick = { showHistory = !showHistory }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
+                Text(if (showHistory) "Masquer le détail" else "Détail et mois passés")
+            }
             if (showHistory) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Figure("Budget", line.allocated)
@@ -523,3 +518,7 @@ private fun JournalRow(row: TransferRow, onCancel: () -> Unit) {
         }
     }
 }
+
+/** « 4 nov. » : l'année se devine, sauf pour une autre année que la courante. */
+private fun java.time.LocalDate.dayShort(): String =
+    format(java.time.format.DateTimeFormatter.ofPattern(if (year == java.time.LocalDate.now().year) "d MMM" else "d MMM yyyy", java.util.Locale.FRANCE))

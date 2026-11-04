@@ -563,7 +563,7 @@ class BudgetRepository(
                     wholePeriod = wholePeriod,
                 ),
             )
-            record("Dépense $label (${amount.formatted()})", JournalPayload(manualCreated = listOf(transactionId)))
+            record("$label · ${amount.formatted()} → ${envelope.name}", JournalPayload(manualCreated = listOf(transactionId)))
         }
     }
 
@@ -1015,7 +1015,7 @@ class BudgetRepository(
     suspend fun markTransferToAccount(transactionId: Long, accountId: Long, keyword: String? = null): Int =
         database.withTransaction {
             val before = snapshot(listOf(transactionId))
-            val label = "${operationLabel(transactionId)} → ${accountDao.byId(accountId)?.name.orEmpty()}"
+            val label = "Virement vers ${accountDao.byId(accountId)?.name.orEmpty()}"
             imputationDao.deleteForTransaction(transactionId)
             transactionDao.setIgnored(transactionId, true)
             transactionDao.setTransferAccount(transactionId, accountId)
