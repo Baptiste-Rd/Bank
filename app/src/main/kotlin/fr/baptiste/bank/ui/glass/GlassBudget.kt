@@ -54,6 +54,7 @@ import fr.baptiste.bank.ui.envelopes.envelopeTemplates
 import fr.baptiste.bank.ui.envelopes.family
 import fr.baptiste.bank.ui.envelopes.template
 import fr.baptiste.bank.ui.format.formatted
+import fr.baptiste.bank.ui.format.summary
 import fr.baptiste.bank.ui.format.label
 import fr.baptiste.bank.ui.home.SavingsBarsChart
 import fr.baptiste.bank.ui.theme.BankTheme
@@ -414,7 +415,7 @@ private fun LazyListScope.yearContent(overview: YearOverview) {
     item(key = "year-savings") {
         GlassCard(strong = true) {
             Text("Épargne de l'année", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(overview.savings.formatted(), style = MaterialTheme.typography.displaySmall)
+            Text(overview.savings.summary(), style = MaterialTheme.typography.displaySmall)
             val gap = overview.savings - target
             Text(
                 "${gap.signed()} par rapport à l'objectif (${target.formatted()} sur ${overview.monthsCounted} mois)",
@@ -512,7 +513,7 @@ private fun MonthReview(dashboard: Dashboard, onEdit: (Envelope) -> Unit, transf
     GlassCard(strong = true, contentPadding = 16.dp) {
         Text("Bilan de ${dashboard.today.monthTitle().substringBefore(' ').lowercase()}", style = MaterialTheme.typography.titleMedium)
         Text(
-            savings.forecast.formatted(),
+            savings.forecast.summary(),
             style = MaterialTheme.typography.titleLarge,
             color = if (savings.forecast.isNegative) status.over else MaterialTheme.colorScheme.onSurface,
         )
@@ -530,7 +531,7 @@ private fun MonthReview(dashboard: Dashboard, onEdit: (Envelope) -> Unit, transf
             }
         }
         Column(Modifier.padding(top = 8.dp)) {
-            ReviewLine("Objectif et transferts vers l'épargne", savings.secured)
+            ReviewLine("Objectif et mises de côté", savings.secured)
             ReviewLine("Reste du quotidien", savings.dailyMargin)
             closings.forEach { line ->
                 val label = if (line.remaining.isNegative) "${line.envelope.name} · dépassé" else "${line.envelope.name} · reste"
@@ -606,7 +607,7 @@ internal fun CurrentAccountCard(explained: CurrentAccountExplained?, onSetBalanc
             explained.free.isNegative -> buildString {
                 append("Le compte contient moins que ce que le budget réserve. Causes possibles : salaire pas encore arrivé, ")
                 append("argent des budgets rares gardé sur un livret")
-                if (explained.unsortedOut.isPositive) append(", ${explained.unsortedOut.formatted()} de dépenses à trier")
+                if (explained.unsortedOut.isPositive) append(", ${explained.unsortedOut.formatted()} d'opérations à trier")
                 append(", ou dépenses faites hors de l'app.")
             }
             explained.free.isPositive ->

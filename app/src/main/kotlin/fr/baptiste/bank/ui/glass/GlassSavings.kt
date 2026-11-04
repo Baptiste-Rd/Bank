@@ -42,6 +42,7 @@ import fr.baptiste.bank.ui.components.InfoLine
 import fr.baptiste.bank.ui.components.InfoSheet
 import fr.baptiste.bank.ui.envelopes.EnvelopeRow
 import fr.baptiste.bank.ui.format.formatted
+import fr.baptiste.bank.ui.format.summary
 import fr.baptiste.bank.ui.format.label
 import fr.baptiste.bank.ui.home.SavingsBarsChart
 import fr.baptiste.bank.ui.theme.BankTheme
@@ -140,7 +141,7 @@ fun GlassSavingsContent(
                     InfoButton(onClick = { showInfo = true }, contentDescription = "Comment c'est calculé")
                 }
                 Text(
-                    outlook.forecast.formatted(),
+                    outlook.forecast.summary(),
                     style = MaterialTheme.typography.displaySmall,
                     color = if (outlook.forecast.isNegative) BankTheme.status.over else MaterialTheme.colorScheme.onSurface,
                 )
@@ -228,7 +229,7 @@ fun GlassSavingsContent(
             title = "Comment est calculée l'épargne prévue",
             lines = listOfNotNull(
                 InfoLine("Objectif (enveloppes d'épargne)", outlook.target.formatted()),
-                InfoLine("Transferts vers l'épargne ce mois", outlook.transferred.signed()),
+                InfoLine("Mis de côté ce mois", outlook.transferred.signed()),
                 InfoLine(
                     if (outlook.isFinal) "Reste du budget du quotidien" else "Reste prévu du quotidien",
                     outlook.dailyMargin.signed(),
@@ -338,7 +339,7 @@ private fun LazyListScope.holdingsSection(
     onOpen: (HoldingLine) -> Unit,
     onEditGoals: () -> Unit,
 ) {
-    sectionHeader("holdings-label", "Livrets et placements", action = if (holdings.lines.isEmpty()) null else "Gérer", onAction = onManage)
+    sectionHeader("holdings-label", "Livrets et placements", action = if (holdings.lines.isEmpty()) null else "Tout voir", onAction = onManage)
     item(key = "holdings") {
         if (holdings.lines.isEmpty()) {
             GlassCard(contentPadding = 16.dp) {
@@ -354,7 +355,7 @@ private fun LazyListScope.holdingsSection(
         val progress = holdings.progress(goals)
         GlassCard(contentPadding = 16.dp, verticalPadding = 4.dp) {
             Column(Modifier.padding(vertical = 12.dp)) {
-                Text(holdings.total.formatted(), style = MaterialTheme.typography.titleLarge)
+                Text(holdings.total.summary(), style = MaterialTheme.typography.titleLarge)
                 val previous = holdings.history.dropLast(1).lastOrNull()
                 val parts = listOfNotNull(
                     previous?.let { "${(holdings.total - it.total).signed()} depuis fin ${it.month.name()}" },

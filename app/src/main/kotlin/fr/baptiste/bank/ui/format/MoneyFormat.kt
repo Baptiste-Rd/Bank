@@ -21,3 +21,24 @@ private val euroFormat: NumberFormat = NumberFormat.getCurrencyInstance(Locale.F
 fun Money.formatted(): String = euroFormat.format(cents / 100.0)
     .replace(' ', ' ')
     .replace('-', '−')
+
+private val wholeEuroFormat: NumberFormat = NumberFormat.getCurrencyInstance(Locale.FRANCE).apply {
+    currency = Currency.getInstance("EUR")
+    maximumFractionDigits = 0
+    minimumFractionDigits = 0
+}
+
+/**
+ * Un chiffre de synthèse (solde, total du mois, épargne prévue) : en euros ronds, « 1 027 € ».
+ * Une opération garde ses centimes ([formatted]). Sous 10 €, les centimes restent : « 0,50 € »
+ * ne doit pas devenir « 1 € ».
+ */
+fun Money.summary(): String {
+    if (kotlin.math.abs(cents) < 1000 && cents % 100 != 0L) return formatted()
+    return wholeEuroFormat.format(Math.round(cents / 100.0).toDouble())
+        .replace(' ', ' ')
+        .replace('-', '−')
+}
+
+/** « 1 règle », « 3 règles » : jamais « règle(s) ». */
+fun plural(count: Int, one: String, many: String): String = "$count ${if (count > 1) many else one}"

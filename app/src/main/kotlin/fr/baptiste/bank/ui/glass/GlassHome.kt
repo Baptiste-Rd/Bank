@@ -54,6 +54,7 @@ import fr.baptiste.bank.ui.components.StatusChip
 import fr.baptiste.bank.ui.components.StatusKind
 import fr.baptiste.bank.ui.envelopes.EnvelopeRow
 import fr.baptiste.bank.ui.format.formatted
+import fr.baptiste.bank.ui.format.summary
 import fr.baptiste.bank.ui.theme.BankTheme
 import java.time.Duration
 import java.time.Instant
@@ -130,7 +131,7 @@ fun GlassHomeContent(
                 GlassCard(contentPadding = 16.dp, onClick = { onOpenTab(Tab.OPERATIONS) }) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            if (unsortedCount > 1) "$unsortedCount dépenses à trier" else "1 dépense à trier",
+                            if (unsortedCount > 1) "$unsortedCount opérations à trier" else "1 opération à trier",
                             style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
                             modifier = Modifier.weight(1f),
                         )
@@ -142,7 +143,7 @@ fun GlassHomeContent(
 
         // 3. Autres comptes.
         if (holdings != null) {
-            sectionHeader("accounts-label", "Autres comptes", action = "Détail", onAction = { onOpenTab(Tab.SAVINGS) })
+            sectionHeader("accounts-label", "Autres comptes", action = "Tout voir", onAction = { onOpenTab(Tab.SAVINGS) })
             item(key = "accounts") { AccountsCard(holdings, today, onOpenAccount) }
         }
 
@@ -205,7 +206,7 @@ private fun AccountHero(
     Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
         Text("Sur ton compte", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(
-            balance?.formatted() ?: "—",
+            balance?.summary() ?: "—",
             style = MaterialTheme.typography.displayLarge,
             color = if (balance?.isNegative == true) BankTheme.status.over else MaterialTheme.colorScheme.onSurface,
         )
@@ -256,7 +257,7 @@ private fun AccountsCard(holdings: Holdings, today: LocalDate, onOpenAccount: (H
             }
             return@GlassCard
         }
-        Text(holdings.total.formatted(), style = MaterialTheme.typography.titleLarge)
+        Text(holdings.total.summary(), style = MaterialTheme.typography.titleLarge)
         if (holdings.netTotal != holdings.total) {
             Text(
                 "≈ ${holdings.netTotal.formatted()} net après impôt estimé",

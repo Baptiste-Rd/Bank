@@ -185,7 +185,7 @@ private fun ColumnScope.ReviewPlan(
     LaunchedEffect(plan) { known = loadContext() }
     val checked = remember(plan) { mutableStateMapOf<Int, Boolean>().apply { plan.actions.forEachIndexed { i, a -> put(i, a.checkedByDefault) } } }
     val groups = listOf(
-        "Budgets à créer" to plan.actions.withIndex().filter { it.value is PlanAction.CreateEnvelope },
+        "Enveloppes à créer" to plan.actions.withIndex().filter { it.value is PlanAction.CreateEnvelope },
         "Rangements" to plan.actions.withIndex().filter { it.value is PlanAction.Move },
         "Répartitions" to plan.actions.withIndex().filter { it.value is PlanAction.Split },
         "Règles de tri" to plan.actions.withIndex().filter { it.value is PlanAction.Rule },

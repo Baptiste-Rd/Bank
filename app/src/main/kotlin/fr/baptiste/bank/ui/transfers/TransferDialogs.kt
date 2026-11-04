@@ -313,8 +313,8 @@ fun EnvelopeSheet(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Figure("Prévu", line.allocated)
-                Figure("Transferts", line.transferred, signed = true)
+                Figure("Budget", line.allocated)
+                Figure("Ajouts", line.transferred, signed = true)
                 Figure("Dépensé", line.spent)
                 Figure("Reste", line.remaining, emphasis = true)
             }
@@ -423,7 +423,7 @@ fun EnvelopeSheet(
                     (it.sourceEnvelopeId == line.envelope.id || it.targetEnvelopeId == line.envelope.id)
             }
             if (mine.isNotEmpty()) {
-                Text("Transferts de la période", style = MaterialTheme.typography.labelLarge)
+                Text("Ajouts et retraits de la période", style = MaterialTheme.typography.labelLarge)
                 mine.take(6).forEach { row ->
                     val incoming = row.targetEnvelopeId == line.envelope.id
                     Row(modifier = Modifier.fillMaxWidth()) {
@@ -470,7 +470,7 @@ fun JournalDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Journal des transferts") },
+        title = { Text("Ajouts et retraits") },
         text = {
             BlurBehindWindow()
             if (transfers.isEmpty()) {

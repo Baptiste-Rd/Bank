@@ -136,7 +136,7 @@ fun UnsortDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Déclasser ce mois-ci") },
+        title = { Text("Remettre à trier") },
         text = {
             BlurBehindWindow()
             Column(
@@ -175,7 +175,7 @@ fun UnsortDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { scope?.let(onUnsort) }, enabled = scope != null) { Text("Déclasser") }
+            TextButton(onClick = { scope?.let(onUnsort) }, enabled = scope != null) { Text("Remettre à trier") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } },
     )
@@ -241,7 +241,7 @@ fun RulesDialog(
         var restore by remember { mutableStateOf(false) }
         AlertDialog(
             onDismissRequest = { pendingAlias = null },
-            title = { Text("Retirer cet alias ?") },
+            title = { Text("Retirer ce nom ?") },
             text = {
                 Column {
                     Text("Les prochaines opérations « ${alias.pattern} » garderont le libellé de la banque.")
@@ -266,7 +266,7 @@ fun RulesDialog(
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Règles et alias") },
+        title = { Text("Noms et règles") },
         text = {
             BlurBehindWindow()
             Column(Modifier.verticalScroll(rememberScrollState())) {
@@ -287,7 +287,7 @@ fun RulesDialog(
                 }
                 Text("Noms", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 16.dp))
                 if (aliases.isEmpty()) {
-                    Hint("Aucun alias. « Renommer » sur une opération en crée un.")
+                    Hint("Aucun nom. « Renommer » sur une opération en crée un.")
                 }
                 aliases.forEachIndexed { index, alias ->
                     if (index > 0) RowDivider(0.dp)

@@ -205,7 +205,7 @@ fun AppMenuItems(
         },
     )
     DropdownMenuItem(
-        text = { Text("Journal des transferts") },
+        text = { Text("Ajouts et retraits") },
         onClick = {
             onClose()
             controller.dialog = OpenDialog.Journal
@@ -412,7 +412,7 @@ fun AppDialogs(
             onUnsort = { scope ->
                 viewModel.unsortMonth(scope) { count ->
                     if (count == 0) {
-                        controller.notify("Aucune opération de la banque à déclasser.")
+                        controller.notify("Aucune opération de la banque à remettre à trier.")
                     } else {
                         controller.notify("$count opération(s) à trier.", action = "Appliquer les règles") {
                             viewModel.applyRules { sorted -> controller.notify("$sorted opération(s) rangée(s) par les règles.") }

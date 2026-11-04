@@ -48,6 +48,7 @@ import fr.baptiste.bank.ui.components.InfoLine
 import fr.baptiste.bank.ui.components.InfoSheet
 import fr.baptiste.bank.ui.components.RowDivider
 import fr.baptiste.bank.ui.format.formatted
+import fr.baptiste.bank.ui.format.summary
 import fr.baptiste.bank.ui.format.label
 import fr.baptiste.bank.ui.theme.BankTheme
 import kotlinx.coroutines.flow.Flow
@@ -289,7 +290,7 @@ private fun LazyListScope.monthAnalysis(
                 )
                 fr.baptiste.bank.ui.components.InfoButton(onClick = { onInfo(report) }, contentDescription = "Ce qui est compté")
             }
-            Text(report.total.formatted(), style = MaterialTheme.typography.displaySmall)
+            Text(report.total.summary(), style = MaterialTheme.typography.displaySmall)
             val sameDay = pace?.previousSameDay
             if (pace != null) {
                 val day = pace.cumulative.size
@@ -510,7 +511,7 @@ private fun LazyListScope.yearAnalysis(
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Text(report.total.formatted(), style = MaterialTheme.typography.displaySmall)
+            Text(report.total.summary(), style = MaterialTheme.typography.displaySmall)
             Text(
                 if (tracked.isEmpty()) {
                     "Aucun mois renseigné cette année."

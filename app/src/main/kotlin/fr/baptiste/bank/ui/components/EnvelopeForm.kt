@@ -67,9 +67,9 @@ private fun LocalDate.text(): String = format(day)
 
 /** À quoi sert l'argent : ce qui décide de la famille de l'enveloppe. */
 private enum class Use(val label: String) {
-    DAILY("Quotidien"),
+    DAILY("Au quotidien"),
     FIXED("Charge fixe"),
-    RARE("Rare ou projet"),
+    RARE("Rare ou ponctuel"),
     SAVINGS("Épargne"),
 }
 
@@ -218,7 +218,7 @@ fun EnvelopeDialog(
                     if (found.manualCount > 0) {
                         Text("${found.manualCount} dépense(s) saisie(s) à la main (${found.manualAmount.formatted()}) sont effacées.")
                     }
-                    Text("Ses règles de tri et ses transferts sont effacés. Impossible à annuler.", color = BankThemeColors.over())
+                    Text("Ses règles de tri et ses ajouts et retraits sont effacés. Impossible à annuler.", color = BankThemeColors.over())
                 }
             },
             confirmButton = {
@@ -231,7 +231,7 @@ fun EnvelopeDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (isExisting) "Modifier le budget" else "Nouveau budget") },
+        title = { Text(if (isExisting) "Modifier l'enveloppe" else "Nouvelle enveloppe") },
         text = {
             BlurBehindWindow()
             Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {

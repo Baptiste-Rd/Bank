@@ -85,7 +85,7 @@ fun SavingsSummary(dashboard: Dashboard, history: List<MonthSavings>, accent: Co
 
         // Le détail du calcul, pour comprendre d'où vient le chiffre.
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Breakdown("À l'abri (objectif et transferts du mois)", outlook.secured.formatted())
+            Breakdown("À l'abri (objectif et mises de côté du mois)", outlook.secured.formatted())
             Breakdown(
                 if (outlook.isFinal) "Reste du budget du quotidien" else "Reste prévu du quotidien, au rythme actuel",
                 outlook.dailyMargin.signed(),

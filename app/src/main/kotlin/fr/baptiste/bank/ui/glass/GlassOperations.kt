@@ -170,9 +170,9 @@ fun GlassOperationsContent(
                         RowDivider(0.dp)
                     }
                     // Les règles s'appliquent seules (à l'import, et dès qu'une est retenue) : plus de bouton.
-                    ToolRow("Règles et alias", rulesSummary, onOpenRules)
+                    ToolRow("Noms et règles", rulesSummary, onOpenRules)
                     RowDivider(0.dp)
-                    ToolRow("Déclasser ce mois-ci", "Tout, une enveloppe ou un libellé", onUnsort)
+                    ToolRow("Remettre à trier", "Tout le mois, une enveloppe ou un libellé", onUnsort)
                 }
             }
         }
@@ -271,7 +271,7 @@ private fun QueueRow(operation: OperationRow, proposal: SortProposal?, onAccept:
             }
         }
         Text(
-            Money(operation.amountCents).formatted(),
+            Money(operation.amountCents).let { if (it.isPositive) "+" + it.formatted() else it.formatted() },
             style = MaterialTheme.typography.titleMedium,
             color = if (operation.amountCents > 0) BankTheme.status.gain else MaterialTheme.colorScheme.onSurface,
         )
@@ -357,7 +357,7 @@ private fun GlassOperationRow(
             Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Text(
-            Money(operation.amountCents).formatted(),
+            Money(operation.amountCents).let { if (it.isPositive) "+" + it.formatted() else it.formatted() },
             style = MaterialTheme.typography.titleMedium,
             color = if (operation.amountCents > 0) BankTheme.status.gain else MaterialTheme.colorScheme.onSurface,
         )

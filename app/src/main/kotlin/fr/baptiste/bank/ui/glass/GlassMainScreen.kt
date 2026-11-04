@@ -50,6 +50,7 @@ import fr.baptiste.bank.ui.Tab
 import fr.baptiste.bank.ui.rememberAppController
 import fr.baptiste.bank.ui.rememberUpdateAvailable
 import fr.baptiste.bank.ui.format.label
+import fr.baptiste.bank.ui.format.plural
 import fr.baptiste.bank.domain.bank.suggestedRuleKeyword
 import fr.baptiste.bank.ui.theme.BankTheme
 import fr.baptiste.bank.ui.theme.GlassSurfaceColors
@@ -363,7 +364,7 @@ fun GlassMainScreen(
                         onOpenRules = { controller.dialog = OpenDialog.Rules },
                         onAssistedSort = { controller.dialog = OpenDialog.AssistedSort() },
                         pending = bankConnection?.pending.orEmpty(),
-                        rulesSummary = "${rules.size + transferRules.size} règle(s) · ${aliases.size} alias",
+                        rulesSummary = "${plural(aliases.size, "nom", "noms")} · ${plural(rules.size + transferRules.size, "règle", "règles")}",
                     )
                 }
             }
