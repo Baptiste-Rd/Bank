@@ -114,7 +114,14 @@ data class InfoLine(val label: String, val value: String? = null)
  * vit le texte retiré des cartes (divulgation progressive).
  */
 @Composable
-fun InfoSheet(title: String, lines: List<InfoLine>, note: String? = null, onDismiss: () -> Unit) {
+fun InfoSheet(
+    title: String,
+    lines: List<InfoLine>,
+    note: String? = null,
+    onDismiss: () -> Unit,
+    /** Un réglage lié à ce qui est expliqué (l'option d'un mois, par exemple). */
+    extra: (@Composable () -> Unit)? = null,
+) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
@@ -130,6 +137,7 @@ fun InfoSheet(title: String, lines: List<InfoLine>, note: String? = null, onDism
                 if (note != null) {
                     Text(note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                extra?.invoke()
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Compris") } },

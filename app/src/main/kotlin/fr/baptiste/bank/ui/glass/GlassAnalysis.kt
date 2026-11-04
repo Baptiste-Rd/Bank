@@ -208,8 +208,13 @@ fun GlassAnalysisContent(
                     report.outOfBudget.takeIf { it.isPositive }?.let { InfoLine("Pas compté : hors budget", it.formatted()) },
                     report.toAccounts.takeIf { it.isPositive }?.let { InfoLine("Pas compté : viré vers tes comptes", it.formatted()) },
                 ),
-            note = "L'épargne n'est pas une dépense. Une dépense rangée hors budget par erreur se reclasse dans la liste.",
+            note = (if (report.budget.isPositive) "Budget du mois : ${report.budget.formatted()}. " else "") +
+                "L'épargne n'est pas une dépense.",
             onDismiss = { info = null },
+            // L'option du mois vit ici, avec ce qui est compté (un mois terminé seulement).
+            extra = if (report.month < current) ({
+                CountedLine(report.month, report.month !in excludedMonths) { counted -> onSetMonthCounted(report.month, counted) }
+            }) else null,
         )
     }
 
@@ -263,7 +268,14 @@ fun GlassAnalysisContent(
 
 private fun monthName(month: YearMonth): String = month.month.getDisplayName(TextStyle.FULL_STANDALONE, Locale.FRANCE)
 
+private fun shortMonth(month: YearMonth): String = month.month.getDisplayName(TextStyle.SHORT, Locale.FRANCE)
+
+/** « −196 € vs budget », « +104 € vs 4 oct. » : un écart porte son signe et sa référence. */
+private fun Money.signedVs(reference: String): String =
+    (if (isNegative) "−" else "+") + (if (isNegative) -this else this).summary() + " vs " + reference
+
 /** Le mois : total, reste à trier, une barre par catégorie. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 private fun LazyListScope.monthAnalysis(
     report: MonthSpending,
     counted: Boolean = true,
@@ -292,44 +304,31 @@ private fun LazyListScope.monthAnalysis(
                 fr.baptiste.bank.ui.components.InfoButton(onClick = { onInfo(report) }, contentDescription = "Ce qui est compté")
             }
             Text(report.total.summary(), style = MaterialTheme.typography.displaySmall)
-            val sameDay = pace?.previousSameDay
-            if (pace != null) {
-                val day = pace.cumulative.size
-                val previous = report.month.minusMonths(1)
-                val through = minOf(day, previous.lengthOfMonth())
-                if (sameDay != null) {
-                    val gap = sameDay - report.total
-                    Text(
-                        when {
-                            gap.isNegative -> "${(-gap).formatted()} de plus qu'au $through ${monthName(previous)}"
-                            gap.isPositive -> "${gap.formatted()} de moins qu'au $through ${monthName(previous)}"
-                            else -> "Autant qu'au $through ${monthName(previous)}"
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (gap.isNegative) BankTheme.status.warning else BankTheme.status.gain,
-                    )
+            // Comme le prototype : le chiffre, puis des puces courtes, signées, avec leur référence
+            // (règle 4 du doc UX). Le budget du mois et le détail sont derrière ⓘ.
+            val chips = buildList {
+                val sameDay = pace?.previousSameDay
+                if (pace != null && sameDay != null) {
+                    val previous = report.month.minusMonths(1)
+                    val through = minOf(pace.cumulative.size, previous.lengthOfMonth())
+                    val gap = report.total - sameDay
+                    add(gap.signedVs("$through ${shortMonth(previous)}") to if (gap.isPositive) fr.baptiste.bank.ui.components.StatusKind.WARNING else fr.baptiste.bank.ui.components.StatusKind.GAIN)
+                } else if (pace == null && report.budget.isPositive) {
+                    val gap = report.total - report.budget
+                    add(gap.signedVs("budget") to if (gap.isPositive) fr.baptiste.bank.ui.components.StatusKind.OVER else fr.baptiste.bank.ui.components.StatusKind.GAIN)
                 }
-                if (report.budget.isPositive) {
-                    Text(
-                        "Budget du mois : ${report.budget.formatted()}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                if (!counted) add("Hors moyennes" to fr.baptiste.bank.ui.components.StatusKind.GOOD)
+            }
+            if (chips.isNotEmpty()) {
+                androidx.compose.foundation.layout.FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(top = 4.dp),
+                ) {
+                    chips.forEach { (text, kind) -> fr.baptiste.bank.ui.components.StatusChip(text, kind) }
                 }
-            } else if (report.budget.isPositive) {
-                val gap = report.budget - report.total
-                Text(
-                    if (gap.isNegative) {
-                        "${(-gap).formatted()} de plus que le budget (${report.budget.formatted()})"
-                    } else {
-                        "${gap.formatted()} de moins que le budget (${report.budget.formatted()})"
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (gap.isNegative) BankTheme.status.over else BankTheme.status.gain,
-                )
             }
             if (report.unsorted.isPositive) UnsortedLine(report.unsorted, onSort)
-            if (onSetCounted != null) CountedLine(report.month, counted, onSetCounted)
         }
     }
     if (report.categories.isEmpty()) {
@@ -420,7 +419,7 @@ private fun UnsortedLine(amount: Money, onSort: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
         Box(Modifier.padding(end = 8.dp).size(8.dp).clip(CircleShape).background(BankTheme.status.warning))
         Text(
-            "${amount.formatted()} encore à trier",
+            "${amount.summary()} à trier",
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.weight(1f),
         )
