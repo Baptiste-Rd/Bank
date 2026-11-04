@@ -125,4 +125,13 @@ class ProjectionTest {
         assertEquals(Money(106634), result.projected)
         assertFalse(result.isAlert)
     }
+
+    @Test
+    fun `an untouched envelope is never flagged early in the month`() {
+        // Sorties : rien dépensé le 4 novembre, 130 € d'habitude pour 80 € de budget. La projection
+        // suit l'habitude, mais aucune alerte avant le 10 (la capture du lot 5 affichait « Prévu + »).
+        val result = project(Money.ZERO, Money.euros(80), november, LocalDate.of(2026, 11, 4), habit = Money.euros(130))
+        assertTrue(result.projected > Money.euros(80))
+        assertFalse(result.isAlert)
+    }
 }

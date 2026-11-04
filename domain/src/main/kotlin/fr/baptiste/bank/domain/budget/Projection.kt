@@ -59,10 +59,13 @@ fun project(
     val elapsed = period.daysElapsedAt(today).toLong()
     val remaining = length - elapsed
     val paced = spent - lumpSum
-    val tooEarly = elapsed < minOf(minDays.toLong(), length) && remaining > 0 && paced.isPositive
+    // Début de période : pas d'alerte, quoi qu'on ait dépensé (même rien : une enveloppe vide le 4
+    // n'est pas « prévue » en dépassement d'après la seule habitude).
+    val early = remaining > 0 && elapsed < minOf(minDays.toLong(), length)
+    val tooEarly = early && paced.isPositive
     val projected = when {
         // Début de période : le rythme habituel seul (l'épargne prévue du 4 ne suppose plus qu'on ne dépensera rien).
-        remaining > 0 && elapsed < minOf(minDays.toLong(), length) && habit != null && habit.isPositive ->
+        early && habit != null && habit.isPositive ->
             spent + (habit * remaining).divideCeil(length)
         elapsed == 0L || remaining == 0L || tooEarly || !paced.isPositive -> spent
         habit == null || !habit.isPositive -> lumpSum + (paced * length).divideCeil(elapsed)
@@ -82,6 +85,6 @@ fun project(
         available = available,
         projected = projected,
         overrun = overrun,
-        isAlert = !tooEarly && overrun > tolerance,
+        isAlert = !early && overrun > tolerance,
     )
 }
