@@ -32,11 +32,13 @@ fun suggestedAmount(
     today: LocalDate,
     since: YearMonth? = null,
     maxMonths: Int = 12,
+    /** Mois écartés des moyennes (voir excludedMonths). */
+    excluded: Set<YearMonth> = emptySet(),
 ): AmountSuggestion? {
     val current = YearMonth.from(today)
     val months = (1..maxMonths)
         .map { current.minusMonths(it.toLong()) }
-        .filter { since == null || !it.isBefore(since) }
+        .filter { (since == null || !it.isBefore(since)) && it !in excluded }
     if (months.isEmpty()) return null
     val total = spent.filter { YearMonth.from(it.first) in months }.sumOfMoney { it.second }
     if (!total.isPositive) return null
@@ -54,11 +56,12 @@ fun dailyHabits(
     spendings: List<Spending>,
     today: LocalDate,
     trackingStart: YearMonth?,
+    excluded: Set<YearMonth> = emptySet(),
 ): Map<Long, Money> {
     val byEnvelope = spendings.filter { !it.wholePeriod }.groupBy { it.envelopeId }
     return envelopes.filter { it.type == fr.baptiste.bank.domain.model.EnvelopeType.DAILY }.mapNotNull { envelope ->
         val since = listOfNotNull(trackingStart, envelope.start?.let { YearMonth.from(it) }).maxOrNull()
         val spent = byEnvelope[envelope.id].orEmpty().map { it.date to it.amount }
-        suggestedAmount(spent, Frequency.MONTHLY, today, since)?.let { envelope.id to it.monthlyAverage }
+        suggestedAmount(spent, Frequency.MONTHLY, today, since, excluded = excluded)?.let { envelope.id to it.monthlyAverage }
     }.toMap()
 }

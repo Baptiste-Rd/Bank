@@ -128,4 +128,22 @@ class SettingsRepository(context: Context, storeName: String = "settings") {
     suspend fun setTrackingStart(month: java.time.YearMonth?) {
         settingsStore.edit { if (month == null) it.remove(trackingStartKey) else it[trackingStartKey] = month.toString() }
     }
+
+    private val monthCountsKey = stringPreferencesKey("month_counts")
+
+    /** Option « compter dans les moyennes » choisie mois par mois (« 2026-07=0;2026-09=1 »). */
+    val monthCounts: Flow<Map<java.time.YearMonth, Boolean>> = settingsStore.data.map { prefs -> parseMonthCounts(prefs[monthCountsKey]) }
+
+    suspend fun setMonthCounted(month: java.time.YearMonth, counted: Boolean) {
+        settingsStore.edit { prefs ->
+            val choices = parseMonthCounts(prefs[monthCountsKey]) + (month to counted)
+            prefs[monthCountsKey] = choices.entries.sortedBy { it.key }.joinToString(";") { "${it.key}=${if (it.value) 1 else 0}" }
+        }
+    }
+
+    private fun parseMonthCounts(encoded: String?): Map<java.time.YearMonth, Boolean> =
+        encoded.orEmpty().split(";").mapNotNull { part ->
+            val (month, value) = part.split("=").takeIf { it.size == 2 } ?: return@mapNotNull null
+            runCatching { java.time.YearMonth.parse(month) }.getOrNull()?.let { it to (value == "1") }
+        }.toMap()
 }

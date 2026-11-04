@@ -123,11 +123,17 @@ data class CategoryYear(
  * @property inProgress le mois en cours, s'il fait partie de l'année : il compte dans le total mais
  *   pas dans les moyennes ni les écarts au budget.
  */
-data class YearSpending(val year: Int, val months: List<MonthSpending>, val inProgress: YearMonth? = null) {
+data class YearSpending(
+    val year: Int,
+    val months: List<MonthSpending>,
+    val inProgress: YearMonth? = null,
+    /** Mois écartés des moyennes (voir excludedMonths) : comptés dans le total, pas dans les moyennes. */
+    val excluded: Set<YearMonth> = emptySet(),
+) {
     val tracked: List<MonthSpending> get() = months.filter { it.tracked }
 
-    /** Mois renseignés et terminés : la base des moyennes et des écarts. */
-    val complete: List<MonthSpending> get() = tracked.filter { it.month != inProgress }
+    /** Mois renseignés, terminés et comptés : la base des moyennes et des écarts. */
+    val complete: List<MonthSpending> get() = tracked.filter { it.month != inProgress && it.month !in excluded }
 
     val total: Money get() = tracked.sumOfMoney { it.total }
 
@@ -171,6 +177,7 @@ fun yearSpending(
     unsortedByMonth: Map<YearMonth, Money> = emptyMap(),
     outOfBudgetByMonth: Map<YearMonth, Money> = emptyMap(),
     toAccountsByMonth: Map<YearMonth, Money> = emptyMap(),
+    excluded: Set<YearMonth> = emptySet(),
 ): YearSpending {
     val current = YearMonth.from(today)
     val last = if (year == current.year) current.monthValue else if (year < current.year) 12 else 0
@@ -187,5 +194,5 @@ fun yearSpending(
             toAccountsByMonth[month] ?: Money.ZERO,
         )
     }
-    return YearSpending(year, months, inProgress = current.takeIf { it.year == year })
+    return YearSpending(year, months, inProgress = current.takeIf { it.year == year }, excluded = excluded)
 }

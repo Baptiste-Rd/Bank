@@ -110,11 +110,12 @@ fun dailySpendingHistory(
     current: YearMonth,
     trackingStart: YearMonth?,
     count: Int = 12,
+    excluded: Set<YearMonth> = emptySet(),
 ): List<MonthDailySpending> {
     val dailyIds = envelopes.filter { it.type == EnvelopeType.DAILY }.map { it.id }.toSet()
     return (1..count)
         .map { current.minusMonths(it.toLong()) }
-        .filter { trackingStart == null || !it.isBefore(trackingStart) }
+        .filter { (trackingStart == null || !it.isBefore(trackingStart)) && it !in excluded }
         .map { month ->
             MonthDailySpending(
                 month,

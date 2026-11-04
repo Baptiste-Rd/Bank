@@ -157,8 +157,8 @@ class BudgetRepository(
                 YearMonth.from(today).minusMonths(12).atDay(1),
                 YearMonth.from(today).minusMonths(1).atEndOfMonth(),
             ).map { rows -> rows.map { Spending(it.envelopeId, it.date, Money(it.amountCents), it.wholePeriod) } }
-            val startAndHabits = combine(trackingStart(today), history) { start, past ->
-                start to fr.baptiste.bank.domain.budget.dailyHabits(envelopes, past, today, start)
+            val startAndHabits = combine(trackingStart(today), history, excludedMonths) { start, past, excluded ->
+                start to fr.baptiste.bank.domain.budget.dailyHabits(envelopes, past, today, start, excluded)
             }
             combine(allocations, spendings, transfers, monthlyIncome, startAndHabits) { allocs, spent, moves, income, (start, habits) ->
                 computeDashboard(envelopes, allocs, spent, income, today, transfers = moves, trackingStart = start, habits = habits)
@@ -190,14 +190,15 @@ class BudgetRepository(
                 spendings,
                 transfers,
                 monthlyIncome,
-                trackingStart(today),
-            ) { allocs, spent, moves, income, start ->
+                combine(trackingStart(today), excludedMonths) { start, excluded -> start to excluded },
+            ) { allocs, spent, moves, income, (start, excluded) ->
                 // Un mois avant le début du suivi n'est pas « tout épargné » : il est absent. Le mois
                 // en cours reste toujours.
                 dates.filter { YearMonth.from(it) >= start || YearMonth.from(it) == YearMonth.now() }.map { date ->
                     MonthSavings(
                         month = YearMonth.from(date),
                         outlook = computeDashboard(active, allocs, spent, income, date, transfers = moves, trackingStart = start).savings,
+                        counted = YearMonth.from(date) !in excluded,
                     )
                 }
             }
@@ -216,7 +217,7 @@ class BudgetRepository(
                 rows.groupBy { it.envelopeId }.mapValues { (_, list) -> Money(list.sumOf { it.amountCents }) }
             }
         return combine(savingsHistory(end, end.monthValue), dashboard(end), spent) { months, board, byEnvelope ->
-            YearOverview(year, months, byEnvelope, board, months.size)
+            YearOverview(year, months, byEnvelope, board, months.count { it.counted })
         }
     }
 
@@ -401,7 +402,7 @@ class BudgetRepository(
             .filter { it.envelopeId == envelopeId }
             .map { it.date to Money(it.amountCents) }
         val since = listOfNotNull(trackingStart(today).first(), envelope?.start?.let { YearMonth.from(it) }).maxOrNull()
-        return fr.baptiste.bank.domain.budget.suggestedAmount(spent, frequency, today, since = since)
+        return fr.baptiste.bank.domain.budget.suggestedAmount(spent, frequency, today, since = since, excluded = excludedMonths.first())
     }
 
     /** Retire une enveloppe : elle n'a plus de période ensuite, mais reste dans les mois qu'elle a couverts. */
@@ -948,14 +949,20 @@ class BudgetRepository(
     }
 
     /**
-     * Début du suivi : le mois choisi par l'utilisateur, sinon le premier mois entier de données
-     * (voir defaultTrackingStart : un premier mois commencé le 27 est exclu). Avant lui, un mois
-     * est « non renseigné » : ni bilan, ni moyenne.
+     * Début du suivi : le mois choisi par l'utilisateur, sinon le premier mois avec une opération
+     * (sinon le mois de [today]). Avant lui, un mois est « non renseigné » : ni bilan, ni moyenne.
      */
     fun trackingStart(today: LocalDate = LocalDate.now()): Flow<YearMonth> =
         combine(settings.trackingStart, transactionDao.observeFirstDate()) { chosen, first ->
-            chosen ?: fr.baptiste.bank.domain.budget.defaultTrackingStart(first, today)
+            chosen ?: YearMonth.from(first ?: today)
         }
+
+    /** Mois écartés des moyennes : l'option de chaque mois, ou par défaut un mois incomplet (voir excludedMonths). */
+    val excludedMonths: Flow<Set<YearMonth>> = combine(settings.monthCounts, transactionDao.observeFirstDate()) { choices, first ->
+        fr.baptiste.bank.domain.budget.excludedMonths(choices, first)
+    }
+
+    suspend fun setMonthCounted(month: YearMonth, counted: Boolean) = settings.setMonthCounted(month, counted)
 
     /** Date de la première opération (null sans opération) : dit si le premier mois est incomplet. */
     fun firstOperationDate(): Flow<LocalDate?> = transactionDao.observeFirstDate()
@@ -994,11 +1001,12 @@ class BudgetRepository(
             rows.groupBy { YearMonth.from(it.date) }.mapValues { (_, list) -> Money(list.sumOf { it.amountCents }) }
         }
         val excluded = transactionDao.observeExcludedOutRows(from, to)
-        return combine(all, spendings, unsorted, excluded, trackingStart(today)) { envelopes, spent, toSort, out, start ->
+        val startAndExcluded = combine(trackingStart(today), excludedMonths) { start, months -> start to months }
+        return combine(all, spendings, unsorted, excluded, startAndExcluded) { envelopes, spent, toSort, out, (start, months) ->
             fun byMonth(rows: List<fr.baptiste.bank.data.local.ExcludedAmount>) =
                 rows.groupBy { YearMonth.from(it.date) }.mapValues { (_, list) -> Money(list.sumOf { it.amountCents }) }
             val (toAccounts, outOfBudget) = out.partition { it.toAccount }
-            yearSpending(year, today, start, envelopes, spent, toSort, byMonth(outOfBudget), byMonth(toAccounts))
+            yearSpending(year, today, start, envelopes, spent, toSort, byMonth(outOfBudget), byMonth(toAccounts), months)
         }
     }
 
@@ -1016,8 +1024,8 @@ class BudgetRepository(
         val all = combine(envelopes, archivedEnvelopes) { active, archived -> active + archived }
         val spendings = imputationDao.observeSpendings(from, to)
             .map { rows -> rows.map { Spending(it.envelopeId, it.date, Money(it.amountCents), it.wholePeriod) } }
-        return combine(all, spendings, trackingStart(today)) { envelopes, spent, start ->
-            fr.baptiste.bank.domain.budget.dailySpendingHistory(envelopes, spent, current, start)
+        return combine(all, spendings, trackingStart(today), excludedMonths) { envelopes, spent, start, excluded ->
+            fr.baptiste.bank.domain.budget.dailySpendingHistory(envelopes, spent, current, start, excluded = excluded)
         }
     }
 
@@ -1141,13 +1149,14 @@ class BudgetRepository(
         val spent = imputationDao.observeSpendings(month.minusMonths(1).atDay(1), month.atEndOfMonth())
         val year = combine(spendingYear(today.year, today), trackingStart(today)) { year, start -> year to start }
         return combine(year, spent, known) { (year, start), rows, all ->
+            val previous = month.minusMonths(1)
             val report = year.months.firstOrNull { it.month == month } ?: return@combine null
             // Même règle que le total du mois de l'analyse (countedSpendings), pour ce mois et le précédent.
             val spendings = rows.map { Spending(it.envelopeId, it.date, Money(it.amountCents), it.wholePeriod) }
             val counted = (fr.baptiste.bank.domain.budget.countedSpendings(month.minusMonths(1), all, spendings) +
                 fr.baptiste.bank.domain.budget.countedSpendings(month, all, spendings))
                 .map { it.date to it.amount }
-            fr.baptiste.bank.domain.budget.monthPace(month, today, counted, report.budget, previousTracked = month.minusMonths(1) >= start)
+            fr.baptiste.bank.domain.budget.monthPace(month, today, counted, report.budget, previousTracked = previous >= start && previous !in year.excluded)
         }
     }
 
@@ -1169,7 +1178,8 @@ class BudgetRepository(
 }
 
 /** Épargne d'un mois, pour l'historique. */
-data class MonthSavings(val month: YearMonth, val outlook: SavingsOutlook)
+/** Épargne d'un mois ; [counted] faux pour un mois écarté des moyennes (il ne compte pas dans l'année). */
+data class MonthSavings(val month: YearMonth, val outlook: SavingsOutlook, val counted: Boolean = true)
 
 /**
  * Bilan d'une année.
@@ -1184,7 +1194,7 @@ data class YearOverview(
     val monthsCounted: Int,
 ) {
     /** Épargne de l'année : réelle pour les mois passés, prévue pour le mois en cours. */
-    val savings: Money get() = months.fold(Money.ZERO) { total, month -> total + month.outlook.forecast }
+    val savings: Money get() = months.filter { it.counted }.fold(Money.ZERO) { total, month -> total + month.outlook.forecast }
 }
 
 /** Résultat d'une synchronisation : opérations nouvelles, rapprochées d'une saisie, rangées par une règle. */

@@ -124,6 +124,8 @@ fun GlassAnalysisContent(
     previousYear: YearSpending? = null,
     /** Rythme du mois en cours : la comparaison à la même date du mois précédent. */
     pace: fr.baptiste.bank.domain.budget.MonthPace? = null,
+    /** Option de chaque mois : le compter, ou non, dans les moyennes. */
+    onSetMonthCounted: (YearMonth, Boolean) -> Unit = { _, _ -> },
 ) {
     val period = if (showYear) AnalysisPeriod.YEAR else AnalysisPeriod.MONTH
     var expanded by rememberSaveable { mutableStateOf<String?>(null) }
@@ -132,6 +134,7 @@ fun GlassAnalysisContent(
     var asking by remember { mutableStateOf<MonthSpending?>(null) }
     val review by remember(month) { monthReview(month) }.collectAsState(initial = null)
     val current = YearMonth.now()
+    val excludedMonths = monthYear?.excluded ?: previousYear?.excluded ?: emptySet()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -151,7 +154,7 @@ fun GlassAnalysisContent(
                         // Habitude : la moyenne des mois renseignés précédents, sur 12 mois glissants au plus
                         // (l'année d'avant comprise en début d'année).
                         averages = (previousYear?.months.orEmpty() + monthYear?.months.orEmpty())
-                            .filter { it.tracked && it.month < month && !it.month.isBefore(month.minusMonths(12)) }.let { previous ->
+                            .filter { it.tracked && it.month !in excludedMonths && it.month < month && !it.month.isBefore(month.minusMonths(12)) }.let { previous ->
                             if (previous.isEmpty()) emptyMap() else report.categories.associate { category ->
                                 category.name to previous.fold(Money.ZERO) { sum, m ->
                                     sum + (m.categories.firstOrNull { it.name == category.name }?.spent ?: Money.ZERO)
@@ -159,6 +162,9 @@ fun GlassAnalysisContent(
                             }
                         },
                         report = report,
+                        counted = month !in excludedMonths,
+                        // L'option ne concerne qu'un mois terminé : le mois en cours n'entre pas dans les moyennes.
+                        onSetCounted = if (month < current) ({ counted -> onSetMonthCounted(month, counted) }) else null,
                         pace = pace?.takeIf { it.month == month && month == current },
                         expanded = expanded,
                         onToggle = { name -> expanded = if (expanded == name) null else name },
@@ -260,6 +266,8 @@ private fun monthName(month: YearMonth): String = month.month.getDisplayName(Tex
 /** Le mois : total, reste à trier, une barre par catégorie. */
 private fun LazyListScope.monthAnalysis(
     report: MonthSpending,
+    counted: Boolean = true,
+    onSetCounted: ((Boolean) -> Unit)? = null,
     /** Mois en cours seulement : on compare à la même date du mois précédent, pas au budget du mois entier. */
     pace: fr.baptiste.bank.domain.budget.MonthPace? = null,
     expanded: String?,
@@ -321,6 +329,7 @@ private fun LazyListScope.monthAnalysis(
                 )
             }
             if (report.unsorted.isPositive) UnsortedLine(report.unsorted, onSort)
+            if (onSetCounted != null) CountedLine(report.month, counted, onSetCounted)
         }
     }
     if (report.categories.isEmpty()) {
@@ -380,6 +389,28 @@ private fun LazyListScope.reviewSection(report: MonthSpending, review: String?, 
                 TextButton(onClick = onClear) { Text("Effacer") }
             }
         }
+    }
+}
+
+/**
+ * L'option du mois : le compter dans les moyennes (montants proposés, dépense habituelle, moyennes
+ * et épargne de l'année). Un mois incomplet est écarté par défaut, et le dit.
+ */
+@Composable
+private fun CountedLine(month: YearMonth, counted: Boolean, onChange: (Boolean) -> Unit) {
+    val first = LocalFirstOperationDate.current
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+        Column(Modifier.weight(1f)) {
+            Text("Compter dans les moyennes", style = MaterialTheme.typography.bodyMedium)
+            if (fr.baptiste.bank.domain.budget.isPartialFirstMonth(month, first) && first != null) {
+                Text(
+                    "Données à partir du ${first.dayOfMonth} ${monthName(month)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        androidx.compose.material3.Switch(checked = counted, onCheckedChange = onChange)
     }
 }
 

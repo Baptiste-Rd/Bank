@@ -155,7 +155,9 @@ fun SavingsBarsChart(history: List<MonthSavings>, target: Money, accent: Color, 
                 val current = index == values.lastIndex
                 val zero = y(0)
                 val valueY = y(cents)
-                val color = (if (cents < 0) negative else accent).copy(alpha = if (current) 0.45f else 0.9f)
+                // Mois en cours, ou mois écarté des moyennes : atténué.
+                val faded = current || !history[index].counted
+                val color = (if (cents < 0) negative else accent).copy(alpha = if (faded) 0.3f else 0.9f)
                 drawRoundRect(
                     color = color,
                     topLeft = Offset(slot * index + (slot - barWidth) / 2, minOf(zero, valueY)),

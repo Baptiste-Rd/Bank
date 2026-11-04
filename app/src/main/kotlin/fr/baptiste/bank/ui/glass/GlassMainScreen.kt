@@ -365,6 +365,10 @@ fun GlassMainScreen(
                             },
                             onSort = { spendingView = SpendingTabView.LIST },
                             envelopeOperations = viewModel::envelopeMonthOperations,
+                            onSetMonthCounted = { month, counted ->
+                                viewModel.setMonthCounted(month, counted)
+                                controller.notify(if (counted) "${month.label.replaceFirstChar { it.uppercase() }} compté dans les moyennes." else "${month.label.replaceFirstChar { it.uppercase() }} écarté des moyennes.")
+                            },
                             showYear = false,
                             onShowMonth = {},
                             monthReview = viewModel::monthReview,
