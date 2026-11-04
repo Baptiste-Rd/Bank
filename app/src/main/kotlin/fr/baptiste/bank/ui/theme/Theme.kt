@@ -98,11 +98,12 @@ private val GlassDarkColors = DarkColors.copy(
     onSurface = Color(0xFFFFFFFF),
     onBackground = Color(0xFFFFFFFF),
     onSurfaceVariant = Color(0xFFC3CDE6),
-    // Fenêtres et menus : bleu nuit un peu plus clair que le fond, presque opaque.
-    surfaceContainerLow = Color(0xF5111D3F),
-    surfaceContainer = Color(0xF5142247),
-    surfaceContainerHigh = Color(0xF517264E),
-    surfaceContainerHighest = Color(0xF51C2D58),
+    // Fenêtres et menus : bleu nuit un peu plus clair que le fond, opaque (à 96 %, le texte blanc
+    // de l'écran du dessous se devinait à travers les réglages).
+    surfaceContainerLow = Color(0xFF111D3F),
+    surfaceContainer = Color(0xFF142247),
+    surfaceContainerHigh = Color(0xFF17264E),
+    surfaceContainerHighest = Color(0xFF1C2D58),
     surfaceVariant = Color(0x29FFFFFF),
     outline = Color(0xFF8E9BBA),
     outlineVariant = Color(0x29FFFFFF),

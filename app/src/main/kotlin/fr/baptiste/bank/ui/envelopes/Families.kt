@@ -2,7 +2,6 @@ package fr.baptiste.bank.ui.envelopes
 
 import androidx.compose.ui.graphics.Color
 import fr.baptiste.bank.domain.model.EnvelopeType
-import fr.baptiste.bank.ui.theme.envelopeTypeColor
 
 /**
  * Les quatre familles montrées à l'écran, à la place des six types du calcul (comme Monarch :
@@ -10,10 +9,11 @@ import fr.baptiste.bank.ui.theme.envelopeTypeColor
  * se lisent en détail sous le nom de chaque enveloppe.
  */
 enum class EnvelopeFamily(val label: String, val color: Color) {
-    DAILY("Au quotidien", envelopeTypeColor(EnvelopeType.DAILY)),
-    FIXED("Charges fixes", envelopeTypeColor(EnvelopeType.FIXED)),
-    PROVISIONS("Rares et ponctuels", envelopeTypeColor(EnvelopeType.ANNUAL)),
-    SAVINGS("Épargne", envelopeTypeColor(EnvelopeType.SAVINGS)),
+    // Couleurs du prototype testé (barre du plan du mois et légende).
+    DAILY("Au quotidien", Color(0xFF7DB4FF)),
+    FIXED("Charges fixes", Color(0xFFC9B47C)),
+    PROVISIONS("Rares et ponctuels", Color(0xFFF28DB2)),
+    SAVINGS("Épargne", Color(0xFF6EE7A0)),
 }
 
 val EnvelopeType.family: EnvelopeFamily
