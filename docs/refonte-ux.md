@@ -156,3 +156,13 @@ Un chiffre affiché à plusieurs endroits vient d'une seule fonction du module `
 | Moyennes et écarts de l'année | `YearSpending.complete` : mois terminés seulement | Analyse, Année |
 | Montant proposé | `suggestedAmount` sur l'historique de l'enveloppe ; rien pour une nouvelle | Formulaire d'enveloppe |
 | À trier | `observeUnsortedCount` moins le salaire reconnu | Accueil, onglet Dépenses |
+
+## Encarts : le modèle du prototype
+
+Chaque carte suit la même règle : un chiffre clé, une ligne d'aide au plus, le reste derrière ⓘ ou un repli.
+
+- **Ligne d'enveloppe** : nom et reste (euros ronds), une barre, une ligne « X € sur Y € » ou une puce d'état. Aucun bouton dans la ligne ; les lignes sont plates dans leur famille (plus de groupe par catégorie dans Budget).
+- **Fiche d'enveloppe** : le reste en grand, une ligne « dépensé sur disponible · période », une puce si l'enveloppe dérape, « Ajouter de l'argent » seulement dans ce cas, Ajouter et Retirer, les dépenses. Le détail (Budget, Ajouts, Dépensé, Reste), les périodes passées et les ajouts et retraits sont repliés dans « Historique ».
+- **« Couvrir » devient « Ajouter de l'argent »** : la fenêtre dit combien il manque, d'où vient l'argent et ce que devient le reste du mois. Le bouton n'existe que dans la fiche.
+- **Formulaire d'enveloppe** : Nom, C'est pour, Combien, Catégorie (et la remise à zéro pour un budget rare). Le départ, le rythme, la suite d'un budget rare et la protection sont dans « Plus d'options ».
+- **Plan du mois** : la barre et sa légende seulement ; « Essayer un plan » vit dans Épargne.
