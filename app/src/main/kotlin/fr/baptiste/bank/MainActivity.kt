@@ -12,11 +12,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import fr.baptiste.bank.data.DemoData
-import fr.baptiste.bank.data.UiStyle
 import fr.baptiste.bank.ui.BudgetViewModel
 import fr.baptiste.bank.domain.budget.plannedPurchase
 import fr.baptiste.bank.domain.money.Money
-import fr.baptiste.bank.ui.ClassicMainScreen
 import fr.baptiste.bank.ui.OpenDialog
 import fr.baptiste.bank.ui.Tab
 import fr.baptiste.bank.ui.glass.BudgetView
@@ -45,7 +43,6 @@ class MainActivity : ComponentActivity() {
             container.enableDemo()
             lifecycleScope.launch { DemoData.seedIfEmpty(container.database, container.budgetRepository) }
         }
-        val forcedStyle = intent.getStringExtra(EXTRA_STYLE)?.let { name -> UiStyle.entries.firstOrNull { it.name == name } }
         val initialTab = intent.getStringExtra(EXTRA_TAB)?.let { name -> Tab.entries.firstOrNull { it.name == name } }
             ?: Tab.HOME
         // Fenêtres ouvrables au lancement, pour les captures : la connexion bancaire, un achat prévu.
@@ -118,51 +115,34 @@ class MainActivity : ComponentActivity() {
         val settings = container.settingsRepository
 
         setContent {
-            val savedStyle by settings.uiStyle.collectAsState(initial = null)
-            val style = forcedStyle ?: savedStyle
-            val scope = rememberCoroutineScope()
             val budgetViewModel: BudgetViewModel = viewModel(factory = BudgetViewModel.Factory)
             val updateViewModel: UpdateViewModel = viewModel(factory = UpdateViewModel.Factory)
-            val onStyleChange: (UiStyle) -> Unit = { scope.launch { settings.setUiStyle(it) } }
             // Captures : se placer quelques mois en arrière dans Budget et Épargne.
             LaunchedEffect(Unit) { repeat(monthsBack) { budgetViewModel.previousMonth() } }
             // L'interface verre est toujours sombre : icônes de la barre d'état en blanc.
-            LaunchedEffect(style) {
-                if (style == UiStyle.GLASS) {
-                    enableEdgeToEdge(
-                        statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
-                        navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
-                    )
-                } else if (style == UiStyle.CLASSIC) {
-                    enableEdgeToEdge()
-                }
+            LaunchedEffect(Unit) {
+                enableEdgeToEdge(
+                    statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+                    navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+                )
             }
-            when (style) {
-                // Premier instant, avant la lecture du réglage : rien à afficher.
-                null -> Unit
-                UiStyle.GLASS -> GlassTheme {
-                    GlassMainScreen(
-                        budgetViewModel,
-                        updateViewModel,
-                        onStyleChange,
-                        initialTab,
-                        initialDialog,
-                        initialBudgetView,
-                        initialTuningOpen,
-                        initialSpendingView,
-                        initialSheet,
-                    )
-                }
-                UiStyle.CLASSIC -> BankTheme {
-                    ClassicMainScreen(budgetViewModel, updateViewModel, onStyleChange, initialTab, initialDialog)
-                }
+            GlassTheme {
+                GlassMainScreen(
+                    budgetViewModel,
+                    updateViewModel,
+                    initialTab,
+                    initialDialog,
+                    initialBudgetView,
+                    initialTuningOpen,
+                    initialSpendingView,
+                    initialSheet,
+                )
             }
         }
     }
 
     private companion object {
         const val EXTRA_DEMO = "demo"
-        const val EXTRA_STYLE = "style"
         const val EXTRA_TAB = "tab"
         const val EXTRA_DIALOG = "dialog"
         const val EXTRA_SHEET = "sheet"

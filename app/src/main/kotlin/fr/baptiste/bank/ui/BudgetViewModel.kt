@@ -334,6 +334,7 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
 
     /** Début du suivi : avant, les mois sont « non renseignés ». */
     val trackingStart: StateFlow<YearMonth?> = repository.trackingStart().asState(null)
+    val firstOperationDate: StateFlow<java.time.LocalDate?> = repository.firstOperationDate().asState(null)
 
     fun setTrackingStart(month: YearMonth?) = perform { repository.setTrackingStart(month) }
 

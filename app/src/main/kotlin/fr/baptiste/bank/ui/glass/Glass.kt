@@ -101,19 +101,19 @@ object Glass {
     val BaseTop = Color(0xFF040A1C)
     val BaseBottom = Color(0xFF081534)
 
-    /** Halos lents et discrets qui donnent de la profondeur au fond, sans l'éclaircir. */
+    /**
+     * Halos du prototype testé : quatre taches localisées, pas un voile sur tout l'écran (des halos
+     * trop grands éclaircissaient le fond et les cartes ne s'en détachaient plus).
+     */
     val Glows = listOf(
-        Color(0xFF1D4ED8).copy(alpha = 0.34f),
-        Color(0xFF4338CA).copy(alpha = 0.24f),
-        Color(0xFF0EA5E9).copy(alpha = 0.10f),
-        Color(0xFF1E3A8A).copy(alpha = 0.40f),
-        // Deux halos plus petits et plus nets : la lentille a ainsi des dégradés à courber.
-        Color(0xFF3B82F6).copy(alpha = 0.22f),
-        Color(0xFF6366F1).copy(alpha = 0.18f),
+        Color(0xFF1D4ED8).copy(alpha = 0.42f),
+        Color(0xFF4338CA).copy(alpha = 0.32f),
+        Color(0xFF0EA5E9).copy(alpha = 0.16f),
+        Color(0xFF1E3A8A).copy(alpha = 0.50f),
     )
 
     /*
-     * Voiles des cartes (0,075 et 0,11), des éléments flottants (0,10), de l'indicateur (0,12),
+     * Voile blanc des cartes (nul par défaut, le fond bleu nuit suffit), des éléments flottants (0,10), de l'indicateur (0,12),
      * arrondi (18 dp) et ombre des libellés (0,55, qui les garde lisibles quand un contenu clair
      * passe dessous) : dans GlassTuning, réglables depuis le menu développeur.
      */
@@ -131,13 +131,12 @@ private data class Glow(
     val phase: Float,
 )
 
+/* Centres en fraction de l'écran, rayons en fraction de sa largeur (positions du prototype). */
 private val glows = listOf(
-    Glow(0.10f, 0.08f, 0.70f, 0.08f, 0.05f, 0f),
-    Glow(0.95f, 0.35f, 0.60f, 0.06f, 0.08f, 1.7f),
-    Glow(0.25f, 0.70f, 0.65f, 0.10f, 0.06f, 3.1f),
-    Glow(0.80f, 0.95f, 0.55f, 0.07f, 0.05f, 4.4f),
-    Glow(0.70f, 0.55f, 0.28f, 0.12f, 0.10f, 2.3f),
-    Glow(0.20f, 0.35f, 0.24f, 0.10f, 0.12f, 5.2f),
+    Glow(0.18f, 0.15f, 0.49f, 0.06f, 0.03f, 0f),
+    Glow(0.92f, 0.46f, 0.44f, 0.05f, 0.04f, 1.7f),
+    Glow(0.23f, 0.73f, 0.38f, 0.06f, 0.03f, 3.1f),
+    Glow(0.87f, 0.94f, 0.54f, 0.05f, 0.03f, 4.4f),
 )
 
 /**
@@ -157,7 +156,7 @@ fun LiquidBackground(modifier: Modifier = Modifier) {
     val strength = LocalGlassTuning.current.glowStrength
     Canvas(modifier.fillMaxSize()) {
         drawRect(Brush.verticalGradient(listOf(Glass.BaseTop, Glass.BaseBottom)))
-        val unit = size.maxDimension
+        val unit = size.width
         glows.forEachIndexed { index, glow ->
             val base = Glass.Glows[index % Glass.Glows.size]
             val color = base.copy(alpha = (base.alpha * strength).coerceIn(0f, 1f))
@@ -166,8 +165,9 @@ fun LiquidBackground(modifier: Modifier = Modifier) {
                 y = size.height * (glow.y + glow.driftY * cos(time + glow.phase)),
             )
             val radius = unit * glow.radius
+            // Comme radial-gradient(couleur, transparent 70 %) : le halo s'éteint avant son bord.
             drawCircle(
-                brush = Brush.radialGradient(listOf(color, color.copy(alpha = 0f)), center, radius),
+                brush = Brush.radialGradient(0f to color, 0.7f to color.copy(alpha = 0f), center = center, radius = radius),
                 radius = radius,
                 center = center,
             )
@@ -201,8 +201,9 @@ private class GlassOptics(
  */
 private val GlassTuning.cardOptics get() = GlassOptics(maxOf(cardBlur, 24f).dp, 0.dp, 0.dp)
 
-/** Voile des cartes de contenu (matériau épais). */
-private val CardDim = Color(0xFF0A1A45).copy(alpha = 0.53f)
+/** Fond des cartes de contenu, comme le prototype : bleu nuit opaque à 62 % (74 % mise en avant). */
+private val CardDim = Color(0xFF0A1A45).copy(alpha = 0.62f)
+private val CardDimStrong = Color(0xFF0A1A45).copy(alpha = 0.74f)
 private val GlassTuning.barOptics get() = GlassOptics(barBlur.dp, barLensHeight.dp, barLensAmount.dp)
 private val GlassTuning.buttonOptics get() = GlassOptics(buttonBlur.dp, buttonLensHeight.dp, buttonLensAmount.dp)
 
@@ -226,7 +227,8 @@ private fun Modifier.glass(
         backdrop = backdrop,
         shape = { if (cornerRadius == null) Capsule() else RoundedRectangle(cornerRadius) },
         effects = {
-            if (tuning.vibrancy) vibrancy()
+            // Pas de saturation sous une carte : elle ravivait les halos et éclaircissait la carte.
+            if (tuning.vibrancy && dim == null) vibrancy()
             if (optics.blur > 0.dp) blur(optics.blur.toPx())
             if (optics.refractionHeight > 0.dp && optics.refractionAmount > 0.dp) {
                 lens(
@@ -271,7 +273,7 @@ fun GlassCard(
                 backdrop = backdrop,
                 tint = tint ?: tuning.surface(strong),
                 optics = tuning.cardOptics,
-                dim = CardDim,
+                dim = if (strong) CardDimStrong else CardDim,
                 tuning = tuning,
                 cornerRadius = tuning.corner,
             )

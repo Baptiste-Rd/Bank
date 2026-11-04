@@ -41,7 +41,6 @@ import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import fr.baptiste.bank.R
 import fr.baptiste.bank.banking.BankViewModel
-import fr.baptiste.bank.data.UiStyle
 import fr.baptiste.bank.domain.budget.EnvelopeLine
 import fr.baptiste.bank.ui.AppDialogs
 import fr.baptiste.bank.ui.BudgetViewModel
@@ -76,7 +75,6 @@ fun GlassTheme(content: @Composable () -> Unit) {
 fun GlassMainScreen(
     viewModel: BudgetViewModel,
     updateViewModel: UpdateViewModel,
-    onStyleChange: (UiStyle) -> Unit,
     initialTab: Tab = Tab.HOME,
     initialDialog: OpenDialog? = null,
     initialBudgetView: BudgetView = BudgetView.MONTH,
@@ -116,6 +114,7 @@ fun GlassMainScreen(
     val currentAccount by viewModel.currentAccount.collectAsStateWithLifecycle()
     val savingsGoals by viewModel.savingsGoals.collectAsStateWithLifecycle()
     val trackingStart by viewModel.trackingStart.collectAsStateWithLifecycle()
+    val firstOperationDate by viewModel.firstOperationDate.collectAsStateWithLifecycle()
     val monthTransfers by remember(selectedMonth) { viewModel.transfersToAccounts(selectedMonth) }
         .collectAsStateWithLifecycle(null)
     val aliases by viewModel.aliases.collectAsStateWithLifecycle()
@@ -195,6 +194,7 @@ fun GlassMainScreen(
         LocalGlassTuning provides tuning,
         LocalTabListState provides listState,
         LocalMonthNavigation provides monthNavigation,
+        LocalFirstOperationDate provides firstOperationDate,
     ) {
         GlassSurfaceColors(onBackground = true) {
         Column(Modifier.fillMaxSize()) {
@@ -549,10 +549,6 @@ fun GlassMainScreen(
                             settingsOpen = false
                             draftTuning = savedTuning
                             tuningOpen = true
-                        }),
-                        SettingsEntry("Passer au style classique", onClick = {
-                            settingsOpen = false
-                            onStyleChange(UiStyle.CLASSIC)
                         }),
                     ),
                     version = "Bank · build ${fr.baptiste.bank.BuildConfig.VERSION_CODE}",

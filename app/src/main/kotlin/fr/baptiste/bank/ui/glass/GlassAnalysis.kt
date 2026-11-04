@@ -52,6 +52,7 @@ import fr.baptiste.bank.ui.format.formatted
 import fr.baptiste.bank.ui.format.summary
 import fr.baptiste.bank.ui.format.label
 import fr.baptiste.bank.ui.theme.BankTheme
+import fr.baptiste.bank.ui.theme.categoryColor
 import kotlinx.coroutines.flow.Flow
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -407,6 +408,7 @@ private fun CategoryRow(category: CategorySpent, scale: Long, expanded: Boolean,
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.padding(end = 10.dp).size(10.dp).clip(CircleShape).background(categoryColor(category.name)))
             Text(
                 category.name,
                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
@@ -423,7 +425,7 @@ private fun CategoryRow(category: CategorySpent, scale: Long, expanded: Boolean,
                 modifier = Modifier.padding(start = 4.dp).size(18.dp).graphicsLayer { rotationZ = if (expanded) 90f else 0f },
             )
         }
-        SpendBar(category.spent, category.budget, scale)
+        SpendBar(category.spent, category.budget, scale, categoryColor(category.name))
         Text(
             buildString {
                 append(if (category.budget.isPositive) "sur ${category.budget.formatted()}" else "hors budget du mois")
@@ -438,11 +440,13 @@ private fun CategoryRow(category: CategorySpent, scale: Long, expanded: Boolean,
 
 @Composable
 private fun EnvelopeSpentRow(line: EnvelopeSpent, onClick: () -> Unit) {
+    // Dernier niveau : pas de flèche. On ne le touche que pour voir ses opérations, s'il en a.
+    val hasOperations = line.spent.isPositive
     Row(
         Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick, role = Role.Button, onClickLabel = "Voir les opérations")
-            .padding(start = 16.dp, top = 8.dp, bottom = 8.dp),
+            .then(if (hasOperations) Modifier.clickable(onClick = onClick, role = Role.Button, onClickLabel = "Voir les opérations") else Modifier)
+            .padding(start = 20.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
@@ -460,7 +464,6 @@ private fun EnvelopeSpentRow(line: EnvelopeSpent, onClick: () -> Unit) {
             style = MaterialTheme.typography.bodyMedium,
             color = if (line.budget.isPositive && line.spent > line.budget) BankTheme.status.over else MaterialTheme.colorScheme.onSurface,
         )
-        Chevron()
     }
 }
 
@@ -469,7 +472,7 @@ private fun EnvelopeSpentRow(line: EnvelopeSpent, onClick: () -> Unit) {
  * dépasse de la barre à l'endroit du budget.
  */
 @Composable
-private fun SpendBar(spent: Money, budget: Money, scale: Long) {
+private fun SpendBar(spent: Money, budget: Money, scale: Long, color: Color = MonthBarColor) {
     val track = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f)
     val over = BankTheme.status.over
     val tick = MaterialTheme.colorScheme.onSurface
@@ -483,9 +486,9 @@ private fun SpendBar(spent: Money, budget: Money, scale: Long) {
         if (budget.isPositive && spent > budget) {
             val budgetX = x(budget.cents)
             drawRoundRect(over, topLeft = Offset(0f, top), size = Size(spentX, barHeight), cornerRadius = radius)
-            drawRoundRect(MonthBarColor, topLeft = Offset(0f, top), size = Size(budgetX, barHeight), cornerRadius = radius)
+            drawRoundRect(color, topLeft = Offset(0f, top), size = Size(budgetX, barHeight), cornerRadius = radius)
         } else if (spentX > 0f) {
-            drawRoundRect(MonthBarColor, topLeft = Offset(0f, top), size = Size(spentX.coerceAtLeast(barHeight), barHeight), cornerRadius = radius)
+            drawRoundRect(color, topLeft = Offset(0f, top), size = Size(spentX.coerceAtLeast(barHeight), barHeight), cornerRadius = radius)
         }
         if (budget.isPositive) {
             val budgetX = x(budget.cents).coerceIn(1.dp.toPx(), size.width - 1.dp.toPx())

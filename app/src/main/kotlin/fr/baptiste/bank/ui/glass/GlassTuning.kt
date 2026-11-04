@@ -20,8 +20,8 @@ import java.util.Locale
 /** Réglages du verre. Les épaisseurs sont en dp, les opacités entre 0 et 1, la teinte en degrés. */
 data class GlassTuning(
     /** Voile blanc des cartes, et des cartes mises en avant. */
-    val cardAlpha: Float = 0.075f,
-    val cardStrongAlpha: Float = 0.11f,
+    val cardAlpha: Float = 0f,
+    val cardStrongAlpha: Float = 0f,
     /** Voile des boutons et de la barre flottante. */
     val floatingAlpha: Float = 0.10f,
     /** Voile de l'indicateur de la barre d'onglets. */

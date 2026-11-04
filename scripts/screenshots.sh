@@ -41,7 +41,6 @@ for theme in clair sombre; do
   for tab in HOME BUDGET SAVINGS OPERATIONS; do
     shoot GLASS "$tab" "$theme"
   done
-  shoot CLASSIC HOME "$theme"
 done
 
 # Mouvement : une courte vidéo de l'interface verre (changement d'onglet, défilement), pour

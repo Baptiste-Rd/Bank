@@ -1,5 +1,7 @@
 package fr.baptiste.bank.ui.glass
 
+import fr.baptiste.bank.domain.model.category
+import fr.baptiste.bank.ui.theme.categoryColor
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -269,7 +271,7 @@ private fun LazyListScope.monthContent(
                 EnvelopeRow(
                     line,
                     onClick = if (readOnly) null else ({ onOpen(line) }),
-                    accent = envelopeTypeColor(line.envelope.type),
+                    accent = categoryColor(line.envelope.category),
                 )
             }
         }

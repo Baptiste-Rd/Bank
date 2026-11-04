@@ -948,13 +948,17 @@ class BudgetRepository(
     }
 
     /**
-     * Début du suivi : le mois choisi par l'utilisateur, sinon le premier mois avec une opération
-     * (sinon le mois de [today]). Avant lui, un mois est « non renseigné » : ni bilan, ni moyenne.
+     * Début du suivi : le mois choisi par l'utilisateur, sinon le premier mois entier de données
+     * (voir defaultTrackingStart : un premier mois commencé le 27 est exclu). Avant lui, un mois
+     * est « non renseigné » : ni bilan, ni moyenne.
      */
     fun trackingStart(today: LocalDate = LocalDate.now()): Flow<YearMonth> =
         combine(settings.trackingStart, transactionDao.observeFirstDate()) { chosen, first ->
-            chosen ?: YearMonth.from(first ?: today)
+            chosen ?: fr.baptiste.bank.domain.budget.defaultTrackingStart(first, today)
         }
+
+    /** Date de la première opération (null sans opération) : dit si le premier mois est incomplet. */
+    fun firstOperationDate(): Flow<LocalDate?> = transactionDao.observeFirstDate()
 
     suspend fun setTrackingStart(month: YearMonth?) = settings.setTrackingStart(month)
 

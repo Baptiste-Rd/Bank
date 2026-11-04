@@ -14,9 +14,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 
-/** Style de l'interface, réglable depuis le menu ⋮. */
-enum class UiStyle { GLASS, CLASSIC }
-
 /**
  * Réglages simples (clé / valeur) stockés avec DataStore.
  * Ils n'ont pas leur place dans la base relationnelle : une seule valeur, pas de relation.
@@ -72,18 +69,7 @@ class SettingsRepository(context: Context, storeName: String = "settings") {
         return salt
     }
 
-    private val uiStyleKey = stringPreferencesKey("ui_style")
-
-    /** Liquid Glass par défaut ; le style classique reste disponible depuis le menu. */
-    val uiStyle: Flow<UiStyle> = settingsStore.data.map { preferences ->
-        preferences[uiStyleKey]?.let { saved -> UiStyle.entries.firstOrNull { it.name == saved } } ?: UiStyle.GLASS
-    }
-
-    suspend fun setUiStyle(style: UiStyle) {
-        settingsStore.edit { it[uiStyleKey] = style.name }
-    }
-
-    private val glassTuningKey = stringPreferencesKey("glass_tuning")
+    private val glassTuningKey = stringPreferencesKey("glass_tuning_v2")
 
     /** Réglages du verre choisis dans le menu développeur (« clé=valeur;... »), ou null. */
     val glassTuning: Flow<String?> = settingsStore.data.map { it[glassTuningKey] }

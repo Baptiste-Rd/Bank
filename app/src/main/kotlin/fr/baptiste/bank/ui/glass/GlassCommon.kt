@@ -223,22 +223,33 @@ internal fun SegmentedToggle(options: List<String>, selected: Int, onSelect: (In
     }
 }
 
+/** Date de la première opération : dit si un mois non renseigné est le mois incomplet du début. */
+internal val LocalFirstOperationDate = androidx.compose.runtime.staticCompositionLocalOf<java.time.LocalDate?> { null }
+
 /**
  * Mois avant le début du suivi : rien n'y a été enregistré, donc ni bilan ni épargne à montrer
- * (un mois vide passerait pour un mois « tout épargné »). On peut l'inclure au suivi.
+ * (un mois vide passerait pour un mois « tout épargné »). On peut l'inclure au suivi. Le mois
+ * incomplet du début des données le dit, avec sa date.
  */
 @Composable
 internal fun NotTrackedCard(month: java.time.YearMonth, start: java.time.YearMonth, onTrack: () -> Unit) {
+    val first = LocalFirstOperationDate.current
+    val partial = fr.baptiste.bank.domain.budget.isPartialFirstMonth(month, first)
+    val monthName = month.month.getDisplayName(java.time.format.TextStyle.FULL_STANDALONE, Locale.FRANCE)
     GlassCard(contentPadding = 16.dp) {
-        Text("Mois non renseigné", style = MaterialTheme.typography.titleMedium)
+        Text(if (partial) "Mois incomplet" else "Mois non renseigné", style = MaterialTheme.typography.titleMedium)
         Text(
-            "Suivi commencé en ${start.month.getDisplayName(java.time.format.TextStyle.FULL_STANDALONE, Locale.FRANCE)} " +
-                "${start.year} : ce mois ne compte nulle part.",
+            if (partial && first != null) {
+                "Tes données commencent le ${first.dayOfMonth} $monthName : ce mois ne compte dans aucune moyenne."
+            } else {
+                "Suivi commencé en ${start.month.getDisplayName(java.time.format.TextStyle.FULL_STANDALONE, Locale.FRANCE)} " +
+                    "${start.year} : ce mois ne compte nulle part."
+            },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         androidx.compose.material3.TextButton(onClick = onTrack, modifier = Modifier.padding(top = 4.dp)) {
-            Text("Commencer le suivi en ${month.month.getDisplayName(java.time.format.TextStyle.FULL_STANDALONE, Locale.FRANCE)}")
+            Text(if (partial) "Le compter quand même" else "Commencer le suivi en $monthName")
         }
     }
 }

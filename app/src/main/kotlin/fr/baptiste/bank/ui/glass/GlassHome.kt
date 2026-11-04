@@ -1,5 +1,7 @@
 package fr.baptiste.bank.ui.glass
 
+import fr.baptiste.bank.domain.model.category
+import fr.baptiste.bank.ui.theme.categoryColor
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -154,7 +156,7 @@ fun GlassHomeContent(
                 GlassCard(contentPadding = 16.dp, verticalPadding = 4.dp) {
                     watched.forEachIndexed { index, line ->
                         if (index > 0) RowDivider(0.dp)
-                        EnvelopeRow(line, onClick = { onOpenEnvelope(line) }, onCover = { onCover(line) })
+                        EnvelopeRow(line, onClick = { onOpenEnvelope(line) }, accent = categoryColor(line.envelope.category))
                     }
                 }
             }

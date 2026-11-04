@@ -21,7 +21,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import fr.baptiste.bank.R
 import fr.baptiste.bank.banking.BankViewModel
 import fr.baptiste.bank.data.local.OperationRow
-import fr.baptiste.bank.data.UiStyle
 import fr.baptiste.bank.domain.budget.TransferLeg
 import fr.baptiste.bank.domain.budget.coveragePlan
 import fr.baptiste.bank.domain.budget.plannedPurchase
@@ -161,86 +160,6 @@ fun rememberAppController(initialTab: Tab = Tab.HOME, initialDialog: OpenDialog?
     val controller = remember { AppController(savedTab, snackbar, scope).also { it.dialog = initialDialog } }
     LaunchedEffect(controller.tab) { savedTab = controller.tab }
     return controller
-}
-
-/** Entrées du menu ⋮, identiques dans les deux styles. */
-@Composable
-fun AppMenuItems(
-    controller: AppController,
-    viewModel: BudgetViewModel,
-    updateAvailable: Boolean,
-    style: UiStyle,
-    onStyleChange: (UiStyle) -> Unit,
-    onClose: () -> Unit,
-    /** Menu développeur : réglages du verre (style Liquid Glass seulement). */
-    onOpenTuning: (() -> Unit)? = null,
-) {
-    val salary by viewModel.salary.collectAsStateWithLifecycle()
-    DropdownMenuItem(
-        text = { Text(if (salary != null) "Salaire : lu à la banque" else "Salaire : à confirmer") },
-        onClick = {
-            onClose()
-            controller.dialog = OpenDialog.Income
-        },
-    )
-    DropdownMenuItem(
-        text = { Text("Banque et synchronisation") },
-        onClick = {
-            onClose()
-            controller.dialog = OpenDialog.Bank
-        },
-    )
-    DropdownMenuItem(
-        text = { Text("Contrôle avec Claude") },
-        onClick = {
-            onClose()
-            controller.dialog = OpenDialog.ClaudeControl()
-        },
-    )
-    DropdownMenuItem(
-        text = { Text("Vérifier les dates") },
-        onClick = {
-            onClose()
-            controller.dialog = OpenDialog.DateCheck
-        },
-    )
-    DropdownMenuItem(
-        text = { Text("Ajouts et retraits") },
-        onClick = {
-            onClose()
-            controller.dialog = OpenDialog.Journal
-        },
-    )
-    DropdownMenuItem(
-        text = {
-            Text(if (style == UiStyle.GLASS) "Passer au style classique" else "Passer au style Liquid Glass")
-        },
-        onClick = {
-            onClose()
-            onStyleChange(if (style == UiStyle.GLASS) UiStyle.CLASSIC else UiStyle.GLASS)
-        },
-    )
-    if (onOpenTuning != null) {
-        DropdownMenuItem(
-            text = { Text("Réglages du verre (développeur)") },
-            onClick = {
-                onClose()
-                onOpenTuning()
-            },
-        )
-    }
-    DropdownMenuItem(
-        text = { Text(if (updateAvailable) "Nouvelle version disponible" else "Mises à jour") },
-        trailingIcon = if (updateAvailable) {
-            { Badge() }
-        } else {
-            null
-        },
-        onClick = {
-            onClose()
-            controller.dialog = OpenDialog.Updates
-        },
-    )
 }
 
 /** Toutes les fenêtres de l'app, ouvertes selon [AppController.dialog]. */

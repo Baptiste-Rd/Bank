@@ -269,3 +269,32 @@ fun BankTheme(
         )
     }
 }
+
+/**
+ * Couleur d'une catégorie, la même partout (Budget, Dépenses, recherche) : celles du prototype pour
+ * les catégories de départ, puis une palette fixe choisie d'après le nom pour les autres. Aucune
+ * n'est l'ambre ou le rouge des statuts, et le nom est toujours écrit à côté (WCAG 1.4.1).
+ */
+private val knownCategoryColors = mapOf(
+    "nourriture" to Color(0xFFF6A04D),
+    "transports" to Color(0xFF5EC8C0),
+    "loisirs" to Color(0xFF9B87F5),
+    "logement" to Color(0xFF7DB4FF),
+    "santé" to Color(0xFFF28DB2),
+    "abonnements" to Color(0xFFC9B47C),
+    "voyages" to Color(0xFF6EE7A0),
+    "épargne" to Color(0xFFA7F3C8),
+    "shopping" to Color(0xFFE879F9),
+    "cadeaux" to Color(0xFFFDA4AF),
+    "autres" to Color(0xFFAEBAD6),
+)
+
+private val otherCategoryColors = listOf(
+    Color(0xFF38BDF8), Color(0xFFA3E635), Color(0xFFC4B5FD), Color(0xFF2DD4BF),
+    Color(0xFFF9A8D4), Color(0xFF93C5FD), Color(0xFFD8B4FE), Color(0xFF86EFAC),
+)
+
+fun categoryColor(name: String): Color {
+    val key = name.trim().lowercase(java.util.Locale.FRANCE)
+    return knownCategoryColors[key] ?: otherCategoryColors[Math.floorMod(key.hashCode(), otherCategoryColors.size)]
+}
