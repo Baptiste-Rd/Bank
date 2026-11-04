@@ -8,8 +8,11 @@ carte mentale, autocritique) est dans le document de refonte partagé avec Bapti
 Onglets, dans l'ordre : **Résumé** (où j'en suis ce mois ?), **Budget** (où va mon salaire ?),
 **Dépenses** (qu'ai-je dépensé ?), **Épargne** (combien j'épargne ?).
 
-- Barre du haut, en verre et opaque quand le contenu défile dessous : la roue des Réglages à
-  gauche, le titre de l'onglet au centre, la loupe (Rechercher) et le + à droite.
+- Barre du haut plate, opaque quand le contenu défile dessous : la roue des Réglages à gauche, le
+  titre au centre, la loupe et le + (bleu plein) à droite. Le verre est réservé à la barre
+  d'onglets et au bouton Claude.
+- Contrôle segmenté unique (mois, Catégories | Opérations, recherche) : fond opaque, coins de
+  14 dp, choix en blanc à 14 %. La barre des mois montre quatre mois et « Année », à largeur égale.
   Le + ouvre « Ajouter » : Dépense (en premier), Achat prévu, Enveloppe, Mise de côté.
 - Barre des mois en tête de Résumé, Budget et Dépenses : un seul mois choisi pour les trois, puis
   « Année » (sheet de l'année : toucher un mois y mène). Glisser horizontalement change de mois.
@@ -58,6 +61,7 @@ La fiche d'une enveloppe liste les dépenses de sa période ; toucher une dépen
 | Ce qui est sur le compte courant hors budget du mois | Disponible sur le compte |
 | Mois avant le début du suivi | Non renseigné |
 | Mois qui sert aux moyennes, aux montants proposés et à l'épargne de l'année | Mois de référence ; sinon « Hors référence » (un mois incomplet l'est par défaut) |
+| Dépensé du mois jusqu'à un jour donné (vue Opérations) | Cumul du mois |
 | Revenir sur un changement | Annuler ; la liste des dix derniers est l'« Historique » |
 | Valeur d'un placement après l'impôt estimé | Net (toujours précédé de « ≈ ») |
 

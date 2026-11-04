@@ -1,5 +1,6 @@
 package fr.baptiste.bank.ui.glass
 
+import androidx.compose.foundation.layout.width
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -116,7 +117,8 @@ private fun FlatIconButton(painter: androidx.compose.ui.graphics.painter.Painter
             androidx.compose.material3.Icon(painter, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
         }
         if (badge) {
-            Box(Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 10.dp).size(8.dp).clip(CircleShape).background(Color(0xFFFF5C6E)))
+            // Pastille d'accent (le rouge est réservé à « dépassé ») ; le détail est dans les Réglages.
+            Box(Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 10.dp).size(8.dp).clip(CircleShape).background(Color(0xFF7DB4FF)))
         }
     }
 }
@@ -153,8 +155,8 @@ fun MonthStripBar(modifier: Modifier = Modifier) {
             .fillMaxWidth()
             .padding(top = 8.dp)
             .height(40.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color.White.copy(alpha = 0.06f))
+            .clip(RoundedCornerShape(14.dp))
+            .background(SegmentTrack)
             .padding(3.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
@@ -164,8 +166,8 @@ fun MonthStripBar(modifier: Modifier = Modifier) {
                 Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .clip(RoundedCornerShape(9.dp))
-                    .background(if (selected) Color.White else Color.Transparent)
+                    .clip(RoundedCornerShape(11.dp))
+                    .background(if (selected) SegmentSelected else Color.Transparent)
                     .clickable(role = Role.Tab) { navigation.onSelect(month) }
                     .semantics { this.selected = selected },
                 contentAlignment = Alignment.Center,
@@ -173,7 +175,7 @@ fun MonthStripBar(modifier: Modifier = Modifier) {
                 Text(
                     month.shortName(),
                     style = MaterialTheme.typography.labelLarge.copy(fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium),
-                    color = if (selected) Color(0xFF0A1228) else Color.White.copy(alpha = 0.78f),
+                    color = if (selected) Color.White else Color.White.copy(alpha = 0.72f),
                     maxLines = 1,
                 )
             }
@@ -182,7 +184,7 @@ fun MonthStripBar(modifier: Modifier = Modifier) {
             Modifier
                 .weight(1f)
                 .fillMaxHeight()
-                .clip(RoundedCornerShape(9.dp))
+                .clip(RoundedCornerShape(11.dp))
                 .clickable(role = Role.Button, onClick = navigation.onYear),
             contentAlignment = Alignment.Center,
         ) {
@@ -360,12 +362,25 @@ fun SearchSheet(
     }
     val monthName = month.month.getDisplayName(TextStyle.FULL_STANDALONE, Locale.FRANCE)
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Fermer") }
+            Text("Rechercher", style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
+            Spacer(Modifier.width(72.dp))
+        }
         Column(Modifier.padding(horizontal = 16.dp)) {
-            androidx.compose.material3.OutlinedTextField(
+            androidx.compose.material3.TextField(
                 value = query,
                 onValueChange = { query = it },
                 placeholder = { Text("Catégorie, enveloppe, dépense") },
+                leadingIcon = { androidx.compose.material3.Icon(painterResource(R.drawable.ic_search), contentDescription = null) },
                 singleLine = true,
+                shape = RoundedCornerShape(14.dp),
+                colors = androidx.compose.material3.TextFieldDefaults.colors(
+                    focusedContainerColor = Color.White.copy(alpha = 0.08f),
+                    unfocusedContainerColor = Color.White.copy(alpha = 0.08f),
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                ),
                 modifier = Modifier.fillMaxWidth(),
             )
             Row(Modifier.padding(vertical = 8.dp)) {

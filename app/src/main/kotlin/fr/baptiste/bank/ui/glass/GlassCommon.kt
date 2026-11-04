@@ -193,22 +193,28 @@ private fun PeriodArrow(icon: Int, description: String, enabled: Boolean, onClic
  * Bascule entre deux ou trois vues (« Mois | Année ») : une capsule claire, l'option choisie en
  * pastille plus claire. Chaque option fait 40 dp de haut.
  */
+/** Fond et choix des contrôles segmentés (mois, vues, recherche). */
+internal val SegmentTrack = Color(0xFF0E1A3C)
+internal val SegmentSelected = Color.White.copy(alpha = 0.14f)
+
 @Composable
 internal fun SegmentedToggle(options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
+    // Le contrôle segmenté du prototype, le même pour les mois, les vues et la recherche :
+    // fond opaque, coins de 14 dp, choix en blanc à 14 %.
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-            .padding(4.dp),
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+            .background(SegmentTrack)
+            .padding(3.dp),
     ) {
         options.forEachIndexed { index, option ->
             val isSelected = index == selected
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .clip(CircleShape)
-                    .then(if (isSelected) Modifier.background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f)) else Modifier)
+                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(11.dp))
+                    .then(if (isSelected) Modifier.background(SegmentSelected) else Modifier)
                     .clickable(role = Role.Tab) { onSelect(index) }
                     .padding(vertical = 10.dp),
                 contentAlignment = Alignment.Center,

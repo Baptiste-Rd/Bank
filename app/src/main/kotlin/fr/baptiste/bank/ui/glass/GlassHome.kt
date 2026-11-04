@@ -144,7 +144,7 @@ fun GlassHomeContent(
                             style = MaterialTheme.typography.titleMedium,
                             modifier = Modifier.weight(1f),
                         )
-                        GlassPillButton("Trier", onClick = onSortCards ?: { onOpenTab(Tab.OPERATIONS) })
+                        fr.baptiste.bank.ui.components.RowActionButton("Trier", onClick = onSortCards ?: { onOpenTab(Tab.OPERATIONS) })
                     }
                 }
             }

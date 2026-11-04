@@ -1,5 +1,7 @@
 package fr.baptiste.bank.ui.transfers
 
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.heightIn
@@ -381,8 +383,18 @@ fun EnvelopeSheet(
             // L'historique, replié : le détail du chiffre, les périodes passées, les ajouts et retraits.
             // « Historique » est réservé à la liste des annulations (Réglages) ; les dépenses de la
             // période sont déjà au-dessus : le repli garde le détail du chiffre et les périodes passées.
-            TextButton(onClick = { showHistory = !showHistory }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
-                Text(if (showHistory) "Masquer le détail" else "Détail du budget")
+            // Un repli, pas un lien : l'en-tête comme « Dépenses », avec un chevron qui pivote.
+            Row(
+                Modifier.fillMaxWidth().clickable(onClickLabel = if (showHistory) "Replier" else "Déplier") { showHistory = !showHistory }.padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Détail du budget", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                androidx.compose.material3.Icon(
+                    androidx.compose.ui.res.painterResource(fr.baptiste.bank.R.drawable.ic_chevron_right),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp).graphicsLayer { rotationZ = if (showHistory) -90f else 90f },
+                )
             }
             if (showHistory) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {

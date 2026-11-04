@@ -121,6 +121,15 @@ fun GlassOperationsContent(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (header != null) header() else largeTitle("Opérations")
+        if (operations.isNotEmpty()) {
+            item(key = "cumulative-toggle") {
+                androidx.compose.material3.FilterChip(
+                    selected = cumulative,
+                    onClick = { cumulative = !cumulative },
+                    label = { Text("Cumul du mois") },
+                )
+            }
+        }
         if (dateCorrections > 0) {
             item(key = "dates-row") {
                 GlassCard(contentPadding = 16.dp, verticalPadding = 12.dp, onClick = onCheckDates) {
@@ -226,15 +235,6 @@ fun GlassOperationsContent(
         }
         // Option « Dépenses cumulées » : chaque jour affiche le dépensé du mois jusqu'à ce jour, compté
         // comme le total de Catégories (rangé dans une enveloppe, épargne et hors budget exclus).
-        if (sorted.isNotEmpty()) {
-            item(key = "cumulative-toggle") {
-                androidx.compose.material3.FilterChip(
-                    selected = cumulative,
-                    onClick = { cumulative = !cumulative },
-                    label = { Text("Dépenses cumulées") },
-                )
-            }
-        }
         val counted: (OperationRow) -> Long = { operation ->
             val names = operation.envelopeNames?.split(", ").orEmpty()
             when {
