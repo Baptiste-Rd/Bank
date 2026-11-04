@@ -149,7 +149,7 @@ fun GlassOperationsContent(
             if (toSort.size > QUEUE_LIMIT) {
                 item(key = "to-sort-more") {
                     Text(
-                        "Et ${toSort.size - QUEUE_LIMIT} plus anciennes : valide celles-ci, les suivantes apparaissent.",
+                        "Et ${toSort.size - QUEUE_LIMIT} plus anciennes ensuite.",
                         style = MaterialTheme.typography.bodySmall,
                         color = quiet,
                         modifier = Modifier.padding(horizontal = 8.dp),

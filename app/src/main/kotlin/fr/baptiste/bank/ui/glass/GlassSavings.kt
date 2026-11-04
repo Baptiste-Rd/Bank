@@ -297,8 +297,8 @@ private fun adviceFor(dashboard: Dashboard): String? {
     val end = dashboard.today.lengthOfMonth()
     return when {
         !room.isPositive -> "Objectif hors d'atteinte ce mois-ci."
-        dashboard.savings.gapToTarget.isNegative -> "Pour atteindre l'objectif : au plus ${room.formatted()} de quotidien d'ici le $end."
-        else -> "Pour rester au-dessus de l'objectif : au plus ${room.formatted()} de quotidien d'ici le $end."
+        dashboard.savings.gapToTarget.isNegative -> "Pour l'atteindre : ${room.summary()} de quotidien au plus d'ici le $end."
+        else -> "Pour le garder : ${room.summary()} de quotidien au plus d'ici le $end."
     }
 }
 

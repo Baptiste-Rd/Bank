@@ -232,8 +232,8 @@ internal fun NotTrackedCard(month: java.time.YearMonth, start: java.time.YearMon
     GlassCard(contentPadding = 16.dp) {
         Text("Mois non renseigné", style = MaterialTheme.typography.titleMedium)
         Text(
-            "Ton suivi commence en ${start.month.getDisplayName(java.time.format.TextStyle.FULL_STANDALONE, Locale.FRANCE)} " +
-                "${start.year}. Ce mois-ci ne compte ni dans les bilans, ni dans les moyennes, ni dans l'épargne de l'année.",
+            "Suivi commencé en ${start.month.getDisplayName(java.time.format.TextStyle.FULL_STANDALONE, Locale.FRANCE)} " +
+                "${start.year} : ce mois ne compte nulle part.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

@@ -47,13 +47,9 @@ import fr.baptiste.bank.ui.components.InfoLine
 import fr.baptiste.bank.ui.components.InfoSheet
 import fr.baptiste.bank.ui.components.RowActionButton
 import fr.baptiste.bank.ui.components.RowDivider
-import fr.baptiste.bank.ui.envelopes.CategoryAvatar
 import fr.baptiste.bank.ui.envelopes.EnvelopeFamily
 import fr.baptiste.bank.ui.envelopes.EnvelopeRow
-import fr.baptiste.bank.ui.envelopes.TemplateChips
-import fr.baptiste.bank.ui.envelopes.envelopeTemplates
 import fr.baptiste.bank.ui.envelopes.family
-import fr.baptiste.bank.ui.envelopes.template
 import fr.baptiste.bank.ui.format.formatted
 import fr.baptiste.bank.ui.format.summary
 import fr.baptiste.bank.ui.format.label
@@ -80,29 +76,6 @@ private data class PlanPart(val family: EnvelopeFamily, val amount: Money)
 
 /** Vue de l'onglet Budget. */
 enum class BudgetView { MONTH, YEAR }
-
-/** Ce qu'une carte de famille empile : une enveloppe seule, ou une catégorie et ses enveloppes. */
-private sealed interface FamilyEntry {
-    data class Single(val line: EnvelopeLine) : FamilyEntry
-    data class Group(val name: String, val lines: List<EnvelopeLine>) : FamilyEntry
-}
-
-/**
- * Range les lignes d'une famille : une catégorie qui y réunit au moins deux enveloppes prend la
- * place de la première ; une enveloppe seule de sa catégorie (ou dans « Autres ») reste seule.
- */
-private fun List<EnvelopeLine>.entries(): List<FamilyEntry> {
-    val seen = mutableSetOf<String>()
-    val shared = mapNotNull { it.envelope.group }.groupingBy { it }.eachCount().filterValues { it >= 2 }.keys
-    return mapNotNull { line ->
-        val group = line.envelope.group
-        when {
-            group == null || group !in shared -> FamilyEntry.Single(line)
-            seen.add(group) -> FamilyEntry.Group(group, filter { it.envelope.group == group })
-            else -> null
-        }
-    }
-}
 
 private fun planParts(dashboard: Dashboard): List<PlanPart> {
     val byFamily = dashboard.envelopes.groupBy { it.envelope.type.family }
@@ -231,8 +204,6 @@ private fun LazyListScope.monthContent(
     onTryPlan: (() -> Unit)? = null,
 ) {
     val byFamily = dashboard.envelopes.groupBy { it.envelope.type.family }
-    val usedNames = dashboard.envelopes.map { it.envelope.name.lowercase() }.toSet()
-    val suggestions = envelopeTemplates.filter { (name, _) -> name.lowercase() !in usedNames }
 
     // Un mois terminé commence par son bilan : où est allé ce qui restait, d'où vient ce qui manquait.
     if (readOnly && dashboard.savings.isFinal) item(key = "review") { MonthReview(dashboard, onEdit, monthTransfers) }
@@ -243,7 +214,7 @@ private fun LazyListScope.monthContent(
                 Column(Modifier.weight(1f)) {
                     Text("Plan du mois", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        monthlyIncome?.let { "Salaire ${it.formatted()}" } ?: "Salaire non renseigné",
+                        monthlyIncome?.let { "Salaire ${it.summary()}" } ?: "Salaire non renseigné",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -259,9 +230,9 @@ private fun LazyListScope.monthContent(
                     LegendRow(
                         color = part.family.color,
                         label = part.family.label,
-                        value = part.amount.formatted(),
+                        value = part.amount.summary(),
                         detail = if (part.family == EnvelopeFamily.DAILY && unallocated != null && unallocated.isPositive) {
-                            "dont ${unallocated.formatted()} à répartir"
+                            "dont ${unallocated.summary()} à répartir"
                         } else {
                             null
                         },
@@ -269,10 +240,7 @@ private fun LazyListScope.monthContent(
                         detailColor = BankTheme.status.gain,
                     )
                 }
-                // Essayer un projet ou une autre épargne, sans rien changer tant qu'on n'applique pas.
-                if (onTryPlan != null) {
-                    RowActionButton("Essayer un plan", onClick = onTryPlan, modifier = Modifier.padding(top = 8.dp))
-                }
+                // « Essayer un plan » vit dans Épargne : une seule maison par fonction.
             }
         }
     }
@@ -292,31 +260,21 @@ private fun LazyListScope.monthContent(
         sectionHeader(
             "label-$family",
             family.label,
-            trailing = if (family == EnvelopeFamily.DAILY) "${total.formatted()} en enveloppes" else "${total.formatted()} / mois",
+            trailing = if (family == EnvelopeFamily.DAILY) "${total.summary()} en enveloppes" else "${total.summary()} / mois",
             dot = family.color,
         )
         item(key = "group-$family") {
-            GlassRowsCard(familyLines.entries()) { entry ->
-                when (entry) {
-                    is FamilyEntry.Single -> EnvelopeRow(
-                        entry.line,
-                        onClick = if (readOnly) null else ({ onOpen(entry.line) }),
-                        onCover = if (readOnly) null else ({ onCover(entry.line) }),
-                        accent = envelopeTypeColor(entry.line.envelope.type),
-                    )
-                    is FamilyEntry.Group -> GroupBlock(entry, readOnly, onOpen, onCover)
-                }
+            // Des lignes plates, comme dans le prototype : nom, reste, barre, une ligne d'état.
+            GlassRowsCard(familyLines) { line ->
+                EnvelopeRow(
+                    line,
+                    onClick = if (readOnly) null else ({ onOpen(line) }),
+                    accent = envelopeTypeColor(line.envelope.type),
+                )
             }
         }
     }
 
-    if (!readOnly && suggestions.isNotEmpty()) {
-        item(key = "templates") {
-            GlassCard(contentPadding = 16.dp) {
-                TemplateChips(suggestions, onPick = { (name, type) -> onEdit(template(name, type)) })
-            }
-        }
-    }
     if (!readOnly && archived.isNotEmpty()) {
         sectionHeader("archived-label", "Arrêtées", trailing = "${archived.size}")
         item(key = "archived") {
@@ -325,7 +283,7 @@ private fun LazyListScope.monthContent(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(envelope.name, style = MaterialTheme.typography.bodyLarge)
                         Text(
-                            "${envelope.amount.formatted()} ${envelope.frequency.label}",
+                            "${envelope.amount.summary()} ${envelope.frequency.label}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -337,67 +295,6 @@ private fun LazyListScope.monthContent(
     }
 }
 
-/**
- * Un groupe dans sa carte : une ligne de total (pastille du groupe, nombre d'enveloppes, total
- * dépensé sur total prévu, reste), puis ses enveloppes en retrait.
- */
-@Composable
-private fun GroupBlock(
-    group: FamilyEntry.Group,
-    readOnly: Boolean,
-    onOpen: (EnvelopeLine) -> Unit,
-    onCover: (EnvelopeLine) -> Unit,
-) {
-    val spent = group.lines.fold(Money.ZERO) { sum, line -> sum + line.spent }
-    val available = group.lines.fold(Money.ZERO) { sum, line -> sum + line.available }
-    val remaining = available - spent
-    val color = envelopeTypeColor(group.lines.first().envelope.type)
-    val status = BankTheme.status
-    Column {
-        Row(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            CategoryAvatar(group.name, color)
-            Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                Text(group.name, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold))
-                Text(
-                    "${spent.formatted()} sur ${available.formatted()} · ${group.lines.size} enveloppes",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    remaining.formatted(),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = if (remaining.isNegative) status.over else MaterialTheme.colorScheme.onSurface,
-                )
-                Text("reste", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        val ratio = if (available.isPositive) (spent.cents.toFloat() / available.cents).coerceIn(0f, 1f) else 0f
-        LinearProgressIndicator(
-            progress = { ratio },
-            color = if (remaining.isNegative) status.over else color,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant,
-            strokeCap = StrokeCap.Round,
-            gapSize = 0.dp,
-            drawStopIndicator = {},
-            modifier = Modifier.fillMaxWidth().padding(start = 48.dp).height(4.dp).clip(RoundedCornerShape(2.dp)),
-        )
-        group.lines.forEach { line ->
-            Column(Modifier.padding(start = 24.dp)) {
-                RowDivider()
-                EnvelopeRow(
-                    line,
-                    onClick = if (readOnly) null else ({ onOpen(line) }),
-                    onCover = if (readOnly) null else ({ onCover(line) }),
-                    accent = envelopeTypeColor(line.envelope.type),
-                )
-            }
-        }
-    }
-}
-
-/** Vue de l'année : épargne cumulée, dépenses par famille face au prévu, provisions. */
 private fun LazyListScope.yearContent(overview: YearOverview) {
     if (overview.monthsCounted == 0) {
         item(key = "year-empty") {
@@ -543,7 +440,7 @@ internal fun MonthReview(dashboard: Dashboard, onEdit: (Envelope) -> Unit, trans
             if (savingsSpent.isPositive) ReviewLine("Dépenses sur l'épargne", Money(-savingsSpent.cents))
         }
         Text(
-            "Ce qui reste dans une enveloppe à la fin de sa période va à l'épargne ; un dépassement y est pris.",
+            "Ce qui reste va à l'épargne ; un dépassement y est pris.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 8.dp),
@@ -606,10 +503,9 @@ internal fun CurrentAccountCard(explained: CurrentAccountExplained?, onSetBalanc
         }
         val note = when {
             explained.free.isNegative -> buildString {
-                append("Le compte contient moins que ce que le budget réserve. Causes possibles : salaire pas encore arrivé, ")
-                append("argent des budgets rares gardé sur un livret")
-                if (explained.unsortedOut.isPositive) append(", ${explained.unsortedOut.formatted()} d'opérations à trier")
-                append(", ou dépenses faites hors de l'app.")
+                append("Moins que ce que le budget réserve : salaire pas encore arrivé")
+                if (explained.unsortedOut.isPositive) append(", ${explained.unsortedOut.summary()} à trier")
+                append(" ou argent gardé sur un livret.")
             }
             explained.free.isPositive ->
                 "Hors budget du mois : « Mettre de côté » le range sans toucher à ton mois."

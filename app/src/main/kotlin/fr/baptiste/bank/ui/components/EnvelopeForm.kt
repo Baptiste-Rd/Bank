@@ -52,6 +52,7 @@ import fr.baptiste.bank.domain.money.parseMoney
 import fr.baptiste.bank.domain.period.Frequency
 import fr.baptiste.bank.domain.period.Scale
 import fr.baptiste.bank.ui.format.formatted
+import fr.baptiste.bank.ui.format.summary
 import fr.baptiste.bank.ui.format.unitName
 import java.time.LocalDate
 import java.time.YearMonth
@@ -355,7 +356,7 @@ fun EnvelopeDialog(
                         label = {
                             // D'où vient le chiffre : l'historique de cette enveloppe (une nouvelle n'a pas de proposition).
                             val span = if (proposed.months > 1) "sur ${proposed.months} mois" else "sur le dernier mois"
-                            Text("Proposé : ${proposed.amount.formatted()} (dépense moyenne de cette enveloppe $span)")
+                            Text("Proposé : ${proposed.amount.summary()} (moyenne $span)")
                         },
                     )
                 }
@@ -373,45 +374,6 @@ fun EnvelopeDialog(
                     }
                     if (!resetValid) {
                         Text("La remise à zéro doit venir après le départ.", style = MaterialTheme.typography.bodySmall, color = BankThemeColors.over())
-                    }
-
-                    // 3. Et ensuite ?
-                    Text("Et ensuite ?", style = MaterialTheme.typography.labelMedium)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selected = repeats, onClick = { repeats = true; resetTouched = true }, label = { Text("Recommencer") })
-                        FilterChip(selected = !repeats, onClick = { repeats = false; resetTouched = true }, label = { Text("Une seule fois") })
-                    }
-                    if (repeats) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("Tous les", style = MaterialTheme.typography.bodyLarge)
-                            OutlinedTextField(
-                                value = rareEveryText,
-                                onValueChange = { value -> rareEveryText = value.filter(Char::isDigit).take(2) },
-                                singleLine = true,
-                                isError = rareEvery == null,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier.width(72.dp),
-                            )
-                            ChoiceField(
-                                label = "",
-                                selected = rareScale,
-                                options = listOf(Scale.MONTH, Scale.YEAR),
-                                optionLabel = { it.unitName(rareEvery ?: 1) },
-                                onSelect = { rareScale = it },
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
-                        if (!isExisting) {
-                            MoneyField(
-                                value = if (thenEdited) thenText else amountText,
-                                onValueChange = {
-                                    thenText = it
-                                    thenEdited = true
-                                },
-                                label = "Puis, à chaque fois",
-                            )
-                        }
-                        SwitchRow("Garder ce qui reste pour la fois suivante", "Sinon, le reste va à l'épargne à la remise à zéro.", keep) { keep = it }
                     }
                 }
 
@@ -440,7 +402,7 @@ fun EnvelopeDialog(
                     )
                 }
 
-                draft?.let { Text(summary(it, today), style = MaterialTheme.typography.bodyMedium) }
+                draft?.let { Text(summary(it, today), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
 
                 TextButton(onClick = { more = !more }) { Text(if (more) "Moins d'options" else "Plus d'options") }
                 if (more) {
@@ -487,7 +449,47 @@ fun EnvelopeDialog(
                             DateField(label = "Début d'une période", date = anchor, onDateChange = { anchor = it })
                         }
                     }
-                    SwitchRow("Protégée", "Jamais proposée comme source pour couvrir une autre enveloppe.", protected) { protected = it }
+                    if (use == Use.RARE) {
+                        // 3. Et ensuite ?
+                        Text("Et ensuite ?", style = MaterialTheme.typography.labelMedium)
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(selected = repeats, onClick = { repeats = true; resetTouched = true }, label = { Text("Recommencer") })
+                            FilterChip(selected = !repeats, onClick = { repeats = false; resetTouched = true }, label = { Text("Une seule fois") })
+                        }
+                        if (repeats) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text("Tous les", style = MaterialTheme.typography.bodyLarge)
+                                OutlinedTextField(
+                                    value = rareEveryText,
+                                    onValueChange = { value -> rareEveryText = value.filter(Char::isDigit).take(2) },
+                                    singleLine = true,
+                                    isError = rareEvery == null,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.width(72.dp),
+                                )
+                                ChoiceField(
+                                    label = "",
+                                    selected = rareScale,
+                                    options = listOf(Scale.MONTH, Scale.YEAR),
+                                    optionLabel = { it.unitName(rareEvery ?: 1) },
+                                    onSelect = { rareScale = it },
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                            if (!isExisting) {
+                                MoneyField(
+                                    value = if (thenEdited) thenText else amountText,
+                                    onValueChange = {
+                                        thenText = it
+                                        thenEdited = true
+                                    },
+                                    label = "Puis, à chaque fois",
+                                )
+                            }
+                            SwitchRow("Garder ce qui reste pour la fois suivante", "Sinon, le reste va à l'épargne à la remise à zéro.", keep) { keep = it }
+                        }
+                    }
+                    SwitchRow("Protégée", "Jamais utilisée pour ajouter de l'argent à une autre enveloppe.", protected) { protected = it }
                 }
 
                 if (isExisting && initial != null) {
@@ -587,14 +589,12 @@ private fun summary(envelope: Envelope, today: LocalDate): String {
     val unit = envelope.frequency.scale.unitName(envelope.frequency.every)
     val rhythm = if (envelope.frequency.every == 1) "chaque ${unit}" else "tous les ${envelope.frequency.every} $unit"
     return when (envelope.type) {
-        EnvelopeType.DAILY, EnvelopeType.FIXED -> "${envelope.amount.formatted()} $rhythm, remis à zéro au début de chaque période."
-        EnvelopeType.SAVINGS -> "${envelope.amount.formatted()} mis de côté $rhythm."
+        EnvelopeType.DAILY, EnvelopeType.FIXED -> "${envelope.amount.summary()} $rhythm"
+        EnvelopeType.SAVINGS -> "${envelope.amount.summary()} mis de côté $rhythm"
         else -> {
             val first = envelope.amountIn(period)
             val share = envelope.monthShare(YearMonth.from(today), period, first)
-            val until = "${first.formatted()} jusqu'au ${period.endInclusive.text()}"
-            val then = if (envelope.repeats) ", puis ${envelope.amount.formatted()} $rhythm" else ", sans suite"
-            "$until$then · ${share.formatted()} à mettre de côté ce mois-ci."
+            "${first.summary()} pour le ${period.endInclusive.text()} · ${share.summary()} par mois"
         }
     }
 }

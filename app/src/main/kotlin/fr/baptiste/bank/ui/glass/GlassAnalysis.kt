@@ -543,7 +543,7 @@ internal fun LazyListScope.yearAnalysis(
                 ).forEach { (name, color) -> LegendSwatch(color, name) }
             }
             Text(
-                "Pointillés : moyenne des mois terminés. Mois atténué : en cours. Touche un mois pour le détailler.",
+                "Pointillés : moyenne. Touche un mois pour le détailler.",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

@@ -50,6 +50,7 @@ import fr.baptiste.bank.domain.money.parseMoney
 import fr.baptiste.bank.ui.components.ChoiceField
 import fr.baptiste.bank.ui.components.MoneyField
 import fr.baptiste.bank.ui.format.formatted
+import fr.baptiste.bank.ui.format.summary
 import fr.baptiste.bank.ui.format.label
 import fr.baptiste.bank.ui.theme.BankTheme
 
@@ -75,31 +76,25 @@ fun CoverDialog(
     val target = plan.target
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Couvrir ${target.envelope.name}") },
+        title = { Text("Ajouter de l'argent à ${target.envelope.name}") },
         text = {
             BlurBehindWindow()
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 // On couvre jusqu'à la fin de la période, pas seulement le constaté : sinon l'enveloppe
                 // revient dans « À faire » dès le lendemain.
+                // Une phrase : combien il manque, puis d'où vient l'argent.
                 Text(
-                    when {
-                        target.remaining.isNegative && target.projection.overrun > -target.remaining ->
-                            "L'enveloppe est dépassée de ${(-target.remaining).formatted()} ; à ce rythme, il manquera " +
-                                "${target.projection.overrun.formatted()} à la fin de la période."
-                        target.remaining.isNegative -> "L'enveloppe est dépassée de ${(-target.remaining).formatted()}."
-                        else -> "À ce rythme, il manquera ${target.projection.overrun.formatted()} à la fin de la période."
-                    },
+                    "Il manque ${plan.needed.summary()} pour finir ${target.period.label}.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 if (plan.legs.isEmpty()) {
                     Text(
-                        "Aucune source disponible : rien n'est à répartir et les autres enveloppes " +
-                            "sont protégées, épuisées ou elles-mêmes à surveiller.",
+                        "Aucune enveloppe ne peut en donner pour l'instant.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = BankTheme.status.over,
                     )
                 } else {
-                    Text("Pris sur", style = MaterialTheme.typography.labelLarge)
+                    Text("Pris sur", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     plan.legs.forEach { leg ->
                         Row(modifier = Modifier.fillMaxWidth()) {
                             Text(dashboard.nameOf(leg.sourceEnvelopeId), modifier = Modifier.weight(1f))
@@ -118,11 +113,7 @@ fun CoverDialog(
                         left + (dashboard.monthLeftAfterTransfer(leg.sourceEnvelopeId, target.envelope.id, leg.amount) - before)
                     }
                     Text(
-                        if (after == before) {
-                            "Ton reste du mois ne change pas : le dépassement le réduisait déjà."
-                        } else {
-                            "Ton reste du mois passera de ${before.formatted()} à ${after.formatted()}."
-                        },
+                        if (after == before) "Ton reste du mois ne change pas." else "Reste du mois : ${before.summary()} → ${after.summary()}",
                         style = MaterialTheme.typography.bodySmall,
                         color = if (after.isNegative) BankTheme.status.over else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -131,7 +122,7 @@ fun CoverDialog(
         },
         confirmButton = {
             TextButton(enabled = plan.legs.isNotEmpty(), onClick = { onConfirm(plan.legs) }) {
-                Text("Transférer ${(plan.needed - plan.shortfall).formatted()}")
+                Text("Ajouter ${(plan.needed - plan.shortfall).summary()}")
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } },
@@ -306,41 +297,48 @@ fun EnvelopeSheet(
                 .navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(line.envelope.name, style = MaterialTheme.typography.titleLarge)
+            // Comme le prototype testé : le reste en grand, une ligne, une puce si elle dérape.
+            var showHistory by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(line.envelope.name, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                TextButton(onClick = onEdit) { Text("Modifier") }
+            }
+            Text("Reste", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(
-                "${line.envelope.frequency.label.replaceFirstChar { it.uppercase() }}, période en cours : ${line.period.label}",
+                line.remaining.summary(),
+                style = MaterialTheme.typography.displaySmall,
+                color = if (line.remaining.isNegative) BankTheme.status.over else MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                "${line.spent.summary()} sur ${line.available.summary()} · ${line.period.label}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Figure("Budget", line.allocated)
-                Figure("Ajouts", line.transferred, signed = true)
-                Figure("Dépensé", line.spent)
-                Figure("Reste", line.remaining, emphasis = true)
+            when {
+                line.remaining.isNegative -> fr.baptiste.bank.ui.components.StatusChip("Dépassé ${(-line.remaining).summary()}", fr.baptiste.bank.ui.components.StatusKind.OVER)
+                line.projection.isAlert -> fr.baptiste.bank.ui.components.StatusChip("Prévu +${line.projection.overrun.summary()}", fr.baptiste.bank.ui.components.StatusKind.WARNING)
             }
             if (onCover != null) {
-                Button(onClick = onCover, modifier = Modifier.fillMaxWidth()) { Text("Couvrir le dépassement") }
+                // « Couvrir » ne disait pas ce qu'il faisait : on ajoute de l'argent, pris sur l'épargne.
+                Button(onClick = onCover, modifier = Modifier.fillMaxWidth()) { Text("Ajouter de l'argent") }
             }
-            // Provision : ce qui est déjà mis de côté, et le rattrapage s'il en faut un.
+            // Provision : ce qui est déjà mis de côté, et le rattrapage s'il en faut un (une ligne).
             if (line.envelope.type.isProvision && line.envelope.type != fr.baptiste.bank.domain.model.EnvelopeType.PLANNED &&
                 line.period.endInclusive.isAfter(line.period.start.plusMonths(1))
             ) {
                 Text(
-                    "${line.funded.formatted()} mis de côté sur ${line.allocated.formatted()} · ${line.monthlyShare.formatted()} ce mois-ci",
+                    "${line.funded.summary()} mis de côté sur ${line.allocated.summary()}",
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 val proposal = line.catchUp
                 if (proposal != null && onCatchUp != null) {
                     Text(
-                        "Ton suivi commence en ${proposal.from.label} : rien n'était mis de côté avant. Pour avoir " +
-                            "${line.allocated.formatted()} à la fin de la période, il faut ${proposal.monthlyShare.formatted()} par mois " +
-                            "sur ${proposal.months} mois, au lieu de ${proposal.currentShare.formatted()}. Ton budget du quotidien " +
-                            "baisse d'autant.",
+                        "Suivi commencé en ${proposal.from.label} : il manque ce qui n'a pas été mis de côté avant.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     OutlinedButton(onClick = { onCatchUp(proposal.from) }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Mettre ${proposal.monthlyShare.formatted()} de côté par mois")
+                        Text("Mettre ${proposal.monthlyShare.summary()} de côté par mois")
                     }
                 }
             }
@@ -351,7 +349,7 @@ fun EnvelopeSheet(
             // Les dépenses de la période : on voit d'où vient le chiffre, et on corrige un mauvais rangement.
             if (operations.isNotEmpty()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Dépenses de la période", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                    Text("Dépenses", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
                     Text("${operations.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Column(Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState())) {
@@ -381,14 +379,18 @@ fun EnvelopeSheet(
                         }
                     }
                 }
-                Text(
-                    "Touche une dépense pour la déplacer vers une autre enveloppe.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
-            // L'historique : chaque période garde son budget ; toucher une ligne le corrige.
-            if (periods.size > 1) {
+            // L'historique, replié : le détail du chiffre, les périodes passées, les ajouts et retraits.
+            TextButton(onClick = { showHistory = !showHistory }) { Text(if (showHistory) "Masquer l'historique" else "Historique") }
+            if (showHistory) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Figure("Budget", line.allocated)
+                    Figure("Ajouts", line.transferred, signed = true)
+                    Figure("Dépensé", line.spent)
+                    Figure("Reste", line.remaining, emphasis = true)
+                }
+            }
+            if (showHistory && periods.size > 1) {
                 Text("Périodes", style = MaterialTheme.typography.titleSmall)
                 Column(Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())) {
                     periods.forEachIndexed { index, row ->
@@ -422,7 +424,7 @@ fun EnvelopeSheet(
                 !it.cancelled && it.date in line.period &&
                     (it.sourceEnvelopeId == line.envelope.id || it.targetEnvelopeId == line.envelope.id)
             }
-            if (mine.isNotEmpty()) {
+            if (showHistory && mine.isNotEmpty()) {
                 Text("Ajouts et retraits de la période", style = MaterialTheme.typography.labelLarge)
                 mine.take(6).forEach { row ->
                     val incoming = row.targetEnvelopeId == line.envelope.id
@@ -439,7 +441,6 @@ fun EnvelopeSheet(
                     }
                 }
             }
-            TextButton(onClick = onEdit, modifier = Modifier.fillMaxWidth()) { Text("Modifier l'enveloppe") }
         }
     }
 }
