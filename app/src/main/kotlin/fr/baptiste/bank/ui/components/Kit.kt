@@ -34,13 +34,14 @@ import fr.baptiste.bank.ui.theme.BankTheme
  */
 
 /** Statut d'un élément : la couleur ne porte jamais seule le sens, un mot l'accompagne toujours. */
-enum class StatusKind { GOOD, WARNING, OVER }
+enum class StatusKind { GOOD, WARNING, OVER, GAIN }
 
 @Composable
 private fun StatusKind.color(): Color = when (this) {
     StatusKind.GOOD -> BankTheme.status.good
     StatusKind.WARNING -> BankTheme.status.warning
     StatusKind.OVER -> BankTheme.status.over
+    StatusKind.GAIN -> BankTheme.status.gain
 }
 
 /** Puce de statut : un point et un texte court dans la couleur du statut, sur un fond très atténué. */

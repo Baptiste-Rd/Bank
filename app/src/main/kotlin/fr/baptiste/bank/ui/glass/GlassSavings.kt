@@ -138,11 +138,10 @@ fun GlassSavingsContent(
                 )
                 // L'écart à l'objectif, en une ligne, plutôt que deux tuiles.
                 val gap = outlook.gapToTarget
-                Text(
-                    if (gap.isNegative) "${(-gap).formatted()} sous l'objectif (${outlook.target.formatted()})"
-                    else "${gap.formatted()} au-dessus de l'objectif (${outlook.target.formatted()})",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (gap.isNegative) BankTheme.status.warning else BankTheme.status.gain,
+                fr.baptiste.bank.ui.components.StatusChip(
+                    "${if (gap.isNegative) "−" else "+"}${(if (gap.isNegative) -gap else gap).summary()} vs objectif ${outlook.target.summary()}",
+                    if (gap.isNegative) fr.baptiste.bank.ui.components.StatusKind.WARNING else fr.baptiste.bank.ui.components.StatusKind.GAIN,
+                    Modifier.padding(top = 4.dp),
                 )
                 adviceFor(dashboard)?.let {
                     Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -153,26 +152,7 @@ fun GlassSavingsContent(
             }
         }
 
-        // 2. Mois par mois, et le total depuis janvier.
-        if (history.size > 1) {
-            sectionHeader(
-                "history-label",
-                "Mois par mois",
-                trailing = yearSavings?.let { "${it.formatted()} depuis janvier" } ?: "objectif ${outlook.target.formatted()}",
-            )
-            item(key = "history") {
-                GlassCard(contentPadding = 16.dp) {
-                    SavingsBarsChart(history, outlook.target, accent, legend = null)
-                }
-            }
-        }
-
-        // 3. Mes comptes : la banque, le compte courant expliqué, les livrets et placements.
-        if (!readOnly) {
-            sectionHeader("bank-label", "Mes comptes")
-            item(key = "bank") { BankStatusCard(bank, onOpenBank) }
-            item(key = "current-account") { CurrentAccountCard(currentAccount, onSetBalance) }
-        }
+        // 2. Mes comptes : livrets et placements (le compte courant est sur le Résumé, la banque dans Réglages).
         if (!readOnly && holdings != null) holdingsSection(holdings, goals, dashboard.savings.forecast, onManageAccounts, onOpenAccount, onEditGoals)
 
         // 5. Ce qui est mis de côté.
@@ -190,7 +170,7 @@ fun GlassSavingsContent(
             }
         }
         val plannedColor = envelopeTypeColor(EnvelopeType.PLANNED)
-        sectionHeader("planned-label", "Projets", dot = plannedColor, action = "Essayer un plan", onAction = onTryPlan)
+        sectionHeader("planned-label", "Achats prévus", action = "Ajouter", onAction = onPlanPurchase)
         item(key = "planned") {
             if (planned.isEmpty()) {
                 GlassCard(contentPadding = 16.dp) {
@@ -212,6 +192,25 @@ fun GlassSavingsContent(
                 }
             }
         }
+        item(key = "try-plan") {
+            Box(Modifier.fillMaxWidth(), Alignment.Center) {
+                TextButton(onClick = onTryPlan) { Text("Essayer un plan") }
+            }
+        }
+        // 5. Mois par mois, et le total depuis janvier.
+        if (history.size > 1) {
+            sectionHeader(
+                "history-label",
+                "Mois par mois",
+                trailing = yearSavings?.let { "${it.formatted()} depuis janvier" } ?: "objectif ${outlook.target.formatted()}",
+            )
+            item(key = "history") {
+                GlassCard(contentPadding = 16.dp) {
+                    SavingsBarsChart(history, outlook.target, accent, legend = null)
+                }
+            }
+        }
+
     }
 
     if (showInfo && dashboard != null) {
@@ -330,7 +329,7 @@ private fun LazyListScope.holdingsSection(
     onOpen: (HoldingLine) -> Unit,
     onEditGoals: () -> Unit,
 ) {
-    sectionHeader("holdings-label", "Livrets et placements", action = if (holdings.lines.isEmpty()) null else "Tout voir", onAction = onManage)
+    sectionHeader("holdings-label", "Mes comptes", action = if (holdings.lines.isEmpty()) null else "Tout voir", onAction = onManage)
     item(key = "holdings") {
         if (holdings.lines.isEmpty()) {
             GlassCard(contentPadding = 16.dp) {

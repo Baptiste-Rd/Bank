@@ -16,6 +16,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -134,6 +135,8 @@ fun GlassBudgetContent(
     onEdit: (Envelope) -> Unit,
     onRestore: (Envelope) -> Unit,
     initialView: BudgetView = BudgetView.MONTH,
+    /** Le bouton « Nouvelle enveloppe » en bas de l'onglet (aussi dans le + › Ajouter). */
+    onNewEnvelope: () -> Unit = {},
     /** Compte courant décomposé (mois en cours) ; null sans solde connu. */
     currentAccount: CurrentAccountExplained? = null,
     onSetBalance: () -> Unit = {},
@@ -182,6 +185,13 @@ fun GlassBudgetContent(
                         monthTransfers = monthTransfers,
                         onTryPlan = if (isCurrentMonth) onTryPlan else null,
                     )
+                    if (isCurrentMonth) {
+                        item(key = "new-envelope") {
+                            Box(Modifier.fillMaxWidth().padding(top = 4.dp), Alignment.Center) {
+                                TextButton(onClick = onNewEnvelope) { Text("Nouvelle enveloppe") }
+                            }
+                        }
+                    }
                 }
             }
         }

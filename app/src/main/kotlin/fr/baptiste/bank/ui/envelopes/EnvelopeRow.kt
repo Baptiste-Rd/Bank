@@ -191,24 +191,14 @@ fun EnvelopeRow(
 }
 
 /**
- * Pastille ronde à l'initiale d'un nom, dans la couleur de sa catégorie : un fond de la couleur
- * très atténué et la lettre en couleur pleine. Elle aide à repérer une catégorie d'un coup d'œil ;
- * le nom écrit à côté reste l'information principale.
+ * Point de couleur de la catégorie, devant le nom. Une initiale n'apportait aucune information
+ * (audit de la refonte) ; la couleur suffit à repérer une catégorie, le nom reste l'essentiel.
  */
+@Suppress("UNUSED_PARAMETER")
 @Composable
 fun CategoryAvatar(name: String, color: Color, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .size(36.dp)
-            .clip(CircleShape)
-            .background(color.copy(alpha = 0.24f)),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            name.trim().take(1).uppercase(),
-            color = color,
-            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-        )
+    Box(modifier = modifier.size(24.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(12.dp).clip(CircleShape).background(color))
     }
 }
 

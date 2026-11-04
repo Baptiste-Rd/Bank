@@ -99,6 +99,7 @@ fun GlassMainScreen(
     val unsortedCount by viewModel.unsortedCount.collectAsStateWithLifecycle()
     val savingsHistory by viewModel.savingsHistory.collectAsStateWithLifecycle()
     val income by viewModel.monthlyIncome.collectAsStateWithLifecycle()
+    val monthIncome by viewModel.monthIncome.collectAsStateWithLifecycle()
     val monthDashboard by viewModel.monthDashboard.collectAsStateWithLifecycle()
     val monthHistory by viewModel.monthSavingsHistory.collectAsStateWithLifecycle()
     val selectedMonth by viewModel.selectedMonth.collectAsStateWithLifecycle()
@@ -253,6 +254,9 @@ fun GlassMainScreen(
                             pace = pace,
                             holdings = holdings,
                             onOpenAccount = { controller.dialog = OpenDialog.AccountEdit(it) },
+                            income = monthIncome,
+                            recent = operations,
+                            onOpenOperation = { controller.dialog = OpenDialog.SortOperation(it) },
                         )
                     }
                     Tab.BUDGET -> {
@@ -288,6 +292,7 @@ fun GlassMainScreen(
                                 controller.notify("Suivi depuis ${month.label}.")
                             },
                             onTryPlan = { controller.dialog = OpenDialog.TryPlan() },
+                            onNewEnvelope = { controller.dialog = OpenDialog.EnvelopeEditor(null) },
                         )
                     }
                     // Épargne couvre tous les mois : elle reste sur le mois en cours.

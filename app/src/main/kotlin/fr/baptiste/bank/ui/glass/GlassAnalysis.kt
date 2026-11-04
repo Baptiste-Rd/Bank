@@ -27,6 +27,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -414,14 +415,20 @@ private fun CategoryRow(category: CategorySpent, scale: Long, expanded: Boolean,
                 modifier = Modifier.weight(1f),
             )
             Text(category.spent.formatted(), style = MaterialTheme.typography.titleMedium)
+            // Le chevron dit que la ligne se déplie (séance de test : les sous-catégories passaient inaperçues).
+            androidx.compose.material3.Icon(
+                androidx.compose.ui.res.painterResource(fr.baptiste.bank.R.drawable.ic_chevron_right),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 4.dp).size(18.dp).graphicsLayer { rotationZ = if (expanded) 90f else 0f },
+            )
         }
         SpendBar(category.spent, category.budget, scale)
         Text(
             buildString {
                 append(if (category.budget.isPositive) "sur ${category.budget.formatted()}" else "hors budget du mois")
-                append(" · ${category.envelopes.size} enveloppe${if (category.envelopes.size > 1) "s" else ""}")
                 if (category.over.isPositive) append(" · dépassé de ${category.over.formatted()}")
-                else if (average != null && average.isPositive) append(" · d'habitude ${average.formatted()}")
+                else if (average != null && average.isPositive) append(" · d'habitude ${average.summary()}")
             },
             style = MaterialTheme.typography.bodySmall,
             color = if (category.over.isPositive) BankTheme.status.over else MaterialTheme.colorScheme.onSurfaceVariant,
