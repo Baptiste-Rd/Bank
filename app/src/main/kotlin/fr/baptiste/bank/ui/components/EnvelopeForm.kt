@@ -88,7 +88,7 @@ private fun EnvelopeType.use(): Use = when (this) {
 }
 
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun EnvelopeDialog(
     initial: Envelope?,
