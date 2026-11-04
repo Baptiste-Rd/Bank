@@ -86,6 +86,8 @@ sealed interface OpenDialog {
     data object Journal : OpenDialog
     /** Les dix derniers changements, annulables. */
     data object History : OpenDialog
+    /** Le tri carte par carte des opérations à trier. */
+    data object SortCards : OpenDialog
     /** [returnToSort] : création lancée depuis le tri d'une opération, où l'on revient ensuite. */
     data class EnvelopeEditor(val envelope: Envelope?, val returnToSort: OperationRow? = null) : OpenDialog
     data object Bank : OpenDialog
@@ -468,6 +470,40 @@ fun AppDialogs(
                 onDeleteAlias = viewModel::deleteAlias,
                 transferRules = transferRules,
                 onDeleteTransferRule = viewModel::deleteTransferRule,
+                onDismiss = ::close,
+            )
+        }
+        OpenDialog.SortCards -> {
+            val toSort by viewModel.unsortedOperations.collectAsStateWithLifecycle()
+            fun proposalFor(operation: fr.baptiste.bank.data.local.OperationRow) =
+                viewModel.suggestedEnvelopeId(operation)
+                    ?.let { id -> envelopes.firstOrNull { it.id == id } }
+                    ?.let { fr.baptiste.bank.ui.glass.SortProposal(it, it.name) }
+                    ?: if (operation.amountCents > 0) fr.baptiste.bank.ui.glass.SortProposal(null, "Hors budget") else null
+            fr.baptiste.bank.ui.operations.SortCardsSheet(
+                operations = toSort,
+                proposal = ::proposalFor,
+                // Raccourcis : le quotidien d'abord (les dépenses à trier y vont le plus souvent).
+                alternatives = { _, suggested ->
+                    envelopes.filter { it.id != suggested?.id && it.type != fr.baptiste.bank.domain.model.EnvelopeType.SAVINGS }
+                        .sortedBy { if (it.type == fr.baptiste.bank.domain.model.EnvelopeType.DAILY) 0 else 1 }
+                        .take(3)
+                },
+                onAccept = { operation, proposal ->
+                    viewModel.acceptProposals(listOf(operation.id to proposal.envelope))
+                    controller.notify("${operation.label} → ${proposal.label}", "Annuler") { viewModel.undoLast() }
+                },
+                onChoose = { operation, envelope ->
+                    viewModel.acceptProposals(listOf(operation.id to envelope))
+                    // Un choix à la main : proposer d'en faire la règle des prochaines.
+                    controller.notify("Les prochaines « ${operation.label} » dans ${envelope.name} ?", "Oui") {
+                        viewModel.sortOperation(operation.id, envelope, fr.baptiste.bank.domain.bank.suggestedRuleKeyword(operation.bankLabel)) { others ->
+                            controller.notify(if (others > 0) "Règle créée, $others autre(s) rangée(s)." else "Règle créée.")
+                        }
+                    }
+                },
+                onSplit = { operation -> controller.dialog = OpenDialog.SplitOperation(operation, viewModel.suggestedEnvelopeId(operation)) },
+                onOther = { operation -> controller.dialog = OpenDialog.SortOperation(operation) },
                 onDismiss = ::close,
             )
         }

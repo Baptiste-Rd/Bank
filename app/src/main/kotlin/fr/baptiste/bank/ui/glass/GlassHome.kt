@@ -95,6 +95,8 @@ fun GlassHomeContent(
     dashboard: Dashboard?,
     unsortedCount: Int,
     onOpenEnvelope: (EnvelopeLine) -> Unit,
+    /** Le tri carte par carte (le bouton « Trier »). */
+    onSortCards: (() -> Unit)? = null,
     onCover: (EnvelopeLine) -> Unit,
     onOpenTab: (Tab) -> Unit,
     /** Solde du compte courant (banque ou saisie), s'il est connu, et sa dernière lecture. */
@@ -142,7 +144,7 @@ fun GlassHomeContent(
                             style = MaterialTheme.typography.titleMedium,
                             modifier = Modifier.weight(1f),
                         )
-                        GlassPillButton("Trier", onClick = { onOpenTab(Tab.OPERATIONS) })
+                        GlassPillButton("Trier", onClick = onSortCards ?: { onOpenTab(Tab.OPERATIONS) })
                     }
                 }
             }

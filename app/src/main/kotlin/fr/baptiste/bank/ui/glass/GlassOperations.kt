@@ -78,6 +78,8 @@ fun GlassOperationsContent(
     rulesSummary: String? = null,
     /** Tri assisté par Claude des opérations à trier. */
     onAssistedSort: () -> Unit = {},
+    /** Le tri carte par carte, une opération à la fois. */
+    onSortCards: (() -> Unit)? = null,
     /** Opérations en attente à la banque : montrées, pas encore importées. */
     pending: List<PendingOperation> = emptyList(),
     /** En-tête de l'écran (titre, bascule Analyse | Liste) ; par défaut le titre « Opérations ». */
@@ -136,6 +138,11 @@ fun GlassOperationsContent(
                 action = if (ready.size > 1) "Tout valider (${ready.size})" else null,
                 onAction = { onAcceptAll(ready) },
             )
+            if (onSortCards != null) {
+                item(key = "to-sort-cards") {
+                    GlassPillButton("Trier une par une", onClick = onSortCards)
+                }
+            }
             item(key = "to-sort") {
                 GlassRowsCard(toSort.take(QUEUE_LIMIT)) { operation ->
                     QueueRow(

@@ -77,6 +77,8 @@ class MainActivity : ComponentActivity() {
                     ]}
                 """.trimIndent(),
             )
+            "SORT_CARDS" -> OpenDialog.SortCards
+            "HISTORY" -> OpenDialog.History
             "RULES" -> OpenDialog.Rules
             "ASSISTED" -> OpenDialog.AssistedSort()
             "ACCOUNTS" -> OpenDialog.Accounts

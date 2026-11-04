@@ -242,6 +242,7 @@ fun GlassMainScreen(
                             dashboard = dashboard,
                             unsortedCount = unsortedCount,
                             onOpenEnvelope = openEnvelope,
+                            onSortCards = { controller.dialog = OpenDialog.SortCards },
                             onCover = cover,
                             onOpenTab = {
                                 // Le lien « à trier » de l'accueil mène à la liste, pas à l'analyse.
@@ -390,6 +391,7 @@ fun GlassMainScreen(
                         onSort = { controller.dialog = OpenDialog.SortOperation(it) },
                         onOpenBank = { controller.dialog = OpenDialog.Bank },
                         toValidate = unsortedOperations,
+                        onSortCards = { controller.dialog = OpenDialog.SortCards },
                         // Proposition : l'enveloppe de ce libellé d'après l'historique ; une rentrée
                         // d'argent sans historique (salaire, remboursement) va hors budget.
                         proposal = { operation ->
