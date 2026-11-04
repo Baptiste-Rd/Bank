@@ -1,5 +1,7 @@
 package fr.baptiste.bank.ui.operations
 
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -45,7 +47,7 @@ import fr.baptiste.bank.ui.format.formatted
  * qui attendent déjà. « Hors budget » sert au salaire, aux virements entre tes comptes... :
  * l'opération reste visible mais ne compte dans aucune enveloppe.
  */
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun SortOperationDialog(
     operation: OperationRow,
@@ -78,15 +80,28 @@ fun SortOperationDialog(
     var keyword by rememberSaveable { mutableStateOf(suggestedRuleKeyword(operation.bankLabel)) }
     val selected = envelopes.firstOrNull { it.id == selectedId }
 
-    AlertDialog(
+    // Une sheet, comme toute saisie : Annuler et Ranger en haut.
+    androidx.compose.material3.ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text(operation.label) },
-        text = {
-            BlurBehindWindow()
+        sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+            fr.baptiste.bank.ui.components.SheetHeader(
+                title = "Ranger",
+                onCancel = onDismiss,
+                action = "Ranger",
+                enabled = selected != null,
+                onAction = { selected?.let { onSort(it, keyword.takeIf { createRule && it.isNotBlank() }) } },
+            )
             Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
+                modifier = Modifier
+                    .padding(horizontal = 24.dp)
+                    .navigationBarsPadding()
+                    .imePadding()
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                Text(operation.label, style = MaterialTheme.typography.titleLarge)
                 Text(
                     "${Money(operation.amountCents).formatted()}, ${dayTitle(operation.date, java.time.LocalDate.now()).lowercase()}",
                     style = MaterialTheme.typography.bodyMedium,
@@ -175,13 +190,5 @@ fun SortOperationDialog(
                     Text("Hors budget (salaire, virement entre comptes...)")
                 }
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { selected?.let { onSort(it, keyword.takeIf { createRule && it.isNotBlank() }) } },
-                enabled = selected != null,
-            ) { Text("Ranger") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } },
-    )
+    }
 }

@@ -1,5 +1,6 @@
 package fr.baptiste.bank.ui.transfers
 
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
@@ -66,6 +67,7 @@ private fun Dashboard.nameOf(envelopeId: Long?): String =
  * Proposition de couverture d'un dépassement : rien n'est transféré avant validation.
  * Chaque part est affichée avec sa source, dans l'ordre où elle est sollicitée.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CoverDialog(
     dashboard: Dashboard,
@@ -74,12 +76,22 @@ fun CoverDialog(
     onConfirm: (List<TransferLeg>) -> Unit,
 ) {
     val target = plan.target
-    AlertDialog(
+    androidx.compose.material3.ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text("Ajouter de l'argent à ${target.envelope.name}") },
-        text = {
-            BlurBehindWindow()
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+            fr.baptiste.bank.ui.components.SheetHeader(
+                title = target.envelope.name,
+                onCancel = onDismiss,
+                action = "Ajouter",
+                enabled = plan.legs.isNotEmpty(),
+                onAction = { onConfirm(plan.legs) },
+            )
+            Column(
+                Modifier.padding(horizontal = 24.dp).navigationBarsPadding().padding(bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text("Ajouter ${(plan.needed - plan.shortfall).summary()}", style = MaterialTheme.typography.headlineSmall)
                 // On couvre jusqu'à la fin de la période, pas seulement le constaté : sinon l'enveloppe
                 // revient dans « À faire » dès le lendemain.
                 // Une phrase : combien il manque, puis d'où vient l'argent.
@@ -119,20 +131,14 @@ fun CoverDialog(
                     )
                 }
             }
-        },
-        confirmButton = {
-            TextButton(enabled = plan.legs.isNotEmpty(), onClick = { onConfirm(plan.legs) }) {
-                Text("Ajouter ${(plan.needed - plan.shortfall).summary()}")
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } },
-    )
+    }
 }
 
 /**
  * Transfert manuel vers une enveloppe ([incoming] = true) ou depuis elle.
  * L'autre extrémité se choisit parmi le portefeuille et les autres enveloppes.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransferDialog(
     dashboard: Dashboard,
@@ -167,14 +173,27 @@ fun TransferDialog(
         return "${other.envelope.name} (reste ${other.remaining.formatted()})"
     }
 
-    AlertDialog(
+    androidx.compose.material3.ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text(if (incoming) "Ajouter à ${line.envelope.name}" else "Retirer de ${line.envelope.name}") },
-        text = {
-            BlurBehindWindow()
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+            fr.baptiste.bank.ui.components.SheetHeader(
+                title = if (incoming) "Ajouter à ${line.envelope.name}" else "Retirer de ${line.envelope.name}",
+                onCancel = onDismiss,
+                action = if (incoming) "Ajouter" else "Retirer",
+                enabled = amount != null && amount.isPositive,
+                onAction = {
+                    if (amount != null) onConfirm(counterpart.takeIf { it != WALLET_ID && it != RESERVE_ID }, amount, reason, fromReserve)
+                },
+            )
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.verticalScroll(rememberScrollState()),
+                modifier = Modifier
+                    .padding(horizontal = 24.dp)
+                    .navigationBarsPadding()
+                    .imePadding()
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 24.dp),
             ) {
                 MoneyField(value = amountText, onValueChange = { amountText = it }, label = "Montant")
                 ChoiceField(
@@ -225,17 +244,7 @@ fun TransferDialog(
                     }
                 }
             }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = amount != null && amount.isPositive,
-                onClick = {
-                    if (amount != null) onConfirm(counterpart.takeIf { it != WALLET_ID && it != RESERVE_ID }, amount, reason, fromReserve)
-                },
-            ) { Text(if (incoming) "Ajouter" else "Retirer") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } },
-    )
+    }
 }
 
 /** Fiche d'une enveloppe : sa situation et les actions possibles. */

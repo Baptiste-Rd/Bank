@@ -1,5 +1,6 @@
 package fr.baptiste.bank.ui.glass
 
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -66,33 +67,46 @@ fun GlassTopBar(
     onAdd: () -> Unit,
     modifier: Modifier = Modifier,
     settingsBadge: Boolean = false,
+    /** La loupe : chercher une catégorie, une enveloppe, une dépense (comme la recherche d'iOS). */
+    onSearch: (() -> Unit)? = null,
 ) {
-    Row(
+    // Le titre reste centré sur l'écran, quel que soit le nombre de boutons de chaque côté.
+    Box(
         modifier = modifier
             .fillMaxWidth()
             .statusBarsPadding()
             .padding(top = 8.dp, start = 16.dp, end = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        contentAlignment = Alignment.Center,
     ) {
-        GlassIconButton(
-            painter = painterResource(R.drawable.ic_settings),
-            contentDescription = "Réglages",
-            onClick = onSettings,
-            badge = settingsBadge,
-        )
         Text(
             title,
             style = MaterialTheme.typography.titleMedium,
             color = Color.White,
             textAlign = TextAlign.Center,
-            modifier = Modifier.weight(1f),
         )
-        GlassIconButton(
-            painter = painterResource(R.drawable.ic_add),
-            contentDescription = "Ajouter",
-            onClick = onAdd,
-            accent = true,
-        )
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            GlassIconButton(
+                painter = painterResource(R.drawable.ic_settings),
+                contentDescription = "Réglages",
+                onClick = onSettings,
+                badge = settingsBadge,
+            )
+            Spacer(Modifier.weight(1f))
+            if (onSearch != null) {
+                GlassIconButton(
+                    painter = painterResource(R.drawable.ic_search),
+                    contentDescription = "Rechercher",
+                    onClick = onSearch,
+                    modifier = Modifier.padding(end = 8.dp),
+                )
+            }
+            GlassIconButton(
+                painter = painterResource(R.drawable.ic_add),
+                contentDescription = "Ajouter",
+                onClick = onAdd,
+                accent = true,
+            )
+        }
     }
 }
 

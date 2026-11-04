@@ -128,30 +128,12 @@ fun GlassMainScreen(
     var yearOpen by rememberSaveable { mutableStateOf(initialBudgetView == BudgetView.YEAR) }
     var searchOpen by rememberSaveable { mutableStateOf(initialSheet == "SEARCH") }
     val dateCheck by viewModel.dateCheck.collectAsStateWithLifecycle()
-    // En-tête de l'onglet Dépenses, commun aux deux vues : le mois, les dates à corriger, la vue.
+    // En-tête de l'onglet Dépenses, commun aux deux vues : le mois, puis la vue (comme un
+    // contrôle segmenté d'iOS). La recherche est la loupe de la barre du haut ; les dates à
+    // corriger sont dans la vue Opérations, avec les opérations qu'elles concernent.
+    val corrections = dateCheck?.corrections.orEmpty().size
     val spendingHeader: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {
         item(key = "month-strip") { MonthStripBar() }
-        // La recherche : discrète, en tête de Dépenses ; elle suit le mois choisi.
-        item(key = "search") {
-            GlassCard(contentPadding = 14.dp, onClick = { searchOpen = true }) {
-                Text("Rechercher une catégorie, une dépense…", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        val corrections = dateCheck?.corrections.orEmpty().size
-        if (corrections > 0) {
-            item(key = "dates-banner") {
-                GlassCard(contentPadding = 16.dp, onClick = { controller.dialog = OpenDialog.DateCheck }) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            if (corrections > 1) "$corrections dates d'achat à corriger" else "1 date d'achat à corriger",
-                            style = MaterialTheme.typography.titleSmall,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Text("Voir", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                    }
-                }
-            }
-        }
         item(key = "spending-view") {
             SegmentedToggle(
                 listOf("Catégories", if (unsortedCount > 0) "Opérations · $unsortedCount" else "Opérations"),
@@ -243,6 +225,8 @@ fun GlassMainScreen(
                             unsortedCount = unsortedCount,
                             onOpenEnvelope = openEnvelope,
                             onSortCards = { controller.dialog = OpenDialog.SortCards },
+                        dateCorrections = corrections,
+                        onCheckDates = { controller.dialog = OpenDialog.DateCheck },
                             onCover = cover,
                             onOpenTab = {
                                 // Le lien « à trier » de l'accueil mène à la liste, pas à l'analyse.
@@ -447,6 +431,7 @@ fun GlassMainScreen(
                 title = controller.tab.title,
                 onSettings = { settingsOpen = true },
                 onAdd = { addOpen = true },
+                onSearch = { searchOpen = true },
                 settingsBadge = updateAvailable,
                 modifier = Modifier.align(Alignment.TopCenter),
             )
@@ -545,7 +530,7 @@ fun GlassMainScreen(
                         SettingsEntry("Noms et règles", "${plural(aliases.size, "nom", "noms")} · ${plural(rules.size + transferRules.size, "règle", "règles")}", onClick = open(OpenDialog.Rules)),
                         SettingsEntry("Historique", plural(journal.count { !it.undone }, "changement annulable", "changements annulables"), onClick = open(OpenDialog.History)),
                         SettingsEntry("Ajouts et retraits", "Mouvements entre enveloppes", onClick = open(OpenDialog.Journal)),
-                        SettingsEntry("Vérifier les dates", null, onClick = open(OpenDialog.DateCheck)),
+                        SettingsEntry("Vérifier les dates", if (corrections > 0) plural(corrections, "date à corriger", "dates à corriger") else null, badge = corrections > 0, onClick = open(OpenDialog.DateCheck)),
                         SettingsEntry(if (updateAvailable) "Nouvelle version disponible" else "Mises à jour", badge = updateAvailable, onClick = open(OpenDialog.Updates)),
                     ),
                     developer = listOf(

@@ -1,5 +1,6 @@
 package fr.baptiste.bank.ui.glass
 
+import fr.baptiste.bank.ui.format.plural
 import androidx.compose.foundation.clickable
 import fr.baptiste.bank.R
 import androidx.compose.ui.semantics.Role
@@ -80,6 +81,9 @@ fun GlassOperationsContent(
     onAssistedSort: () -> Unit = {},
     /** Le tri carte par carte, une opération à la fois. */
     onSortCards: (() -> Unit)? = null,
+    /** Dates d'achat à corriger (jour de la banque plutôt que du paiement). */
+    dateCorrections: Int = 0,
+    onCheckDates: () -> Unit = {},
     /** Opérations en attente à la banque : montrées, pas encore importées. */
     pending: List<PendingOperation> = emptyList(),
     /** En-tête de l'écran (titre, bascule Analyse | Liste) ; par défaut le titre « Opérations ». */
@@ -115,6 +119,20 @@ fun GlassOperationsContent(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (header != null) header() else largeTitle("Opérations")
+        if (dateCorrections > 0) {
+            item(key = "dates-row") {
+                GlassCard(contentPadding = 16.dp, verticalPadding = 12.dp, onClick = onCheckDates) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            plural(dateCorrections, "date d'achat à corriger", "dates d'achat à corriger"),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Chevron()
+                    }
+                }
+            }
+        }
         if (operations.isEmpty()) {
             item(key = "empty") {
                 GlassCard(strong = true) {
