@@ -74,7 +74,6 @@ fun ExpenseSheet(
     val canSave = amount != null && amount.isPositive && envelope != null
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        BlurBehindWindow()
         Column(
             modifier = Modifier
                 .fillMaxWidth()

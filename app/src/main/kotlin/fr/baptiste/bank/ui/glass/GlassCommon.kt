@@ -56,7 +56,7 @@ internal fun rememberTabListState(): androidx.compose.foundation.lazy.LazyListSt
 internal fun glassContentPadding(): PaddingValues {
     val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    return PaddingValues(start = 16.dp, end = 16.dp, top = top + 72.dp, bottom = bottom + 112.dp)
+    return PaddingValues(start = 16.dp, end = 16.dp, top = top + 76.dp, bottom = bottom + 112.dp)
 }
 
 private val monthTitle = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.FRANCE)

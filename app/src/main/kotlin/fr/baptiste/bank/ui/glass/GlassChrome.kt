@@ -1,5 +1,8 @@
 package fr.baptiste.bank.ui.glass
 
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -84,28 +87,36 @@ fun GlassTopBar(
             color = Color.White,
             textAlign = TextAlign.Center,
         )
+        // Barre du haut plate, comme iOS : des icônes simples, le + en bleu plein. Le verre reste
+        // réservé à la barre d'onglets et au bouton Claude, en bas.
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            GlassIconButton(
-                painter = painterResource(R.drawable.ic_settings),
-                contentDescription = "Réglages",
-                onClick = onSettings,
-                badge = settingsBadge,
-            )
+            FlatIconButton(painterResource(R.drawable.ic_settings), "Réglages", onSettings, badge = settingsBadge)
             Spacer(Modifier.weight(1f))
-            if (onSearch != null) {
-                GlassIconButton(
-                    painter = painterResource(R.drawable.ic_search),
-                    contentDescription = "Rechercher",
-                    onClick = onSearch,
-                    modifier = Modifier.padding(end = 8.dp),
-                )
-            }
-            GlassIconButton(
-                painter = painterResource(R.drawable.ic_add),
-                contentDescription = "Ajouter",
-                onClick = onAdd,
-                accent = true,
-            )
+            if (onSearch != null) FlatIconButton(painterResource(R.drawable.ic_search), "Rechercher", onSearch)
+            FlatIconButton(painterResource(R.drawable.ic_add), "Ajouter", onAdd, filled = true, modifier = Modifier.padding(start = 4.dp))
+        }
+    }
+}
+
+/** Bouton d'icône plat (48 dp de cible) : sans fond, ou en bleu plein pour l'action principale. */
+@Composable
+private fun FlatIconButton(painter: androidx.compose.ui.graphics.painter.Painter, description: String, onClick: () -> Unit, modifier: Modifier = Modifier, filled: Boolean = false, badge: Boolean = false) {
+    Box(
+        modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics { contentDescription = description },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            Modifier.size(40.dp).clip(CircleShape).background(if (filled) Glass.Accent else Color.Transparent),
+            contentAlignment = Alignment.Center,
+        ) {
+            androidx.compose.material3.Icon(painter, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
+        }
+        if (badge) {
+            Box(Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 10.dp).size(8.dp).clip(CircleShape).background(Color(0xFFFF5C6E)))
         }
     }
 }
@@ -131,49 +142,51 @@ private fun YearMonth.shortName(): String {
 @Composable
 fun MonthStripBar(modifier: Modifier = Modifier) {
     val navigation = LocalMonthNavigation.current ?: return
-    val state = rememberLazyListState()
-    val index = navigation.months.indexOf(navigation.selected).coerceAtLeast(0)
-    LaunchedEffect(navigation.selected, navigation.months.size) {
-        // Le mois choisi au milieu de la barre (à peu près : deux capsules à sa gauche).
-        state.scrollToItem((index - 2).coerceAtLeast(0))
-    }
-    LazyRow(
-        state = state,
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding = PaddingValues(horizontal = 2.dp),
+    // Un contrôle segmenté plat, à largeur égale : quatre mois et « Année », rien de tronqué.
+    // Les mois plus anciens : glisser le contenu, ou « Année ».
+    val months = navigation.months
+    val index = months.indexOf(navigation.selected).coerceAtLeast(0)
+    val first = if (index >= months.size - 4) (months.size - 4).coerceAtLeast(0) else (index - 1).coerceAtLeast(0)
+    val window = months.subList(first, minOf(first + 4, months.size))
+    Row(
+        modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp)
+            .height(40.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.White.copy(alpha = 0.06f))
+            .padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        items(navigation.months, key = { it.toString() }) { month ->
+        window.forEach { month ->
             val selected = month == navigation.selected
             Box(
                 Modifier
-                    .height(40.dp)
-                    .clip(CircleShape)
-                    .background(if (selected) Color.White else Color.White.copy(alpha = 0.10f))
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(if (selected) Color.White else Color.Transparent)
                     .clickable(role = Role.Tab) { navigation.onSelect(month) }
-                    .semantics { this.selected = selected }
-                    .padding(horizontal = 16.dp),
+                    .semantics { this.selected = selected },
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     month.shortName(),
                     style = MaterialTheme.typography.labelLarge.copy(fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium),
-                    color = if (selected) Color(0xFF0A1228) else Color.White.copy(alpha = 0.82f),
+                    color = if (selected) Color(0xFF0A1228) else Color.White.copy(alpha = 0.78f),
+                    maxLines = 1,
                 )
             }
         }
-        item(key = "year") {
-            Box(
-                Modifier
-                    .height(40.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.10f))
-                    .clickable(role = Role.Button, onClick = navigation.onYear)
-                    .padding(horizontal = 16.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("Année", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-            }
+        Box(
+            Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .clip(RoundedCornerShape(9.dp))
+                .clickable(role = Role.Button, onClick = navigation.onYear),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("Année", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, maxLines = 1)
         }
     }
 }

@@ -109,7 +109,6 @@ fun PlanSimulatorSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     ) {
-        BlurBehindWindow()
         Column(
             modifier = Modifier
                 .fillMaxWidth()

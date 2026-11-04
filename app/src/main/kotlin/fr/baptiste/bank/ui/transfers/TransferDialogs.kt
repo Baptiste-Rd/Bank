@@ -297,7 +297,6 @@ fun EnvelopeSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     ) {
-        BlurBehindWindow()
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -380,9 +379,10 @@ fun EnvelopeSheet(
                 }
             }
             // L'historique, replié : le détail du chiffre, les périodes passées, les ajouts et retraits.
-            // « Historique » est réservé à la liste des annulations (Réglages) : ici, les mois passés.
+            // « Historique » est réservé à la liste des annulations (Réglages) ; les dépenses de la
+            // période sont déjà au-dessus : le repli garde le détail du chiffre et les périodes passées.
             TextButton(onClick = { showHistory = !showHistory }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
-                Text(if (showHistory) "Masquer le détail" else "Détail et mois passés")
+                Text(if (showHistory) "Masquer le détail" else "Détail du budget")
             }
             if (showHistory) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {

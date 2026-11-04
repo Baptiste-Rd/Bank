@@ -140,19 +140,14 @@ private val glows = listOf(
 )
 
 /**
- * Fond bleu nuit, avec quelques halos qui dérivent très lentement (un tour en 60 secondes).
- * Sans un fond qui varie un peu, le flou du verre ne se verrait pas. L'animation suit le
- * réglage système d'échelle des animations (désactivée si les animations le sont).
+ * Fond bleu nuit, avec quelques halos fixes (positions du prototype).
+ * Sans un fond qui varie un peu, le flou du verre ne se verrait pas.
  */
 @Composable
 fun LiquidBackground(modifier: Modifier = Modifier) {
-    val transition = rememberInfiniteTransition(label = "fond")
-    val time by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 2f * PI.toFloat(),
-        animationSpec = infiniteRepeatable(tween(60_000, easing = LinearEasing)),
-        label = "dérive",
-    )
+    // Fond fixe : une dérive animée obligeait chaque carte à reflouter le fond à chaque image, ce
+    // qui ralentissait l'ouverture des sheets (elles montaient lentement et rebondissaient).
+    val time = 0f
     val strength = LocalGlassTuning.current.glowStrength
     Canvas(modifier.fillMaxSize()) {
         drawRect(Brush.verticalGradient(listOf(Glass.BaseTop, Glass.BaseBottom)))

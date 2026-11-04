@@ -1,5 +1,6 @@
 package fr.baptiste.bank.ui.glass
 
+import fr.baptiste.bank.ui.format.summary
 import fr.baptiste.bank.ui.format.plural
 import androidx.compose.foundation.clickable
 import fr.baptiste.bank.R
@@ -94,6 +95,7 @@ fun GlassOperationsContent(
     val quiet = MaterialTheme.colorScheme.onSurfaceVariant
     val today = LocalDate.now()
     val typeByName = remember(envelopes) { envelopes.associate { it.name to it.type } }
+    var cumulative by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     val sorted = operations.filterNot {
         it.envelopeNames == null && !it.ignored && it.source != TransactionSource.MANUAL
     }
@@ -222,8 +224,34 @@ fun GlassOperationsContent(
                 }
             }
         }
+        // Option « Dépenses cumulées » : chaque jour affiche le dépensé du mois jusqu'à ce jour, compté
+        // comme le total de Catégories (rangé dans une enveloppe, épargne et hors budget exclus).
+        if (sorted.isNotEmpty()) {
+            item(key = "cumulative-toggle") {
+                androidx.compose.material3.FilterChip(
+                    selected = cumulative,
+                    onClick = { cumulative = !cumulative },
+                    label = { Text("Dépenses cumulées") },
+                )
+            }
+        }
+        val counted: (OperationRow) -> Long = { operation ->
+            val names = operation.envelopeNames?.split(", ").orEmpty()
+            when {
+                operation.ignored || operation.transferAccount != null || names.isEmpty() -> 0L
+                names.all { typeByName[it] == fr.baptiste.bank.domain.model.EnvelopeType.SAVINGS } -> 0L
+                else -> -operation.amountCents
+            }
+        }
+        val runningByDay = sorted.groupBy { it.date }.toSortedMap().entries
+            .runningFold(null as Pair<java.time.LocalDate, Long>?) { previous, (date, list) -> date to ((previous?.second ?: 0L) + list.sumOf(counted)) }
+            .filterNotNull().toMap()
         sorted.groupBy { it.date }.forEach { (date, dayOperations) ->
-            sectionHeader("label-$date", dayTitle(date, today), trailing = Money(dayOperations.sumOf { it.amountCents }).formatted())
+            sectionHeader(
+                "label-$date",
+                dayTitle(date, today),
+                trailing = if (cumulative) "cumul ${Money(runningByDay[date] ?: 0L).summary()}" else Money(dayOperations.sumOf { it.amountCents }).formatted(),
+            )
             item(key = "day-$date") {
                 GlassRowsCard(dayOperations) { operation ->
                     GlassOperationRow(operation, colorOf(operation), onClick = clickOf(operation))
