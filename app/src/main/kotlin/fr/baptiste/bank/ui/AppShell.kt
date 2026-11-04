@@ -323,6 +323,8 @@ fun AppDialogs(
             },
             onDismiss = ::close,
             initialReply = current.demoReply,
+            unsortedCount = viewModel.unsortedOperations.collectAsStateWithLifecycle().value.size,
+            onAssistedSort = { controller.dialog = OpenDialog.AssistedSort() },
         )
         OpenDialog.DateCheck -> {
             val report by viewModel.dateCheck.collectAsStateWithLifecycle()

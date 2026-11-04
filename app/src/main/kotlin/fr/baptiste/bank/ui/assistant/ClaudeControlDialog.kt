@@ -1,5 +1,10 @@
 package fr.baptiste.bank.ui.assistant
 
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material3.Icon
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
@@ -69,6 +74,9 @@ fun ClaudeControlDialog(
     onDismiss: () -> Unit,
     /** Réponse déjà collée (captures de la démo) : l'écran s'ouvre sur la validation. */
     initialReply: String? = null,
+    /** Opérations à trier, et le tri avec Claude (null : pas proposé). */
+    unsortedCount: Int = 0,
+    onAssistedSort: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     var step by rememberSaveable { mutableStateOf(if (initialReply != null) ControlStep.REVIEW else ControlStep.HOME) }
@@ -80,7 +88,7 @@ fun ClaudeControlDialog(
         Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF0B1328), contentColor = Color.White) {
             Column(Modifier.statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 12.dp)) {
-                    Text("Contrôle avec Claude", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                    Text("Claude", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
                     TextButton(onClick = onDismiss) { Text("Fermer") }
                 }
                 when (step) {
@@ -94,10 +102,12 @@ fun ClaudeControlDialog(
                             }
                         },
                         onPaste = { step = ControlStep.PASTE },
+                        unsortedCount = unsortedCount,
+                        onAssistedSort = onAssistedSort,
                     )
                     ControlStep.PASTE -> {
                         Text(
-                            "Dans Claude, copie toute la réponse qui contient le plan (bloc json compris), puis colle-la ici.",
+                            "Copie toute la réponse de Claude (bloc json compris), puis colle-la ici. Il faut une fois le skill « bank-controle-depenses » dans Claude.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 8.dp),
@@ -141,24 +151,52 @@ fun ClaudeControlDialog(
     }
 }
 
+/**
+ * L'accueil de Claude, un seul écran pour tout ce qu'il sait faire : trier ce qui attend, contrôler
+ * les dépenses (export puis plan à valider), reprendre une réponse. Une ligne dit ce qui est partagé.
+ */
 @Composable
-private fun ColumnScope.HomeStep(exporting: Boolean, onExport: () -> Unit, onPaste: () -> Unit) {
-    Column(Modifier.weight(1f).padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(
-            "Claude vérifie ton rangement, propose des enveloppes, contrôle un compte sur une période et rédige une revue de tes habitudes.",
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        Step("1", "Exporter mes dépenses", "Un fichier à partager vers l'app Claude. Il contient les jours, montants, libellés nettoyés et tes enveloppes ; jamais d'IBAN, de numéro de carte ou de référence, ni de solde.")
-        Button(onClick = onExport, enabled = !exporting, modifier = Modifier.fillMaxWidth()) {
-            Text(if (exporting) "Préparation…" else "Exporter et partager")
+private fun ColumnScope.HomeStep(
+    exporting: Boolean,
+    onExport: () -> Unit,
+    onPaste: () -> Unit,
+    unsortedCount: Int,
+    onAssistedSort: (() -> Unit)?,
+) {
+    Column(Modifier.weight(1f).padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (onAssistedSort != null && unsortedCount > 0) {
+            ClaudeAction("Trier mes $unsortedCount opérations", "Une enveloppe proposée pour chacune", onAssistedSort)
         }
-        Step("2", "Coller la réponse", "Claude rend un plan de corrections : tu coches ce que tu gardes, rien n'est appliqué avant.")
-        OutlinedButton(onClick = onPaste, modifier = Modifier.fillMaxWidth()) { Text("Coller la réponse de Claude") }
+        ClaudeAction(
+            if (exporting) "Préparation…" else "Contrôler mes dépenses",
+            "Rangement, enveloppes, habitudes",
+            onExport,
+        )
+        ClaudeAction("Coller une réponse", "Un plan à valider, rien n'est appliqué avant", onPaste)
         Text(
-            "À faire une fois : ajouter le skill « bank-controle-depenses » dans Claude (Paramètres, puis Fonctionnalités).",
+            "Partagé : jours, montants, libellés nettoyés et enveloppes. Jamais d'IBAN, de numéro ni de solde.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+@Composable
+private fun ClaudeAction(title: String, detail: String, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(18.dp))
+            .background(Color.White.copy(alpha = 0.06f))
+            .clickable(onClick = onClick)
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Icon(painterResource(fr.baptiste.bank.R.drawable.ic_chevron_right), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
