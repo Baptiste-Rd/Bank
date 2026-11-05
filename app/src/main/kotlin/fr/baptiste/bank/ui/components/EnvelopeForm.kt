@@ -101,6 +101,8 @@ fun EnvelopeDialog(
     groups: List<String> = emptyList(),
     /** Catégories imbriquées : la mère de chaque catégorie (voir parentsOf). */
     categoryParents: Map<String, String> = emptyMap(),
+    /** Début du suivi : la part par mois d'une provision rattrapée en dépend. */
+    trackingStart: YearMonth? = null,
     /** Noms des autres enveloppes (actives et archivées) : un nom ne sert qu'une fois. */
     takenNames: List<String> = emptyList(),
     /** Montant proposé d'après les mois passés (l'enveloppe elle-même, sinon sa catégorie). */
@@ -410,7 +412,7 @@ fun EnvelopeDialog(
                     )
                 }
 
-                draft?.let { Text(summary(it, today), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                draft?.let { Text(summary(it, today, trackingStart), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
 
                 TextButton(onClick = { more = !more }) { Text(if (more) "Moins d'options" else "Plus d'options") }
                 if (more) {
@@ -592,7 +594,7 @@ private fun buildEnvelope(
 }
 
 /** La phrase qui confirme le réglage : « 26 € jusqu'au 31 déc., puis 26 € tous les 3 mois ». */
-private fun summary(envelope: Envelope, today: LocalDate): String {
+private fun summary(envelope: Envelope, today: LocalDate, trackingStart: YearMonth?): String {
     val period = envelope.periodContaining(maxOf(today, envelope.start ?: today))
     val unit = envelope.frequency.scale.unitName(envelope.frequency.every)
     val rhythm = if (envelope.frequency.every == 1) "chaque ${unit}" else "tous les ${envelope.frequency.every} $unit"
@@ -601,7 +603,8 @@ private fun summary(envelope: Envelope, today: LocalDate): String {
         EnvelopeType.SAVINGS -> "${envelope.amount.summary()} mis de côté $rhythm"
         else -> {
             val first = envelope.amountIn(period)
-            val share = envelope.monthShare(YearMonth.from(today), period, first)
+            // Le même calcul que la fiche et Budget (rattrapage compris : il dépend du début du suivi).
+            val share = envelope.monthShare(YearMonth.from(today), period, first, trackingStart)
             // La même date que la remise à zéro choisie : « d'ici le 1er janv. ».
             val reset = period.endInclusive.plusDays(1)
             val day = if (reset.dayOfMonth == 1) "1er" else "${reset.dayOfMonth}"

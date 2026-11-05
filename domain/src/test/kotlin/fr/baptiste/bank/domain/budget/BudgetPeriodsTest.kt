@@ -45,7 +45,7 @@ class BudgetPeriodsTest {
         assertEquals(LocalDate.of(2027, 1, 1), next.start)
         assertEquals(LocalDate.of(2027, 3, 31), next.endInclusive)
         // 26 € sur octobre, novembre et décembre : 8,67 € par mois.
-        assertEquals(Money(867), hairdresser.monthShare(YearMonth.of(2026, 11), first, Money.euros(26)))
+        assertEquals(Money(867), hairdresser.monthShare(YearMonth.of(2026, 11), first, Money.euros(26), null))
     }
 
     @Test
@@ -79,7 +79,7 @@ class BudgetPeriodsTest {
         assertEquals(listOf("2026-08", "2026-09", "2026-10", "2026-11"), rows.map { it.key })
         // Le budget passe à 300 € : août garde 400 €.
         val frozen = groceries.copy(amount = Money.euros(300), periods = rows)
-        assertEquals(Money.euros(400), frozen.monthlyBudget(YearMonth.of(2026, 8)))
+        assertEquals(Money.euros(400), frozen.monthlyBudget(YearMonth.of(2026, 8), null))
         val current = groceries.copy(periods = rows).currentPeriodWithAmount(today, Money.euros(300))
         assertEquals(Money.euros(300), current?.amount)
         assertEquals("2026-11", current?.key)

@@ -26,4 +26,17 @@ class UndoTest {
         )
         assertEquals(emptySet<Long>(), blockedEntries(entries))
     }
+
+    @Test
+    fun `creating an envelope is blocked once a newer change uses it, using it twice is not`() {
+        val entries = listOf(
+            HistoryEntry(3, undone = false, touched = setOf("op:2"), uses = setOf("env:7")),
+            HistoryEntry(2, undone = false, touched = setOf("op:1"), uses = setOf("env:7")),
+            HistoryEntry(1, undone = false, touched = setOf("env:7"), creates = setOf("env:7")),
+        )
+        assertEquals(setOf(1L), blockedEntries(entries))
+        // Une modification de l'enveloppe n'est pas bloquée par un tri dedans.
+        val edit = listOf(entries[0], HistoryEntry(1, undone = false, touched = setOf("env:7")))
+        assertEquals(emptySet<Long>(), blockedEntries(edit))
+    }
 }

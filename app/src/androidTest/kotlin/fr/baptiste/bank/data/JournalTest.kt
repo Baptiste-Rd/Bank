@@ -269,4 +269,67 @@ class JournalTest {
         repository.undo(lastEntry().id)
         assertNull(database.transactionDao().byId(id)?.alias)
     }
+
+    @Test
+    fun creatingAnEnvelopeCannotBeUndoneOnceSomethingIsSortedIntoIt() = runBlocking {
+        val created = repository.saveEnvelope(envelope("Cadeaux", 40))
+        val creation = lastEntry()
+        val id = bankOperation("FNAC", 30)
+        repository.sortOperation(id, envelope("Cadeaux", 40).copy(id = created), null)
+        assertTrue(repository.journal.first().first { it.id == creation.id }.blocked)
+        assertNull(repository.undo(creation.id))
+        assertEquals(listOf(created to 3000L), parts(id))
+        // Annuler le tri d'abord libère la création.
+        repository.undo(lastEntry().id)
+        repository.undo(creation.id)
+        assertNull(database.envelopeDao().byId(created))
+    }
+
+    @Test
+    fun restoringAnEnvelopeAndCorrectingDatesAreUndone() = runBlocking {
+        val id = repository.saveEnvelope(envelope("Sorties", 80))
+        repository.archiveEnvelope(id)
+        repository.restoreEnvelope(id)
+        assertEquals(false, database.envelopeDao().byId(id)?.archived)
+        repository.undo(lastEntry().id)
+        assertEquals(true, database.envelopeDao().byId(id)?.archived)
+
+        val operation = bankOperation("CB FNAC", 20)
+        val before = database.transactionDao().byId(operation)!!.date
+        val dated = fr.baptiste.bank.domain.bank.DatedOperation(operation, "CB FNAC", -2000, before, before, before.minusDays(3))
+        repository.applyDateCorrections(listOf(fr.baptiste.bank.domain.bank.DateCorrection(dated, before.minusDays(3))))
+        assertEquals(before.minusDays(3), database.transactionDao().byId(operation)?.date)
+        repository.undo(lastEntry().id)
+        assertEquals(before, database.transactionDao().byId(operation)?.date)
+    }
+
+    @Test
+    fun namesAndRulesAreUndoneWithTheirOperations() = runBlocking {
+        val first = bankOperation("PRLV FREE MOBILE 123", 20)
+        val second = bankOperation("PRLV FREE MOBILE 456", 20)
+        // Un nom pour tout libellé qui contient « FREE MOBILE » : les deux opérations le prennent.
+        repository.renameOperation(first, "Forfait", "FREE MOBILE")
+        assertEquals("Forfait", database.transactionDao().byId(second)?.alias)
+        repository.undo(lastEntry().id)
+        assertNull(database.transactionDao().byId(first)?.alias)
+        assertNull(database.transactionDao().byId(second)?.alias)
+        assertTrue(database.aliasDao().all().isEmpty())
+
+        repository.addAlias("FREE MOBILE", "Forfait")
+        val alias = database.aliasDao().all().single()
+        repository.deleteAlias(alias.id, restoreLabels = true)
+        assertNull(database.transactionDao().byId(first)?.alias)
+        repository.undo(lastEntry().id)
+        assertEquals("Forfait", database.transactionDao().byId(first)?.alias)
+        assertEquals(1, database.aliasDao().all().size)
+
+        val courses = envelope("Courses", 300).let { it.copy(id = repository.saveEnvelope(it)) }
+        val shop = bankOperation("CARREFOUR", 15)
+        repository.sortOperation(shop, courses, "CARREFOUR")
+        val rule = database.ruleDao().all().single()
+        repository.deleteRule(rule.id)
+        assertTrue(database.ruleDao().all().isEmpty())
+        repository.undo(lastEntry().id)
+        assertEquals("CARREFOUR", database.ruleDao().all().single().pattern)
+    }
 }

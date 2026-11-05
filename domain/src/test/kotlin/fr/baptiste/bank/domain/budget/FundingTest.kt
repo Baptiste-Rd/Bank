@@ -30,16 +30,16 @@ class FundingTest {
     @Test
     fun `christmas created in october sets aside 100 euros a month`() {
         val period = noel.periodContaining(today)
-        assertEquals(Money.euros(100), noel.monthShare(october, period, noel.amount))
-        assertEquals(Money.ZERO, noel.monthShare(YearMonth.of(2026, 9), period, noel.amount))
-        assertEquals(Money.euros(100), noel.fundedThrough(october, period, noel.amount))
-        assertEquals(Money.euros(300), noel.fundedThrough(YearMonth.of(2026, 12), period, noel.amount))
+        assertEquals(Money.euros(100), noel.monthShare(october, period, noel.amount, null))
+        assertEquals(Money.ZERO, noel.monthShare(YearMonth.of(2026, 9), period, noel.amount, null))
+        assertEquals(Money.euros(100), noel.fundedThrough(october, period, noel.amount, null))
+        assertEquals(Money.euros(300), noel.fundedThrough(YearMonth.of(2026, 12), period, noel.amount, null))
     }
 
     @Test
     fun `an envelope without catch-up keeps its usual share`() {
         val period = vacances.periodContaining(today)
-        assertEquals(Money.euros(150), vacances.monthShare(october, period, vacances.amount))
+        assertEquals(Money.euros(150), vacances.monthShare(october, period, vacances.amount, null))
         // Suivi depuis août : août, septembre, octobre mis de côté.
         assertEquals(Money.euros(450), vacances.fundedThrough(october, period, vacances.amount, YearMonth.of(2026, 8)))
     }

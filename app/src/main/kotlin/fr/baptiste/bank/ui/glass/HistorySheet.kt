@@ -107,7 +107,7 @@ fun HistorySheet(entries: List<JournalLine>, onUndo: (JournalLine) -> Unit, onDi
             }
             if (entries.isNotEmpty()) item {
                 Text(
-                    if (entries.any { it.blocked && !it.undone }) "Les 10 derniers changements. « Modifié depuis » : annule d'abord le changement plus récent qui touche la même chose." else "Les 10 derniers changements",
+                    if (entries.any { it.blocked && !it.undone }) "Les 10 derniers changements. Annule d'abord le changement plus récent." else "Les 10 derniers changements",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),

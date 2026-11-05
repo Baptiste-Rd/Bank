@@ -35,7 +35,7 @@ private fun monthsBetween(from: YearMonth, to: YearMonth): Long = ChronoUnit.MON
  * part ; à partir de ce mois, ce qui manque (le montant moins ce qui a été mis de côté depuis
  * [since], le début du suivi) se répartit sur les mois restants.
  */
-fun Envelope.monthShare(month: YearMonth, period: Period, allocated: Money, since: YearMonth? = null): Money {
+fun Envelope.monthShare(month: YearMonth, period: Period, allocated: Money, since: YearMonth?): Money {
     val catchUp = catchUpFrom?.takeIf { type.isProvision && it > period.firstMonth() && it <= period.lastMonth() }
         ?: return baseShare(month, period, allocated)
     if (month < catchUp) return baseShare(month, period, allocated)
@@ -77,7 +77,7 @@ private fun Envelope.baseShare(month: YearMonth, period: Period, allocated: Mone
  * Ce qui est mis de côté sur la période à la fin de [month] (mois compris), sans dépasser
  * [allocated]. Les mois avant [since] (début du suivi) ne comptent pas : rien n'y a été mis de côté.
  */
-fun Envelope.fundedThrough(month: YearMonth, period: Period, allocated: Money, since: YearMonth? = null): Money {
+fun Envelope.fundedThrough(month: YearMonth, period: Period, allocated: Money, since: YearMonth?): Money {
     val first = listOfNotNull(period.firstMonth(), since, fundingStart?.takeIf { type.isProvision }).max()
     val last = minOf(month, period.lastMonth())
     if (last < first) return Money.ZERO

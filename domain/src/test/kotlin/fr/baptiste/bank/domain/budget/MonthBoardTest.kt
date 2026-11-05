@@ -233,4 +233,34 @@ class MonthBoardTest {
         assertEquals(before.savings.forecast, after.savings.forecast)
         assertEquals(Money.euros(100), after.savings.fromAccount)
     }
+
+    @Test
+    fun `unspent money taken on the account weighs only when the period closes`() {
+        // Vacances (1 200 €) a reçu 100 € pris sur le compte en mars ; seulement 600 € dépensés.
+        val trip = envelope(9, EnvelopeType.ANNUAL, 1200, "Vacances")
+        val spendings = listOf(spent(trip, LocalDate.of(2026, 7, 10), 600))
+        val march = Transfer(1, LocalDate.of(2026, 3, 2), sourceEnvelopeId = null, targetEnvelopeId = trip.id, amount = Money.euros(100), fromReserve = true)
+        val base = data(listOf(food, trip), spendings).copy(trackingStart = YearMonth.of(2026, 1))
+        fun forecast(date: LocalDate, withReserve: Boolean, carry: Boolean = false): Money {
+            val envelopes = listOf(food, trip.copy(carryOver = carry))
+            return dashboardAt(base.copy(envelopes = envelopes, transfers = if (withReserve) listOf(march) else emptyList()), date).savings.forecast
+        }
+        // Mi-décembre : rien n'a été dépensé de cet argent, l'épargne prévue ne bouge pas.
+        val mid = LocalDate.of(2026, 12, 15)
+        assertEquals(forecast(mid, false), forecast(mid, true))
+        // Le 31, la période se ferme : son reste va à l'épargne, sans les 100 € déjà épargnés avant.
+        val end = LocalDate.of(2026, 12, 31)
+        assertEquals(forecast(end, false), forecast(end, true))
+        // Une enveloppe qui garde son reste ne l'envoie pas à l'épargne : rien à retirer.
+        assertEquals(forecast(end, false, carry = true), forecast(end, true, carry = true))
+    }
+
+    @Test
+    fun `the previous month is recalled the first week until dismissed`() {
+        val october = YearMonth.of(2026, 10)
+        assertEquals(october, recapMonth(LocalDate.of(2026, 11, 1), null))
+        assertEquals(october, recapMonth(LocalDate.of(2026, 11, 7), YearMonth.of(2026, 9)))
+        assertEquals(null, recapMonth(LocalDate.of(2026, 11, 8), null))
+        assertEquals(null, recapMonth(LocalDate.of(2026, 11, 3), october))
+    }
 }

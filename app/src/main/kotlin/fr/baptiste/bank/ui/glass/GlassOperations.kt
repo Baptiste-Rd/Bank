@@ -64,7 +64,6 @@ import java.time.LocalDate
 fun GlassOperationsContent(
     operations: List<OperationRow>,
     envelopes: List<Envelope>,
-    onDelete: (Long) -> Unit,
     onSort: (OperationRow) -> Unit,
     onOpenBank: () -> Unit,
     /** Toutes les opérations à trier (la file « À valider »), pas seulement les récentes. */

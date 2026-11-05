@@ -8,19 +8,36 @@ package fr.baptiste.bank.domain.history
  * est active ; annuler la seconde d'abord la débloque.
  */
 
-/** Une entrée de l'historique : son identifiant, si elle est déjà annulée, et ce qu'elle touche. */
-data class HistoryEntry(val id: Long, val undone: Boolean, val touched: Set<String>)
+/**
+ * Une entrée de l'historique : son identifiant, si elle est déjà annulée, ce qu'elle change
+ * ([touched]), ce qu'elle crée ([creates], une enveloppe) et ce qu'elle utilise sans le changer
+ * ([uses] : l'enveloppe où elle range une opération, une saisie, un ajout ou une règle).
+ */
+data class HistoryEntry(
+    val id: Long,
+    val undone: Boolean,
+    val touched: Set<String>,
+    val creates: Set<String> = emptySet(),
+    val uses: Set<String> = emptySet(),
+)
 
 /**
  * Entrées qui ne peuvent pas s'annuler maintenant. [entries] : de la plus récente à la plus
- * ancienne. Une entrée annulée ne bloque rien.
+ * ancienne. Une entrée est bloquée si une entrée plus récente, encore active, change la même chose,
+ * ou utilise ce qu'elle a créé (annuler la création d'une enveloppe où l'on a rangé depuis
+ * effacerait ce rangement). Utiliser la même enveloppe ne bloque pas : deux tris dans Courses
+ * s'annulent dans n'importe quel ordre. Une entrée annulée ne bloque rien.
  */
 fun blockedEntries(entries: List<HistoryEntry>): Set<Long> {
     val blocked = mutableSetOf<Long>()
     val touchedLater = mutableSetOf<String>()
+    val usedLater = mutableSetOf<String>()
     for (entry in entries) {
-        if (!entry.undone && entry.touched.any { it in touchedLater }) blocked += entry.id
-        if (!entry.undone) touchedLater += entry.touched
+        if (!entry.undone && (entry.touched.any { it in touchedLater } || entry.creates.any { it in usedLater })) blocked += entry.id
+        if (!entry.undone) {
+            touchedLater += entry.touched
+            usedLater += entry.uses
+        }
     }
     return blocked
 }

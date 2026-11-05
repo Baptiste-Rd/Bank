@@ -122,8 +122,10 @@ mois choisi), hors budget, enveloppe créée, modifiée, arrêtée, restaurée o
 période corrigé, catégorie déplacée ou renommée, ajout ou retrait et son annulation, saisie
 ajoutée ou supprimée, dates d'achat corrigées, opération renommée, nom ou règle créés ou
 supprimés, mois de référence. Le message qui confirme un changement en défait la dernière entrée ;
-il n'y a pas d'autre chemin. Une entrée ne s'annule pas si une entrée plus récente touche la même
-chose : elle porte « modifié depuis », on annule d'abord la plus récente (`blockedEntries`).
+il n'y a pas d'autre chemin. Une entrée ne s'annule pas si une entrée plus récente change la même
+chose, ou utilise l'enveloppe qu'elle a créée : elle porte « modifié depuis », on annule d'abord la
+plus récente (`blockedEntries`). Supprimer définitivement une enveloppe retire de l'Historique les
+changements qui la concernent.
 
 ## Autres comptes
 
@@ -140,8 +142,10 @@ placement peut porter son total versé et son enveloppe fiscale : l'app affiche 
 - Une provision créée en cours de période répartit son montant sur les mois restants ; une ancienne
   garde sa part, et sa fiche propose de rattraper quand le suivi a commencé après sa période :
   les mois passés gardent leur part, ce qui manque se répartit sur les mois restants (ce mois-ci
-  compris). L'argent pris sur le compte pour une provision compte, à la fin de sa période, comme
-  déjà épargné (il ne gonfle pas l'épargne de ce mois-là).
+  compris). Un rattrapage accepté avant cette règle (build-194 et avant) garde l'ancienne
+  répartition depuis le début du suivi ; on ne peut plus distinguer les mois réellement mis de côté.
+  L'argent pris sur le compte pour une enveloppe qui se termine dans le mois ne gonfle pas
+  l'épargne : sa part dépensée est retirée, et sa part restante le jour où la période se ferme.
 
 ## Six mots visibles
 

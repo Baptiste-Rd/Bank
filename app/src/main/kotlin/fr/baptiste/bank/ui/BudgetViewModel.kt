@@ -262,14 +262,15 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
 
     /** Annule un changement de l'historique ; [onDone] reçoit son libellé (null s'il l'était déjà). */
     fun undo(entryId: Long, onDone: (String?) -> Unit = {}) {
-        viewModelScope.launch { onDone(repository.undo(entryId)) }
+        // Une annulation impossible (donnée disparue entre-temps) ne doit jamais fermer l'app.
+        viewModelScope.launch { onDone(runCatching { repository.undo(entryId) }.getOrNull()) }
     }
 
     /** Annule le dernier changement (le bouton « Annuler » du message qui le confirme). */
     fun undoLast(onDone: (String?) -> Unit = {}) {
         viewModelScope.launch {
             val last = repository.journal.first().firstOrNull { !it.undone }
-            onDone(last?.let { repository.undo(it.id) })
+            onDone(last?.let { runCatching { repository.undo(it.id) }.getOrNull() })
         }
     }
 

@@ -61,7 +61,7 @@ data class MonthSpending(
  * Part du budget d'une enveloppe pour [month] (rattrapage compris pour une provision), d'après la
  * période enregistrée de ce mois-là : changer un montant aujourd'hui ne réécrit pas le passé.
  */
-fun Envelope.monthlyBudget(month: YearMonth, since: YearMonth? = null): Money {
+fun Envelope.monthlyBudget(month: YearMonth, since: YearMonth?): Money {
     val period = periodContaining(month.atEndOfMonth())
     return monthShare(month, period, amountIn(period), since)
 }
@@ -122,7 +122,8 @@ fun monthSpending(
             val budget = planned + moved
             EnvelopeSpent(envelope, spentById[envelope.id] ?: Money.ZERO, budget)
         }
-        .filter { it.spent != Money.ZERO || it.budget != Money.ZERO }
+        // Une enveloppe active du mois reste visible même à 0 € (rangée à l'instant dans une catégorie vide).
+        .filter { it.spent != Money.ZERO || it.budget != Money.ZERO || (!it.envelope.archived && it.envelope.existedDuring(month)) }
     val direct = lines.groupBy { it.envelope.category }
     val categories = categoryTree(direct, parents)
     return MonthSpending(month, tracked = true, categories = categories, unsorted = unsorted, outOfBudget = outOfBudget, toAccounts = toAccounts)

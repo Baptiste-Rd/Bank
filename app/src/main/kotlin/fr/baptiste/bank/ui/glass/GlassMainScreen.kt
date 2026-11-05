@@ -409,7 +409,6 @@ fun GlassMainScreen(
                         operations = monthOperations,
                         cumulativeByDay = monthCumulative,
                         envelopes = envelopes + archived,
-                        onDelete = viewModel::deleteExpense,
                         onSort = { controller.dialog = OpenDialog.SortOperation(it) },
                         onOpenBank = { controller.dialog = OpenDialog.Bank },
                         toValidate = unsortedOperations,

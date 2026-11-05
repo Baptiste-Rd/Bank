@@ -83,3 +83,16 @@ fun boardLoadRange(dates: List<LocalDate>, envelopes: List<Envelope>): ClosedRan
  */
 fun incomeLoadRange(dates: List<LocalDate>): ClosedRange<LocalDate> =
     YearMonth.from(dates.min()).minusMonths(4).atDay(1)..YearMonth.from(dates.max()).plusMonths(2).atEndOfMonth()
+
+/** Jours du mois pendant lesquels le Résumé rappelle le bilan du mois précédent. */
+const val RECAP_DAYS = 7
+
+/**
+ * Le mois dont le Résumé rappelle le bilan le [today] : le mois précédent, du 1er au
+ * [RECAP_DAYS], tant que ce rappel n'a pas été fermé ([dismissed] : dernier mois fermé). Null sinon.
+ */
+fun recapMonth(today: LocalDate, dismissed: YearMonth?): YearMonth? {
+    if (today.dayOfMonth > RECAP_DAYS) return null
+    val previous = YearMonth.from(today).minusMonths(1)
+    return previous.takeIf { dismissed == null || dismissed < it }
+}

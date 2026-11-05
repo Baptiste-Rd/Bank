@@ -287,7 +287,7 @@ fun computeDashboard(
         .filter { it.fromReserve && it.date in month && it.targetEnvelopeId in dailyIds }
         .sumOfMoney { it.amount } +
         lines.filter { it.envelope.type != EnvelopeType.DAILY && it.envelope.type != EnvelopeType.SAVINGS && it.period.endInclusive in month }
-            .sumOfMoney { it.fromReserve }
+            .sumOfMoney { it.reserveWeighingOnSavings(today) }
     val savings = SavingsOutlook(
         target = savingsLines.sumOfMoney { it.allocated.convert(it.envelope.frequency, Frequency.MONTHLY) },
         // L'argent venu de la réserve était déjà là : il n'est pas de l'épargne du mois.
@@ -437,3 +437,18 @@ fun Dashboard.monthLeftAfterTransfer(sourceId: Long?, targetId: Long?, amount: M
 
 /** Jour où lire une enveloppe dans le tableau de [today] : son jour de retrait s'il est passé. */
 private fun Envelope.boardDate(today: LocalDate): LocalDate = retiredOn?.takeIf { it.isBefore(today) } ?: today
+
+/**
+ * Part de l'argent pris sur le compte qui pèse sur l'épargne du mois, pour une enveloppe dont la
+ * période se termine ce mois-ci : ce qui en a été dépensé (il a évité un dépassement), et, le jour
+ * où la période se ferme et envoie son reste à l'épargne, ce qui n'en a pas été dépensé. Sans
+ * cela, cet argent, déjà épargné un mois d'avant, compterait deux fois.
+ */
+private fun EnvelopeLine.reserveWeighingOnSavings(today: LocalDate): Money {
+    if (!fromReserve.isPositive) return Money.ZERO
+    val withoutReserve = available - fromReserve
+    val overBudget = (spent - withoutReserve).let { if (it.isPositive) it else Money.ZERO }
+    val spentFromReserve = minOf(fromReserve, overBudget)
+    val closing = period.endInclusive == today && !envelope.carryOver
+    return if (closing) fromReserve else spentFromReserve
+}

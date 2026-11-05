@@ -651,6 +651,7 @@ fun AppDialogs(
             // Toutes les catégories connues (enregistrées, même vides, et portées par une enveloppe), en arbre.
             groups = (viewModel.categories.collectAsStateWithLifecycle().value.map { it.name } + envelopes.mapNotNull { it.group }).distinct(),
             categoryParents = viewModel.categoryParents.collectAsStateWithLifecycle().value,
+            trackingStart = viewModel.trackingStart.collectAsStateWithLifecycle().value,
             takenNames = (envelopes + archivedEnvelopes)
                 .filter { it.id != current.envelope?.id }
                 .map { it.name },

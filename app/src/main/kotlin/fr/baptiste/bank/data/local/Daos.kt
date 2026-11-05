@@ -717,6 +717,12 @@ interface TransferDao {
     @Query("UPDATE transfer SET cancelled = 1 WHERE id = :id")
     suspend fun cancel(id: Long)
 
+    @Query("SELECT * FROM transfer WHERE id = :id")
+    suspend fun byId(id: Long): TransferEntity?
+
+    @Query("SELECT * FROM transfer WHERE id IN (:ids)")
+    suspend fun byIds(ids: List<Long>): List<TransferEntity>
+
     /** Rétablit un transfert annulé (annulation défaite depuis l'Historique). */
     @Query("UPDATE transfer SET cancelled = 0 WHERE id = :id")
     suspend fun restore(id: Long)
@@ -779,6 +785,9 @@ interface JournalDao {
 
     @Query("UPDATE journal_entry SET undone = 1 WHERE id = :id")
     suspend fun markUndone(id: Long)
+
+    @Query("DELETE FROM journal_entry WHERE id IN (:ids)")
+    suspend fun delete(ids: List<Long>)
 
     /** On ne garde que les dix derniers. */
     @Query("DELETE FROM journal_entry WHERE id NOT IN (SELECT id FROM journal_entry ORDER BY at DESC, id DESC LIMIT 10)")

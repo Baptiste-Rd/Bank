@@ -33,6 +33,13 @@ import java.time.LocalDate
  * éléments ([JournalPayload.touched]) : sinon l'annuler écraserait ce qui a changé depuis.
  */
 
+/** Préfixe des éléments utilisés (et non changés) par une entrée, dans [JournalPayload.extraTouched]. */
+const val USE_PREFIX = "use:"
+
+/** Clé d'une règle ou d'un alias dans l'Historique : le motif normalisé (voir normalizeLabel). */
+fun ruleKey(pattern: String) = "rule:" + fr.baptiste.bank.domain.bank.normalizeLabel(pattern)
+fun aliasKey(pattern: String) = "alias:" + fr.baptiste.bank.domain.bank.normalizeLabel(pattern)
+
 /** Une catégorie et sa mère, avant un changement. */
 data class CategoryState(val name: String, val parent: String?)
 
@@ -77,6 +84,11 @@ data class JournalPayload(
     val aliasRowsRemoved: List<LabelAliasEntity> = emptyList(),
     val monthCountsBefore: List<MonthCountState> = emptyList(),
     val transfersCancelled: List<Long> = emptyList(),
+    /**
+     * Éléments touchés lus en base au moment du changement : enveloppes utilisées (une opération
+     * rangée, une saisie, un ajout ou une règle vers elle), motifs des règles et des alias créés.
+     */
+    val extraTouched: List<String> = emptyList(),
 ) {
     val isEmpty: Boolean
         get() = operations.isEmpty() && rulesCreated.isEmpty() && rulesRemoved.isEmpty() && transferRulesCreated.isEmpty() &&
@@ -100,12 +112,19 @@ data class JournalPayload(
         categoriesBefore.forEach { add("cat:${it.name.lowercase()}") }
         categoriesCreated.forEach { add("cat:${it.lowercase()}") }
         (transfersCreated + transfersCancelled).forEach { add("transfer:$it") }
-        rulesCreated.forEach { add("rule:$it") }
-        rulesRemoved.forEach { add("rule:${it.pattern.lowercase()}:${it.envelopeId}") }
-        aliasRowsCreated.forEach { add("alias:$it") }
-        aliasRowsRemoved.forEach { add("alias:${it.pattern.lowercase()}") }
+        // Règles et alias : une clé par motif normalisé, la même à la création et à la suppression.
+        rulesRemoved.forEach { add(ruleKey(it.pattern)) }
+        aliasRowsRemoved.forEach { add(aliasKey(it.pattern)) }
         monthCountsBefore.forEach { add("month:${it.month}") }
+        addAll(extraTouched.filterNot { it.startsWith(USE_PREFIX) })
     }
+
+    /** Enveloppes créées par l'entrée (« env:X ») : bloquées tant qu'une entrée plus récente les utilise. */
+    fun creates(): Set<String> = envelopesCreated.map { "env:$it" }.toSet()
+
+    /** Enveloppes utilisées sans être changées : où vont ses opérations, saisies, ajouts et règles. */
+    fun uses(): Set<String> = (extraTouched.filter { it.startsWith(USE_PREFIX) }.map { it.removePrefix(USE_PREFIX) } +
+        rulesRemoved.map { "env:${it.envelopeId}" }).toSet()
 
     /**
      * Plusieurs changements faits d'un coup (un tri assisté, un plan appliqué) : une seule entrée.
@@ -130,6 +149,7 @@ data class JournalPayload(
         aliasRowsRemoved = aliasRowsRemoved + other.aliasRowsRemoved,
         monthCountsBefore = (monthCountsBefore + other.monthCountsBefore).distinctBy { it.month },
         transfersCancelled = transfersCancelled + other.transfersCancelled,
+        extraTouched = (extraTouched + other.extraTouched).distinct(),
     )
 
     fun encode(): String = JSONObject().apply {
@@ -151,6 +171,7 @@ data class JournalPayload(
         put("aliasRowsRemoved", JSONArray(aliasRowsRemoved.map { JSONObject().put("pattern", it.pattern).put("alias", it.alias) }))
         put("monthCountsBefore", JSONArray(monthCountsBefore.map { JSONObject().put("month", it.month.toString()).putNullable("counted", it.counted) }))
         put("transfersCancelled", JSONArray(transfersCancelled))
+        put("extraTouched", JSONArray(extraTouched))
     }.toString()
 
     companion object {
@@ -175,6 +196,7 @@ data class JournalPayload(
                 aliasRowsRemoved = json.objects("aliasRowsRemoved").map { LabelAliasEntity(pattern = it.getString("pattern"), alias = it.getString("alias")) },
                 monthCountsBefore = json.objects("monthCountsBefore").map { MonthCountState(java.time.YearMonth.parse(it.getString("month")), if (it.isNull("counted")) null else it.getBoolean("counted")) },
                 transfersCancelled = json.longs("transfersCancelled"),
+                extraTouched = json.optJSONArray("extraTouched")?.let { array -> (0 until array.length()).map { array.getString(it) } }.orEmpty(),
             )
         }
     }
