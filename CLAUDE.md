@@ -9,9 +9,13 @@ Référence UX : `docs/refonte-ux.md`. Toute interface s'y conforme.
    validation, la méthodologie ; après validation, le développement.
 2. Branche `feature/...`, puis CI (tests, APK, captures sur émulateur, tests sur l'appareil),
    fusion en avance rapide sur `main`, release automatique `build-N`.
-3. Tout lot qui touche l'interface passe par l'agent `revue-ux` (`.claude/agents/revue-ux.md`) sur
-   les captures de la CI, avant de montrer les écrans et avant de fusionner. On corrige ce qu'il
-   relève, puis il relit.
+3. Deux relectures avant de montrer quoi que ce soit et avant de fusionner, dans cet ordre :
+   - `revue-logique` (`.claude/agents/revue-logique.md`) : cohérence des calculs et des mots entre
+     écrans, impasses, complexité, règles du projet, tests. On corrige, il relit.
+   - `revue-ux` (`.claude/agents/revue-ux.md`) sur les captures de la CI : rendu, textes, doc UX.
+     On corrige, il relit.
+   Le développement et l'arbitrage restent à Claude ; un lot n'est terminé que quand les deux
+   relectures passent.
 
 ## Attente de la CI
 
