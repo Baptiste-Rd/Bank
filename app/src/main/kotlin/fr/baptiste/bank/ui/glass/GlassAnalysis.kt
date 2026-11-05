@@ -137,7 +137,8 @@ fun GlassAnalysisContent(
     val period = if (showYear) AnalysisPeriod.YEAR else AnalysisPeriod.MONTH
     var expanded by rememberSaveable { mutableStateOf(listOf<String>()) }
     // La recherche mène à une catégorie : elle et ses catégories mères se déplient.
-    LaunchedEffect(expandCategory) {
+    // Les mères ne sont connues qu'une fois les catégories lues : on recommence quand elles arrivent.
+    LaunchedEffect(expandCategory, categoryParents) {
         expandCategory?.let { name -> expanded = (expanded + fr.baptiste.bank.domain.model.ancestorsOf(name, categoryParents) + name).distinct() }
     }
     var opened by remember { mutableStateOf<EnvelopeSpent?>(null) }
