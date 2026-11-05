@@ -568,7 +568,8 @@ fun AppDialogs(
             val line = board?.envelopes?.firstOrNull { it.envelope.id == current.envelopeId }
             val plan = line?.let { board.coveragePlan(it) }
             if (board == null || plan == null) {
-                LaunchedEffect(current) { close() }
+                // Pendant le premier chargement, on attend ; plus rien à couvrir ferme la fenêtre.
+                if (board != null) LaunchedEffect(current) { close() }
             } else {
                 CoverDialog(
                     dashboard = board,
