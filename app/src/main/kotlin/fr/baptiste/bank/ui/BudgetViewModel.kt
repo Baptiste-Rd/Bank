@@ -249,6 +249,14 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
 
     fun cancelTransfer(id: Long) = perform { repository.cancelTransfer(id) }
 
+    /** Bilan du mois précédent, rappelé sur le Résumé la première semaine (null sinon). */
+    val previousMonthRecap: StateFlow<fr.baptiste.bank.data.MonthSavings?> = repository.previousMonthRecap().asState(null)
+
+    fun dismissRecap() = perform { repository.dismissRecap() }
+
+    /** Mois écartés des moyennes : leur bilan porte « Hors référence ». */
+    val excludedMonths: StateFlow<Set<YearMonth>> = repository.excludedMonths.asState(emptySet())
+
     /** Les dix derniers changements, annulables un par un. */
     val journal: StateFlow<List<fr.baptiste.bank.data.JournalLine>> = repository.journal.asState(emptyList())
 
@@ -321,7 +329,8 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
 
     /** Déclasse des opérations du mois en cours ; [onDone] reçoit leur nombre. */
     fun unsortMonth(scope: UnsortScope, onDone: (Int) -> Unit) {
-        viewModelScope.launch { onDone(repository.unsortMonth(YearMonth.now(), scope)) }
+        // Le mois affiché dans la barre des mois, pas toujours le mois en cours.
+        viewModelScope.launch { onDone(repository.unsortMonth(_selectedMonth.value, scope)) }
     }
 
     /** Range les opérations à trier avec les règles ; [onDone] reçoit le nombre d'opérations rangées. */

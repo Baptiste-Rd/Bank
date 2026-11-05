@@ -76,4 +76,24 @@ class FundingTest {
         val explained = board.explainCurrentAccount(Money.euros(3000), today, Money.ZERO)
         assertEquals(Money.euros(100), explained.provisionsHeld)
     }
+
+    @Test
+    fun `a catch-up spreads what is missing over the remaining months and keeps past shares`() {
+        // Suivi depuis août, Vacances 1 800 € par an (150 € par mois) : août et septembre ont mis 300 € de côté.
+        val since = YearMonth.of(2026, 8)
+        val board = computeDashboard(listOf(vacances), emptyMap(), emptyList(), Money.euros(2000), today, trackingStart = since)
+        val proposal = board.envelopes.single().catchUp!!
+        assertEquals(october, proposal.from)
+        assertEquals(3, proposal.months)
+        assertEquals(Money.euros(500), proposal.monthlyShare)
+        // Rattrapée depuis octobre : août et septembre gardent 150 €, la suite fait 500 €, le total y est.
+        val caughtUp = vacances.copy(catchUpFrom = october)
+        val period = caughtUp.periodContaining(today)
+        assertEquals(Money.euros(150), caughtUp.monthShare(YearMonth.of(2026, 9), period, caughtUp.amount, since))
+        assertEquals(Money.euros(500), caughtUp.monthShare(october, period, caughtUp.amount, since))
+        assertEquals(Money.euros(1800), caughtUp.fundedThrough(YearMonth.of(2026, 12), period, caughtUp.amount, since))
+        val after = computeDashboard(listOf(caughtUp), emptyMap(), emptyList(), Money.euros(2000), today, trackingStart = since)
+        assertTrue(after.envelopes.single().catchUp == null)
+        assertEquals(Money.euros(500), after.envelopes.single().monthlyShare)
+    }
 }

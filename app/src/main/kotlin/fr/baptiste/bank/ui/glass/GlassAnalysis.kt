@@ -479,7 +479,8 @@ private fun CategoryTreeRows(
 /** Une sous-catégorie : décalée, son point, son nom, son total, un chevron si elle se déplie. */
 @Composable
 private fun SubCategoryRow(category: CategorySpent, depth: Int, expanded: Boolean, onClick: () -> Unit) {
-    val expandable = category.children.isNotEmpty() || category.envelopes.any { it.spent.isPositive }
+    // Dépliable dès qu'elle contient une enveloppe, même sans dépense ce mois-ci (une enveloppe qu'on vient d'y ranger).
+    val expandable = category.children.isNotEmpty() || category.envelopes.isNotEmpty()
     Row(
         Modifier
             .fillMaxWidth()
@@ -521,7 +522,8 @@ private fun UnsortedLine(amount: Money, onSort: () -> Unit) {
 @Composable
 private fun CategoryRow(category: CategorySpent, scale: Long, expanded: Boolean, onClick: () -> Unit, average: Money? = null) {
     // Une catégorie sans dépense ce mois-ci n'a rien à déplier : ni chevron, ni toucher.
-    val expandable = category.children.isNotEmpty() || category.envelopes.any { it.spent.isPositive }
+    // Dépliable dès qu'elle contient une enveloppe, même sans dépense ce mois-ci (une enveloppe qu'on vient d'y ranger).
+    val expandable = category.children.isNotEmpty() || category.envelopes.isNotEmpty()
     Column(
         Modifier
             .fillMaxWidth()

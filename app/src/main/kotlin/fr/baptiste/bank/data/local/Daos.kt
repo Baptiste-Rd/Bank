@@ -552,6 +552,10 @@ interface TransactionDao {
     @Query("UPDATE transaction_record SET alias = :alias WHERE id = :id")
     suspend fun setAlias(id: Long, alias: String?)
 
+    /** Opérations nommées [alias] : leur nom, avant de le leur retirer. */
+    @Query("SELECT * FROM transaction_record WHERE alias = :alias")
+    suspend fun withAlias(alias: String): List<TransactionEntity>
+
     /** Opérations bancaires sans alias : celles qu'un nouvel alias peut renommer. */
     @Query("SELECT * FROM transaction_record WHERE alias IS NULL AND source != 'MANUAL'")
     suspend fun withoutAlias(): List<TransactionEntity>
@@ -712,6 +716,10 @@ interface TransferDao {
     /** Annuler ne supprime pas : le transfert reste visible dans le journal, barré. */
     @Query("UPDATE transfer SET cancelled = 1 WHERE id = :id")
     suspend fun cancel(id: Long)
+
+    /** Rétablit un transfert annulé (annulation défaite depuis l'Historique). */
+    @Query("UPDATE transfer SET cancelled = 0 WHERE id = :id")
+    suspend fun restore(id: Long)
 }
 
 /** Une opération bancaire et ses jours (voir [TransactionDao.observeDatedOperations]). */
@@ -759,6 +767,9 @@ interface JournalDao {
     /** Les dix derniers changements, le plus récent en premier. */
     @Query("SELECT * FROM journal_entry ORDER BY at DESC, id DESC LIMIT 10")
     fun observeRecent(): Flow<List<JournalEntity>>
+
+    @Query("SELECT * FROM journal_entry ORDER BY at DESC, id DESC LIMIT 10")
+    suspend fun recent(): List<JournalEntity>
 
     @Query("SELECT * FROM journal_entry WHERE id = :id")
     suspend fun byId(id: Long): JournalEntity?

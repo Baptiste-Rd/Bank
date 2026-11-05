@@ -94,7 +94,6 @@ fun GlassOperationsContent(
     /** Dépensé du mois cumulé à la fin de chaque jour (voir cumulativeByDay) : « Cumul du mois ». */
     cumulativeByDay: Map<LocalDate, Money> = emptyMap(),
 ) {
-    var pendingDelete by remember { mutableStateOf<OperationRow?>(null) }
     val toSortColor = BankTheme.status.warning
     val quiet = MaterialTheme.colorScheme.onSurfaceVariant
     val today = LocalDate.now()
@@ -114,12 +113,8 @@ fun GlassOperationsContent(
     fun colorOf(operation: OperationRow): Color =
         operation.envelopeNames?.split(", ")?.firstOrNull()?.let { categoryByName[it] }?.let { fr.baptiste.bank.ui.theme.categoryColorOf(it, parents) } ?: quiet
 
-    fun clickOf(operation: OperationRow): () -> Unit =
-        if (operation.source == TransactionSource.MANUAL) {
-            { pendingDelete = operation }
-        } else {
-            { onSort(operation) }
-        }
+    // Toute opération s'ouvre dans l'écran de tri ; une saisie manuelle y trouve aussi « Supprimer ».
+    fun clickOf(operation: OperationRow): () -> Unit = { onSort(operation) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -256,24 +251,6 @@ fun GlassOperationsContent(
                 }
             }
         }
-    }
-
-    pendingDelete?.let { operation ->
-        AlertDialog(
-            onDismissRequest = { pendingDelete = null },
-            title = { Text("Supprimer cette dépense ?") },
-            text = {
-                BlurBehindWindow()
-                Text("${operation.label}, ${Money(-operation.amountCents).formatted()}")
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    onDelete(operation.id)
-                    pendingDelete = null
-                }) { Text("Supprimer") }
-            },
-            dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("Annuler") } },
-        )
     }
 }
 

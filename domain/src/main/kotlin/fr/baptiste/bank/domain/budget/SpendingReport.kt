@@ -61,9 +61,9 @@ data class MonthSpending(
  * Part du budget d'une enveloppe pour [month] (rattrapage compris pour une provision), d'après la
  * période enregistrée de ce mois-là : changer un montant aujourd'hui ne réécrit pas le passé.
  */
-fun Envelope.monthlyBudget(month: YearMonth): Money {
+fun Envelope.monthlyBudget(month: YearMonth, since: YearMonth? = null): Money {
     val period = periodContaining(month.atEndOfMonth())
-    return monthShare(month, period, amountIn(period))
+    return monthShare(month, period, amountIn(period), since)
 }
 
 /**
@@ -102,6 +102,8 @@ fun monthSpending(
     parents: Map<String, String> = emptyMap(),
     /** Ajouts et retraits non annulés : ceux datés du mois changent le budget de l'enveloppe, comme dans Budget. */
     transfers: List<Transfer> = emptyList(),
+    /** Début du suivi : le rattrapage d'une provision en dépend (voir monthShare). */
+    since: YearMonth? = null,
 ): MonthSpending {
     if (!tracked) return MonthSpending(month, tracked = false, categories = emptyList())
     val spentById = countedSpendings(month, envelopes, spendings)
@@ -113,7 +115,7 @@ fun monthSpending(
             // Une enveloppe retirée garde son budget dans les mois qu'elle a couverts. Une archivée
             // avant que l'app ne retienne la date du retrait n'en a plus : on ne sait pas quand.
             val known = !envelope.archived || envelope.retiredOn != null
-            val planned = if (known && envelope.existedDuring(month)) envelope.monthlyBudget(month) else Money.ZERO
+            val planned = if (known && envelope.existedDuring(month)) envelope.monthlyBudget(month, since) else Money.ZERO
             // Un dépassement couvert (ou de l'argent retiré) ce mois-ci change ce dont l'enveloppe disposait.
             val moved = transfers.filter { YearMonth.from(it.date) == month }
                 .sumOfMoney { t -> if (t.targetEnvelopeId == envelope.id) t.amount else if (t.sourceEnvelopeId == envelope.id) -t.amount else Money.ZERO }
@@ -249,6 +251,7 @@ fun yearSpending(
             toAccountsByMonth[month] ?: Money.ZERO,
             parents,
             transfers,
+            trackingStart,
         )
     }
     return YearSpending(year, months, inProgress = current.takeIf { it.year == year }, excluded = excluded)

@@ -3,7 +3,10 @@ package fr.baptiste.bank.data
 import fr.baptiste.bank.data.local.AllocationEntity
 import fr.baptiste.bank.data.local.EnvelopeEntity
 import fr.baptiste.bank.data.local.ImputationEntity
+import fr.baptiste.bank.data.local.LabelAliasEntity
 import fr.baptiste.bank.data.local.RuleEntity
+import fr.baptiste.bank.data.local.TransactionEntity
+import fr.baptiste.bank.domain.model.TransactionSource
 import fr.baptiste.bank.domain.model.EnvelopeStatus
 import fr.baptiste.bank.domain.model.EnvelopeType
 import fr.baptiste.bank.domain.model.ImputationMode
@@ -21,11 +24,29 @@ import java.time.LocalDate
  * - les règles créées (à supprimer) et celles remplacées (à remettre) ;
  * - les transferts créés (à annuler, ils restent visibles barrés dans le journal) ;
  * - les enveloppes modifiées ou arrêtées (leur ligne et leurs périodes d'avant), ou créées (à supprimer) ;
- * - les dépenses saisies à la main (à supprimer).
+ * - les dépenses saisies à la main (à supprimer), ou supprimées (à remettre) ;
+ * - les dates d'achat corrigées, les noms d'opérations et les alias (à remettre) ;
+ * - les mois de référence choisis (à remettre) ;
+ * - les transferts annulés depuis « Ajouts et retraits » (à rétablir).
+ *
+ * Une entrée ne s'annule que si aucune entrée plus récente, encore active, ne touche les mêmes
+ * éléments ([JournalPayload.touched]) : sinon l'annuler écraserait ce qui a changé depuis.
  */
 
 /** Une catégorie et sa mère, avant un changement. */
 data class CategoryState(val name: String, val parent: String?)
+
+/** Une saisie manuelle supprimée : de quoi la remettre telle quelle. */
+data class ManualState(val transaction: TransactionEntity, val imputations: List<ImputationEntity>)
+
+/** Le jour d'une opération avant une correction de date. */
+data class DateState(val transactionId: Long, val date: LocalDate)
+
+/** Le nom choisi d'une opération avant un renommage (null : le libellé de la banque). */
+data class AliasState(val transactionId: Long, val alias: String?)
+
+/** Un mois de référence avant un changement (null : le choix par défaut). */
+data class MonthCountState(val month: java.time.YearMonth, val counted: Boolean?)
 
 /** État d'une opération avant un changement. */
 data class OperationState(
@@ -48,11 +69,43 @@ data class JournalPayload(
     /** Catégories telles qu'avant (nom, mère) ; celles créées par le changement, à retirer. */
     val categoriesBefore: List<CategoryState> = emptyList(),
     val categoriesCreated: List<String> = emptyList(),
+    val manualDeleted: List<ManualState> = emptyList(),
+    val datesBefore: List<DateState> = emptyList(),
+    val aliasesBefore: List<AliasState> = emptyList(),
+    /** Alias créés (à supprimer) et remplacés ou supprimés (à remettre). */
+    val aliasRowsCreated: List<Long> = emptyList(),
+    val aliasRowsRemoved: List<LabelAliasEntity> = emptyList(),
+    val monthCountsBefore: List<MonthCountState> = emptyList(),
+    val transfersCancelled: List<Long> = emptyList(),
 ) {
     val isEmpty: Boolean
         get() = operations.isEmpty() && rulesCreated.isEmpty() && rulesRemoved.isEmpty() && transferRulesCreated.isEmpty() &&
             transfersCreated.isEmpty() && envelopesBefore.isEmpty() && envelopesCreated.isEmpty() && manualCreated.isEmpty() &&
-            categoriesBefore.isEmpty() && categoriesCreated.isEmpty()
+            categoriesBefore.isEmpty() && categoriesCreated.isEmpty() && manualDeleted.isEmpty() && datesBefore.isEmpty() &&
+            aliasesBefore.isEmpty() && aliasRowsCreated.isEmpty() && aliasRowsRemoved.isEmpty() && monthCountsBefore.isEmpty() &&
+            transfersCancelled.isEmpty()
+
+    /**
+     * Ce que l'entrée touche : opérations, enveloppes, catégories, transferts, alias, mois. Deux
+     * entrées qui partagent un élément ne s'annulent que dans l'ordre inverse.
+     */
+    fun touched(): Set<String> = buildSet {
+        operations.forEach { add("op:${it.transactionId}") }
+        manualCreated.forEach { add("op:$it") }
+        manualDeleted.forEach { add("op:${it.transaction.id}") }
+        datesBefore.forEach { add("op:${it.transactionId}") }
+        aliasesBefore.forEach { add("op:${it.transactionId}") }
+        envelopesBefore.forEach { add("env:${it.id}") }
+        envelopesCreated.forEach { add("env:$it") }
+        categoriesBefore.forEach { add("cat:${it.name.lowercase()}") }
+        categoriesCreated.forEach { add("cat:${it.lowercase()}") }
+        (transfersCreated + transfersCancelled).forEach { add("transfer:$it") }
+        rulesCreated.forEach { add("rule:$it") }
+        rulesRemoved.forEach { add("rule:${it.pattern.lowercase()}:${it.envelopeId}") }
+        aliasRowsCreated.forEach { add("alias:$it") }
+        aliasRowsRemoved.forEach { add("alias:${it.pattern.lowercase()}") }
+        monthCountsBefore.forEach { add("month:${it.month}") }
+    }
 
     /**
      * Plusieurs changements faits d'un coup (un tri assisté, un plan appliqué) : une seule entrée.
@@ -70,6 +123,13 @@ data class JournalPayload(
         manualCreated = manualCreated + other.manualCreated,
         categoriesBefore = (categoriesBefore + other.categoriesBefore).distinctBy { it.name.lowercase() },
         categoriesCreated = categoriesCreated + other.categoriesCreated,
+        manualDeleted = manualDeleted + other.manualDeleted,
+        datesBefore = (datesBefore + other.datesBefore).distinctBy { it.transactionId },
+        aliasesBefore = (aliasesBefore + other.aliasesBefore).distinctBy { it.transactionId },
+        aliasRowsCreated = aliasRowsCreated + other.aliasRowsCreated,
+        aliasRowsRemoved = aliasRowsRemoved + other.aliasRowsRemoved,
+        monthCountsBefore = (monthCountsBefore + other.monthCountsBefore).distinctBy { it.month },
+        transfersCancelled = transfersCancelled + other.transfersCancelled,
     )
 
     fun encode(): String = JSONObject().apply {
@@ -84,6 +144,13 @@ data class JournalPayload(
         put("manualCreated", JSONArray(manualCreated))
         put("categoriesBefore", JSONArray(categoriesBefore.map { JSONObject().put("name", it.name).putNullable("parent", it.parent) }))
         put("categoriesCreated", JSONArray(categoriesCreated))
+        put("manualDeleted", JSONArray(manualDeleted.map { m -> JSONObject().put("transaction", m.transaction.toJson()).put("imputations", JSONArray(m.imputations.map { it.toJson() })) }))
+        put("datesBefore", JSONArray(datesBefore.map { JSONObject().put("id", it.transactionId).put("date", it.date.toString()) }))
+        put("aliasesBefore", JSONArray(aliasesBefore.map { JSONObject().put("id", it.transactionId).putNullable("alias", it.alias) }))
+        put("aliasRowsCreated", JSONArray(aliasRowsCreated))
+        put("aliasRowsRemoved", JSONArray(aliasRowsRemoved.map { JSONObject().put("pattern", it.pattern).put("alias", it.alias) }))
+        put("monthCountsBefore", JSONArray(monthCountsBefore.map { JSONObject().put("month", it.month.toString()).putNullable("counted", it.counted) }))
+        put("transfersCancelled", JSONArray(transfersCancelled))
     }.toString()
 
     companion object {
@@ -101,6 +168,13 @@ data class JournalPayload(
                 manualCreated = json.longs("manualCreated"),
                 categoriesBefore = json.objects("categoriesBefore").map { CategoryState(it.getString("name"), it.stringOrNull("parent")) },
                 categoriesCreated = json.optJSONArray("categoriesCreated")?.let { array -> (0 until array.length()).map { array.getString(it) } }.orEmpty(),
+                manualDeleted = json.objects("manualDeleted").map { ManualState(it.getJSONObject("transaction").toTransaction(), it.objects("imputations").map { i -> i.toImputation() }) },
+                datesBefore = json.objects("datesBefore").map { DateState(it.getLong("id"), LocalDate.parse(it.getString("date"))) },
+                aliasesBefore = json.objects("aliasesBefore").map { AliasState(it.getLong("id"), it.stringOrNull("alias")) },
+                aliasRowsCreated = json.longs("aliasRowsCreated"),
+                aliasRowsRemoved = json.objects("aliasRowsRemoved").map { LabelAliasEntity(pattern = it.getString("pattern"), alias = it.getString("alias")) },
+                monthCountsBefore = json.objects("monthCountsBefore").map { MonthCountState(java.time.YearMonth.parse(it.getString("month")), if (it.isNull("counted")) null else it.getBoolean("counted")) },
+                transfersCancelled = json.longs("transfersCancelled"),
             )
         }
     }
@@ -193,6 +267,7 @@ private fun EnvelopeEntity.toJson() = JSONObject()
     .putNullable("anchorDate", anchorDate?.toString())
     .putNullable("groupName", groupName)
     .putNullable("fundingStart", fundingStart)
+    .putNullable("catchUpFrom", catchUpFrom)
     .putNullable("startDate", startDate?.toString())
     .putNullable("firstAmountCents", firstAmountCents)
     .putNullable("firstReset", firstReset?.toString())
@@ -213,6 +288,7 @@ private fun JSONObject.toEnvelope() = EnvelopeEntity(
     anchorDate = dateOrNull("anchorDate"),
     groupName = stringOrNull("groupName"),
     fundingStart = stringOrNull("fundingStart"),
+    catchUpFrom = stringOrNull("catchUpFrom"),
     startDate = dateOrNull("startDate"),
     firstAmountCents = longOrNull("firstAmountCents"),
     firstReset = dateOrNull("firstReset"),
@@ -220,5 +296,41 @@ private fun JSONObject.toEnvelope() = EnvelopeEntity(
     retiredOn = dateOrNull("retiredOn"),
 )
 
-/** Une entrée de l'historique, telle qu'affichée. */
-data class JournalLine(val id: Long, val at: Long, val label: String, val undone: Boolean)
+private fun TransactionEntity.toJson() = JSONObject()
+    .put("id", id)
+    .put("accountId", accountId)
+    .put("date", date.toString())
+    .put("amountCents", amountCents)
+    .put("rawLabel", rawLabel)
+    .put("cleanLabel", cleanLabel)
+    .putNullable("importHash", importHash)
+    .put("source", source.name)
+    .putNullable("reconciledWithId", reconciledWithId)
+    .put("ignored", ignored)
+    .putNullable("alias", alias)
+    .putNullable("transferAccountId", transferAccountId)
+    .putNullable("bookingDate", bookingDate?.toString())
+    .putNullable("bankDate", bankDate?.toString())
+
+private fun JSONObject.toTransaction() = TransactionEntity(
+    id = getLong("id"),
+    accountId = getLong("accountId"),
+    date = LocalDate.parse(getString("date")),
+    amountCents = getLong("amountCents"),
+    rawLabel = getString("rawLabel"),
+    cleanLabel = getString("cleanLabel"),
+    importHash = stringOrNull("importHash"),
+    source = TransactionSource.valueOf(getString("source")),
+    reconciledWithId = longOrNull("reconciledWithId"),
+    ignored = getBoolean("ignored"),
+    alias = stringOrNull("alias"),
+    transferAccountId = longOrNull("transferAccountId"),
+    bookingDate = dateOrNull("bookingDate"),
+    bankDate = dateOrNull("bankDate"),
+)
+
+/**
+ * Une entrée de l'historique, telle qu'affichée. [blocked] : une entrée plus récente touche les
+ * mêmes éléments ; l'annuler écraserait ce changement-là (« Modifié depuis »).
+ */
+data class JournalLine(val id: Long, val at: Long, val label: String, val undone: Boolean, val blocked: Boolean = false)

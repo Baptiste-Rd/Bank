@@ -99,6 +99,8 @@ fun EnvelopeDialog(
     onArchive: (Envelope) -> Unit,
     /** Catégories que j'ai déjà créées, proposées avec la liste de départ. */
     groups: List<String> = emptyList(),
+    /** Catégories imbriquées : la mère de chaque catégorie (voir parentsOf). */
+    categoryParents: Map<String, String> = emptyMap(),
     /** Noms des autres enveloppes (actives et archivées) : un nom ne sert qu'une fois. */
     takenNames: List<String> = emptyList(),
     /** Montant proposé d'après les mois passés (l'enveloppe elle-même, sinon sa catégorie). */
@@ -378,12 +380,18 @@ fun EnvelopeDialog(
                 }
 
                 // Catégorie : pour les statistiques (Courses et Bar dans Nourriture).
-                val categoryOptions = remember(groups) { categoryChoices(groups) + NEW_CATEGORY }
+                // Le même arbre que « Déplacer » : catégories de départ, enregistrées (même vides) et sous-catégories.
+                val treeRows = remember(groups, categoryParents) {
+                    fr.baptiste.bank.domain.model.categoryTreeRows(groups, categoryParents)
+                }
+                val depthOf = remember(treeRows) { treeRows.associate { (name, depth) -> fr.baptiste.bank.domain.bank.envelopeNameKey(name) to depth } }
+                val categoryOptions = remember(treeRows) { treeRows.map { it.first } + fr.baptiste.bank.domain.model.DEFAULT_CATEGORY + NEW_CATEGORY }
                 ChoiceField(
                     label = "Catégorie",
                     selected = if (newCategory != null) NEW_CATEGORY else category,
                     options = categoryOptions,
-                    optionLabel = { it },
+                    // Une sous-catégorie est décalée sous sa mère, comme dans « Déplacer ».
+                    optionLabel = { name -> "\u2003".repeat(depthOf[fr.baptiste.bank.domain.bank.envelopeNameKey(name)] ?: 0) + name },
                     onSelect = {
                         categoryChosen = true
                         if (it == NEW_CATEGORY) newCategory = "" else {

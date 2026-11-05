@@ -206,6 +206,7 @@ fun GlassMainScreen(
         LocalMonthNavigation provides monthNavigation,
         LocalFirstOperationDate provides firstOperationDate,
         fr.baptiste.bank.ui.theme.LocalCategoryParents provides categoryParents,
+        fr.baptiste.bank.ui.theme.LocalExcludedMonths provides viewModel.excludedMonths.collectAsStateWithLifecycle().value,
     ) {
         GlassSurfaceColors(onBackground = true) {
         Column(Modifier.fillMaxSize()) {
@@ -249,8 +250,12 @@ fun GlassMainScreen(
                         )
                     } else {
                         val pace by viewModel.monthPace.collectAsStateWithLifecycle()
+                        val recap by viewModel.previousMonthRecap.collectAsStateWithLifecycle()
                         GlassHomeContent(
                             dashboard = dashboard,
+                            recap = recap,
+                            onOpenRecap = { recap?.let { viewModel.selectMonth(it.month) } },
+                            onDismissRecap = viewModel::dismissRecap,
                             unsortedCount = unsortedCount,
                             onOpenEnvelope = openEnvelope,
                             onSortCards = { controller.dialog = OpenDialog.SortCards },
@@ -611,12 +616,13 @@ fun GlassMainScreen(
                             is fr.baptiste.bank.ui.components.MoveSubject.EnvelopeSubject -> {
                                 val target = destination ?: fr.baptiste.bank.domain.model.DEFAULT_CATEGORY
                                 viewModel.moveEnvelope(subject.envelopeId, target) {
-                                    controller.notify("${subject.name} → $target", "Annuler") { viewModel.undoLast() }
+                                    // « dans la catégorie » : une catégorie peut porter le nom d'une enveloppe (Cadeaux).
+                                    controller.notify("${subject.name} rangée dans la catégorie $target", "Annuler") { viewModel.undoLast() }
                                 }
                             }
                             is fr.baptiste.bank.ui.components.MoveSubject.CategorySubject ->
                                 viewModel.moveCategory(subject.name, destination) { done ->
-                                    if (done) controller.notify("${subject.name} → ${destination ?: "catégorie principale"}", "Annuler") { viewModel.undoLast() }
+                                    if (done) controller.notify(destination?.let { "${subject.name} rangée dans la catégorie $it" } ?: "${subject.name} devient une catégorie principale", "Annuler") { viewModel.undoLast() }
                                     else controller.notify("Impossible : une catégorie ne va pas dans ses sous-catégories.")
                                 }
                         }

@@ -153,7 +153,7 @@ fun CoverDialog(
                     plan.legs.forEach { leg ->
                         Row(modifier = Modifier.fillMaxWidth()) {
                             Text(legName(leg), modifier = Modifier.weight(1f))
-                            Text(leg.amount.formatted(), style = MaterialTheme.typography.titleMedium)
+                            Text(leg.amount.summary(), style = MaterialTheme.typography.titleMedium)
                         }
                     }
                     if (plan.shortfall.isPositive) {

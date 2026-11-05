@@ -78,4 +78,19 @@ class CategoryTreeTest {
         assertEquals(listOf("Nourriture", "Transports"), report.categories.map { it.name })
         assertEquals(3, food.descendants.size)
     }
+
+    @Test
+    fun `the tree lists empty categories and sub-categories under their parent`() {
+        val parents = parentsOf(listOf(CategoryNode("Bars", "Nourriture"), CategoryNode("Nourriture", null)))
+        val rows = categoryTreeRows(listOf("Cadeaux", "Bars", "Nourriture"), parents)
+        val names = rows.map { it.first }
+        // Une catégorie vide (Cadeaux) y est ; Bars suit sa mère, un cran plus loin ; « Autres » n'y est pas.
+        org.junit.Assert.assertTrue("Cadeaux" in names)
+        org.junit.Assert.assertEquals(names.indexOf("Nourriture") + 1, names.indexOf("Bars"))
+        org.junit.Assert.assertEquals(1, rows.first { it.first == "Bars" }.second)
+        org.junit.Assert.assertTrue(names.none { it == DEFAULT_CATEGORY })
+        // Sans elle-même ni ses descendantes, pour déplacer une catégorie.
+        val forNourriture = categoryTreeRows(listOf("Bars", "Nourriture"), parents, without = "Nourriture").map { it.first }
+        org.junit.Assert.assertTrue("Nourriture" !in forNourriture && "Bars" !in forNourriture)
+    }
 }

@@ -28,8 +28,9 @@ Onglets, dans l'ordre : **Résumé** (où j'en suis ce mois ?), **Budget** (où 
   la gauche (Dépenses › Catégories, Budget) : « Déplacer » et « Renommer » pour une catégorie,
   « Déplacer » et « Modifier » pour une enveloppe ; le rangement est immédiat, même dans une
   catégorie encore vide, et s'annule depuis le message ou l'Historique.
-- Une catégorie se repère à son point de couleur (plus d'initiale) ; une catégorie dépliable
-  porte un chevron, une catégorie sans dépense du mois n'en a pas. Les en-têtes de famille n'ont
+- Une catégorie se repère à son point de couleur (plus d'initiale) ; une catégorie qui contient
+  une enveloppe (même sans dépense du mois) porte un chevron et se déplie. Ranger une enveloppe
+  dit « X rangée dans la catégorie Y ». Le formulaire d'enveloppe propose le même arbre que « Déplacer ». Les en-têtes de famille n'ont
   pas de point (les couleurs des familles restent dans la barre du plan et sa légende).
 - Dépenses : la barre des mois, puis Catégories | Opérations, rien d'autre en en-tête. Opérations :
   « N dates d'achat à corriger » (s'il y en a), la file À trier avec « Trier une par une », puis
@@ -110,6 +111,19 @@ dépassement y est pris. Le quotidien chaque mois, une charge mensuelle à la fi
 provision annuelle au 31 décembre. Rien ne part seul dans une autre enveloppe : pour remettre de
 l'argent quelque part, on le prend sur l'épargne (« Ajouter » sur l'enveloppe). Le bilan d'un mois
 terminé (onglet Budget, mois précédent ; rappelé sur l'accueil la première semaine) le montre.
+Le rappel est un encart du Résumé, du 1er au 7 : « Bilan d'octobre », l'épargne du mois en un
+chiffre, « Voir le bilan » et « Fermer » (fermé, il ne revient pas pour ce mois). Un mois écarté
+des moyennes porte « hors référence », dans l'encart comme dans le bilan.
+
+## Historique
+
+Tout changement fait à la main s'y inscrit et s'y annule : tri, répartition, remise à trier (du
+mois choisi), hors budget, enveloppe créée, modifiée, arrêtée, restaurée ou déplacée, budget d'une
+période corrigé, catégorie déplacée ou renommée, ajout ou retrait et son annulation, saisie
+ajoutée ou supprimée, dates d'achat corrigées, opération renommée, nom ou règle créés ou
+supprimés, mois de référence. Le message qui confirme un changement en défait la dernière entrée ;
+il n'y a pas d'autre chemin. Une entrée ne s'annule pas si une entrée plus récente touche la même
+chose : elle porte « modifié depuis », on annule d'abord la plus récente (`blockedEntries`).
 
 ## Autres comptes
 
@@ -124,7 +138,10 @@ placement peut porter son total versé et son enveloppe fiscale : l'app affiche 
   les provisions mises de côté et le salaire déjà reçu pour le mois suivant retirés. « Ajouter » sur une enveloppe le propose en premier pour
   l'épargne et les provisions : y prendre ne change ni le budget ni l'épargne du mois.
 - Une provision créée en cours de période répartit son montant sur les mois restants ; une ancienne
-  garde sa part, et sa fiche propose de rattraper quand le suivi a commencé après sa période.
+  garde sa part, et sa fiche propose de rattraper quand le suivi a commencé après sa période :
+  les mois passés gardent leur part, ce qui manque se répartit sur les mois restants (ce mois-ci
+  compris). L'argent pris sur le compte pour une provision compte, à la fin de sa période, comme
+  déjà épargné (il ne gonfle pas l'épargne de ce mois-là).
 
 ## Six mots visibles
 

@@ -46,3 +46,30 @@ fun canMoveCategory(name: String, newParent: String?, parents: Map<String, Strin
 
 /** La catégorie principale de [name] (elle-même si elle n'a pas de mère). */
 fun rootOf(name: String, parents: Map<String, String>): String = ancestorsOf(name, parents).lastOrNull() ?: name
+
+/**
+ * Les catégories en arbre, dans l'ordre d'affichage : chaque catégorie suivie de ses
+ * sous-catégories, triées par nom, avec leur profondeur. [known] : catégories enregistrées et
+ * portées par des enveloppes ; celles de départ s'y ajoutent ; « Autres » n'y est pas (le
+ * dernier choix, ajouté par l'écran). [without] : une catégorie à écarter avec ses descendantes
+ * (on ne range pas une catégorie dans elle-même).
+ *
+ * Une seule fonction pour « Déplacer » et pour le formulaire d'enveloppe : les deux listes sont les mêmes.
+ */
+fun categoryTreeRows(known: Collection<String>, parents: Map<String, String>, without: String? = null): List<Pair<String, Int>> {
+    val all = (known + defaultCategories)
+        .map { it.trim() }
+        .filter { it.isNotEmpty() && envelopeNameKey(it) != envelopeNameKey(DEFAULT_CATEGORY) }
+        .distinctBy(::envelopeNameKey)
+    val selfKey = without?.let(::envelopeNameKey)
+    val allowed = if (selfKey == null) all else all.filter { name ->
+        envelopeNameKey(name) != selfKey && ancestorsOf(name, parents).none { envelopeNameKey(it) == selfKey }
+    }
+    val allowedKeys = allowed.map(::envelopeNameKey).toSet()
+    fun parentOf(name: String) = ancestorsOf(name, parents).firstOrNull()?.let(::envelopeNameKey)
+    fun walk(parent: String?, depth: Int): List<Pair<String, Int>> =
+        allowed.filter { name -> (parentOf(name)?.takeIf { it in allowedKeys }) == parent }
+            .sortedBy { it.lowercase() }
+            .flatMap { listOf(it to depth) + walk(envelopeNameKey(it), depth + 1) }
+    return walk(null, 0)
+}

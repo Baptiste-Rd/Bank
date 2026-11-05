@@ -32,6 +32,7 @@ import fr.baptiste.bank.ui.components.SalaryDialog
 import fr.baptiste.bank.ui.bank.BankDialog
 import fr.baptiste.bank.ui.format.formatted
 import fr.baptiste.bank.ui.format.label
+import fr.baptiste.bank.ui.format.summary
 import fr.baptiste.bank.ui.assistant.AssistedSortDialog
 import fr.baptiste.bank.ui.accounts.AccountEditDialog
 import fr.baptiste.bank.ui.plan.PlanSimulatorSheet
@@ -264,6 +265,11 @@ fun AppDialogs(
                 controller.notify("${current.operation.label} : remise à trier.", "Annuler") { viewModel.undoLast() }
                 close()
             },
+            onDelete = {
+                viewModel.deleteExpense(current.operation.id)
+                controller.notify("${current.operation.label} supprimée.", "Annuler") { viewModel.undoLast() }
+                close()
+            },
             accounts = holdingAccounts,
             onTransferToAccount = { accountId, keyword ->
                 val name = holdingAccounts.firstOrNull { it.id == accountId }?.name.orEmpty()
@@ -341,12 +347,13 @@ fun AppDialogs(
         }
         OpenDialog.Unsort -> UnsortDialog(
             envelopes = envelopes,
+            month = viewModel.selectedMonth.collectAsStateWithLifecycle().value,
             onUnsort = { scope ->
                 viewModel.unsortMonth(scope) { count ->
                     if (count == 0) {
                         controller.notify("Aucune opération de la banque à remettre à trier.")
                     } else {
-                        controller.notify("$count opération(s) à trier.", action = "Appliquer les règles") {
+                        controller.notify("$count opération(s) remise(s) à trier.", action = "Appliquer les règles") {
                             viewModel.applyRules { sorted -> controller.notify("$sorted opération(s) rangée(s) par les règles.") }
                         }
                     }
@@ -557,7 +564,11 @@ fun AppDialogs(
                     onEdit = { controller.dialog = OpenDialog.EnvelopeEditor(line.envelope) },
                     onCatchUp = { from ->
                         viewModel.startFunding(line.envelope.id, from)
-                        controller.notify("${line.envelope.name} : rattrapage depuis ${from.label}.")
+                        val share = line.catchUp?.monthlyShare?.summary()
+                        controller.notify(
+                            if (share != null) "${line.envelope.name} : $share de côté par mois à partir de ${from.label}." else "${line.envelope.name} : rattrapage à partir de ${from.label}.",
+                            "Annuler",
+                        ) { viewModel.undoLast() }
                     },
                 )
             }
@@ -637,7 +648,9 @@ fun AppDialogs(
         }
         is OpenDialog.EnvelopeEditor -> EnvelopeDialog(
             initial = current.envelope,
-            groups = envelopes.mapNotNull { it.group }.distinct().sorted(),
+            // Toutes les catégories connues (enregistrées, même vides, et portées par une enveloppe), en arbre.
+            groups = (viewModel.categories.collectAsStateWithLifecycle().value.map { it.name } + envelopes.mapNotNull { it.group }).distinct(),
+            categoryParents = viewModel.categoryParents.collectAsStateWithLifecycle().value,
             takenNames = (envelopes + archivedEnvelopes)
                 .filter { it.id != current.envelope?.id }
                 .map { it.name },
@@ -657,9 +670,8 @@ fun AppDialogs(
             },
             onArchive = { archivedEnvelope ->
                 viewModel.archiveEnvelope(archivedEnvelope.id)
-                controller.notify("${archivedEnvelope.name} arrêtée.", action = "Annuler") {
-                    viewModel.restoreEnvelope(archivedEnvelope.id)
-                }
+                // Un seul chemin pour annuler : l'Historique (le message en défait la dernière entrée).
+                controller.notify("${archivedEnvelope.name} arrêtée.", action = "Annuler") { viewModel.undoLast() }
                 close()
             },
             suggest = { category, frequency -> viewModel.suggestAmount(current.envelope?.id, category, frequency) },

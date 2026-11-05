@@ -118,7 +118,7 @@ fun RenameOperationDialog(
 private enum class UnsortChoice(val label: String) { ALL("Tout le mois"), ENVELOPE("Une enveloppe"), LABEL("Un libellé") }
 
 /**
- * Déclasser les opérations de la banque du mois en cours : elles repassent « à trier ». Les saisies
+ * Déclasser les opérations de la banque du mois choisi : elles repassent « à trier ». Les saisies
  * manuelles ne sont pas touchées (elles ont été rangées en les saisissant). Les règles restent :
  * « Appliquer les règles » range de nouveau ce qu'elles reconnaissent.
  */
@@ -128,6 +128,8 @@ fun UnsortDialog(
     envelopes: List<Envelope>,
     onUnsort: (UnsortScope) -> Unit,
     onDismiss: () -> Unit,
+    /** Le mois visé : celui de la barre des mois. */
+    month: java.time.YearMonth = java.time.YearMonth.now(),
 ) {
     var choice by rememberSaveable { mutableStateOf(UnsortChoice.ENVELOPE) }
     var envelopeId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -140,14 +142,14 @@ fun UnsortDialog(
 
     fr.baptiste.bank.ui.components.SheetAlert(
         onDismissRequest = onDismiss,
-        title = { Text("Remettre à trier") },
+        title = { Text("Remettre à trier · ${month.month.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.FRANCE)}") },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
-                    "Tes saisies gardent leur enveloppe.",
+                    "Tes saisies gardent leur enveloppe. Tu peux annuler depuis l'Historique.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

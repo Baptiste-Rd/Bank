@@ -198,4 +198,75 @@ class JournalTest {
         assertEquals(10, entries.size)
         assertEquals("Nouvelle enveloppe Enveloppe 11", entries.first().label)
     }
+
+    @Test
+    fun anOlderChangeCannotBeUndoneWhileANewerOneTouchesTheSameEnvelope() = runBlocking {
+        val id = repository.saveEnvelope(envelope("Courses", 300))
+        repository.saveEnvelope(envelope("Courses", 350).copy(id = id))
+        val edit = lastEntry()
+        repository.moveEnvelope(id, "Nourriture")
+        val move = lastEntry()
+        // La modification est bloquée par le déplacement, plus récent : « modifié depuis ».
+        assertTrue(repository.journal.first().first { it.id == edit.id }.blocked)
+        assertNull(repository.undo(edit.id))
+        assertEquals("Nourriture", database.envelopeDao().byId(id)?.groupName)
+        // Dans l'ordre inverse, les deux s'annulent.
+        repository.undo(move.id)
+        repository.undo(edit.id)
+        assertEquals(30000L, database.envelopeDao().byId(id)?.amountCents)
+    }
+
+    @Test
+    fun unsortingAMonthIsRecordedAndUndone() = runBlocking {
+        val courses = envelope("Courses", 300).let { it.copy(id = repository.saveEnvelope(it)) }
+        val id = bankOperation("CARREFOUR", 20)
+        repository.sortOperation(id, courses, null)
+        assertEquals(1, repository.unsortMonth(java.time.YearMonth.from(today), UnsortScope.All))
+        assertTrue(parts(id).isEmpty())
+        repository.undo(lastEntry().id)
+        assertEquals(listOf(courses.id to 2000L), parts(id))
+    }
+
+    @Test
+    fun aDeletedManualExpenseComesBackWithItsEnvelope() = runBlocking {
+        val courses = envelope("Courses", 300).let { it.copy(id = repository.saveEnvelope(it)) }
+        repository.addManualExpense(Money.euros(12), today, "Marché", courses)
+        val id = database.transactionDao().manualBetween(today.minusDays(1), today.plusDays(1)).single().id
+        repository.deleteManualExpense(id)
+        assertNull(database.transactionDao().byId(id))
+        repository.undo(lastEntry().id)
+        assertEquals("Marché", database.transactionDao().byId(id)?.cleanLabel)
+        assertEquals(listOf(courses.id to 1200L), parts(id))
+    }
+
+    @Test
+    fun aCorrectedPeriodACancelledTransferAndAMonthChoiceAreUndone() = runBlocking {
+        val id = repository.saveEnvelope(envelope("Courses", 300))
+        val period = database.allocationDao().forEnvelope(id).first()
+        repository.setPeriodAmount(id, period.periodKey, Money.euros(250))
+        repository.undo(lastEntry().id)
+        assertEquals(period.amountCents, database.allocationDao().forEnvelope(id).first { it.periodKey == period.periodKey }.amountCents)
+
+        repository.addTransfers(listOf(fr.baptiste.bank.domain.budget.TransferLeg(null, Money.euros(30))), id, incoming = true, reason = null)
+        val transfer = repository.transferJournal().first().single()
+        repository.cancelTransfer(transfer.id)
+        assertTrue(repository.transferJournal().first().single().cancelled)
+        repository.undo(lastEntry().id)
+        assertEquals(false, repository.transferJournal().first().single().cancelled)
+
+        val month = java.time.YearMonth.from(today).minusMonths(2)
+        repository.setMonthCounted(month, false)
+        assertTrue(month in repository.excludedMonths.first())
+        repository.undo(lastEntry().id)
+        assertTrue(month !in repository.excludedMonths.first())
+    }
+
+    @Test
+    fun renamingAnOperationIsUndone() = runBlocking {
+        val id = bankOperation("CB CARREFOUR 1234", 20)
+        repository.renameOperation(id, "Carrefour", null)
+        assertEquals("Carrefour", database.transactionDao().byId(id)?.alias)
+        repository.undo(lastEntry().id)
+        assertNull(database.transactionDao().byId(id)?.alias)
+    }
 }

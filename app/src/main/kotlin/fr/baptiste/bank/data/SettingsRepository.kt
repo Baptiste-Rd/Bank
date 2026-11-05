@@ -129,6 +129,17 @@ class SettingsRepository(context: Context, storeName: String = "settings") {
         settingsStore.edit { if (month == null) it.remove(trackingStartKey) else it[trackingStartKey] = month.toString() }
     }
 
+    private val recapDismissedKey = stringPreferencesKey("recap_dismissed")
+
+    /** Dernier mois dont le rappel du bilan a été fermé sur le Résumé (« 2026-10 »). */
+    val recapDismissed: Flow<java.time.YearMonth?> = settingsStore.data.map { prefs ->
+        prefs[recapDismissedKey]?.let { runCatching { java.time.YearMonth.parse(it) }.getOrNull() }
+    }
+
+    suspend fun setRecapDismissed(month: java.time.YearMonth) {
+        settingsStore.edit { it[recapDismissedKey] = month.toString() }
+    }
+
     private val monthCountsKey = stringPreferencesKey("month_counts")
 
     /** Option « compter dans les moyennes » choisie mois par mois (« 2026-07=0;2026-09=1 »). */
@@ -137,6 +148,14 @@ class SettingsRepository(context: Context, storeName: String = "settings") {
     suspend fun setMonthCounted(month: java.time.YearMonth, counted: Boolean) {
         settingsStore.edit { prefs ->
             val choices = parseMonthCounts(prefs[monthCountsKey]) + (month to counted)
+            prefs[monthCountsKey] = choices.entries.sortedBy { it.key }.joinToString(";") { "${it.key}=${if (it.value) 1 else 0}" }
+        }
+    }
+
+    /** Remet le choix d'un mois tel qu'il était : [counted] null retire le choix (règle par défaut). */
+    suspend fun restoreMonthCount(month: java.time.YearMonth, counted: Boolean?) {
+        settingsStore.edit { prefs ->
+            val choices = parseMonthCounts(prefs[monthCountsKey]).let { if (counted == null) it - month else it + (month to counted) }
             prefs[monthCountsKey] = choices.entries.sortedBy { it.key }.joinToString(";") { "${it.key}=${if (it.value) 1 else 0}" }
         }
     }

@@ -437,7 +437,9 @@ internal fun MonthReview(dashboard: Dashboard, onEdit: (Envelope) -> Unit, trans
             style = MaterialTheme.typography.titleLarge,
             color = if (savings.forecast.isNegative) status.over else MaterialTheme.colorScheme.onSurface,
         )
-        Text("Épargne du mois", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        // Un mois écarté des moyennes (premier mois incomplet, mois exceptionnel) le dit : son épargne ne fait pas référence.
+        val excluded = java.time.YearMonth.from(dashboard.today) in fr.baptiste.bank.ui.theme.LocalExcludedMonths.current
+        Text(if (excluded) "Épargne du mois · hors référence" else "Épargne du mois", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         // Ce qu'est devenue l'épargne du mois : virée vers un livret ou un placement, ou encore sur le compte courant.
         val closing = monthClosing(savings.forecast, transfers)
         val onAccount = closing.onAccount

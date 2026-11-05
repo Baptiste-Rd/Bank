@@ -88,13 +88,18 @@ fun HistorySheet(entries: List<JournalLine>, onUndo: (JournalLine) -> Unit, onDi
                                 textDecoration = if (entry.undone) TextDecoration.LineThrough else null,
                                 color = if (entry.undone) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                             )
+                            // Une entrée plus récente touche les mêmes éléments : on annule d'abord celle-là.
                             Text(
-                                if (entry.undone) "Annulé" else hourOf(entry.at),
+                                when {
+                                    entry.undone -> "Annulé"
+                                    entry.blocked -> "${hourOf(entry.at)} · modifié depuis"
+                                    else -> hourOf(entry.at)
+                                },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                        if (!entry.undone) TextButton(onClick = { onUndo(entry) }) { Text("Annuler") }
+                        if (!entry.undone && !entry.blocked) TextButton(onClick = { onUndo(entry) }) { Text("Annuler") }
                     }
                     HorizontalDivider(Modifier.padding(horizontal = 24.dp), color = Color.White.copy(alpha = 0.08f))
                 }
@@ -102,7 +107,7 @@ fun HistorySheet(entries: List<JournalLine>, onUndo: (JournalLine) -> Unit, onDi
             }
             if (entries.isNotEmpty()) item {
                 Text(
-                    "Les 10 derniers changements",
+                    if (entries.any { it.blocked && !it.undone }) "Les 10 derniers changements. « Modifié depuis » : annule d'abord le changement plus récent qui touche la même chose." else "Les 10 derniers changements",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),

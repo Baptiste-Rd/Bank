@@ -296,6 +296,9 @@ private val otherCategoryColors = listOf(
 )
 
 /** Catégories imbriquées : la mère de chaque catégorie, pour la couleur des sous-catégories. */
+/** Mois écartés des moyennes : un bilan les marque « Hors référence ». */
+val LocalExcludedMonths = androidx.compose.runtime.staticCompositionLocalOf<Set<java.time.YearMonth>> { emptySet() }
+
 val LocalCategoryParents = androidx.compose.runtime.staticCompositionLocalOf<Map<String, String>> { emptyMap() }
 
 /**

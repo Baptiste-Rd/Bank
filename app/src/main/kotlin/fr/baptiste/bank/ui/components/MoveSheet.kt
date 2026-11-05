@@ -36,8 +36,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import fr.baptiste.bank.domain.bank.envelopeNameKey
 import fr.baptiste.bank.domain.model.DEFAULT_CATEGORY
-import fr.baptiste.bank.domain.model.ancestorsOf
-import fr.baptiste.bank.domain.model.defaultCategories
+import fr.baptiste.bank.domain.model.categoryTreeRows
 import fr.baptiste.bank.ui.theme.categoryColor
 
 /** Ce que l'on déplace : une enveloppe (vers une catégorie) ou une catégorie (dans une autre). */
@@ -68,22 +67,7 @@ fun MoveSheet(
     var newName by rememberSaveable { mutableStateOf("") }
     val isCategory = subject is MoveSubject.CategorySubject
     val rows = remember(known, parents, subject) {
-        val all = (known + defaultCategories)
-            .map { it.trim() }
-            .filter { it.isNotEmpty() && envelopeNameKey(it) != envelopeNameKey(DEFAULT_CATEGORY) }
-            .distinctBy(::envelopeNameKey)
-        val selfKey = envelopeNameKey(subject.name)
-        // Pour une catégorie : ni elle-même, ni ses sous-catégories.
-        val allowed = if (!isCategory) all else all.filter { name ->
-            envelopeNameKey(name) != selfKey && ancestorsOf(name, parents).none { envelopeNameKey(it) == selfKey }
-        }
-        fun parentOf(name: String) = ancestorsOf(name, parents).firstOrNull()?.let(::envelopeNameKey)
-        val allowedKeys = allowed.map(::envelopeNameKey).toSet()
-        fun walk(parent: String?, depth: Int): List<Pair<String, Int>> =
-            allowed.filter { name -> (parentOf(name)?.takeIf { it in allowedKeys }) == parent }
-                .sortedBy { it.lowercase() }
-                .flatMap { listOf(it to depth) + walk(envelopeNameKey(it), depth + 1) }
-        walk(null, 0)
+        categoryTreeRows(known, parents, without = subject.name.takeIf { isCategory })
     }
     val current = when (subject) {
         is MoveSubject.EnvelopeSubject -> subject.current

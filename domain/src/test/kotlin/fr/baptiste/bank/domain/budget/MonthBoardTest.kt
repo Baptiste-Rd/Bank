@@ -219,4 +219,18 @@ class MonthBoardTest {
         assertEquals(bar.id, fromBar.legs.first().sourceEnvelopeId)
         assertEquals(Money.ZERO, fromBar.shortfall)
     }
+
+    @Test
+    fun `money taken on the account for a provision counts when its period ends`() {
+        // Vacances (1 200 € par an) : 100 € pris sur le compte en mars, 1 300 € dépensés en décembre.
+        val trip = envelope(9, EnvelopeType.ANNUAL, 1200, "Vacances")
+        val endOfYear = LocalDate.of(2026, 12, 31)
+        val spendings = listOf(spent(trip, LocalDate.of(2026, 12, 10), 1300))
+        val budget = data(listOf(food, trip), spendings).copy(trackingStart = YearMonth.of(2026, 1))
+        val before = dashboardAt(budget, endOfYear)
+        val march = Transfer(1, LocalDate.of(2026, 3, 2), sourceEnvelopeId = null, targetEnvelopeId = trip.id, amount = Money.euros(100), fromReserve = true)
+        val after = dashboardAt(budget.copy(transfers = listOf(march)), endOfYear)
+        assertEquals(before.savings.forecast, after.savings.forecast)
+        assertEquals(Money.euros(100), after.savings.fromAccount)
+    }
 }

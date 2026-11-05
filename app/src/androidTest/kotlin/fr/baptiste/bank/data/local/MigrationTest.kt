@@ -240,6 +240,25 @@ class MigrationTest {
         database.close()
     }
 
+    @Test
+    fun migrate16To17KeepsEnvelopesWithoutCatchUp() {
+        createDatabase(version = 16) { db ->
+            db.execSQL(
+                "INSERT INTO envelope (id, name, type, scale, amount_cents, status, priority, carry_over, archived, every, repeats, funding_start) " +
+                    "VALUES (1, 'Vacances', 'ANNUAL', 'YEAR', 180000, 'FLEXIBLE', 0, 0, 0, 1, 1, '2026-08')",
+            )
+        }
+        val database = open()
+        database.openHelper.writableDatabase.query("SELECT name, funding_start, catch_up_from FROM envelope").use { cursor ->
+            assertEquals(1, cursor.count)
+            cursor.moveToFirst()
+            assertEquals("Vacances", cursor.getString(0))
+            assertEquals("2026-08", cursor.getString(1))
+            assertEquals(true, cursor.isNull(2))
+        }
+        database.close()
+    }
+
     /** Recrée une base de [version] à partir de son schéma exporté, puis y écrit [fill]. */
     private fun createDatabase(version: Int, fill: (SQLiteDatabase) -> Unit) {
         val assets = InstrumentationRegistry.getInstrumentation().context.assets
@@ -265,7 +284,7 @@ class MigrationTest {
     }
 
     private fun open(): BankDatabase = Room.databaseBuilder(context, BankDatabase::class.java, DB)
-        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
+        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
         .build()
 
     private companion object {

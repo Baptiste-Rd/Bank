@@ -70,6 +70,8 @@ fun SortOperationDialog(
     onSplit: ((selectedEnvelopeId: Long?) -> Unit)? = null,
     /** Remettre à trier une opération déjà rangée (ou mise hors budget). */
     onUnsort: (() -> Unit)? = null,
+    /** Supprimer une saisie manuelle (s'annule depuis le message ou l'Historique). */
+    onDelete: (() -> Unit)? = null,
 ) {
     val currentName = operation.envelopeNames?.split(", ")?.firstOrNull()
     val currentId = envelopes.firstOrNull { it.name == currentName }?.id
@@ -113,6 +115,10 @@ fun SortOperationDialog(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
+                // Une saisie manuelle se range ailleurs ou se supprime, d'ici comme depuis la fiche.
+                if (operation.source == TransactionSource.MANUAL && onDelete != null) {
+                    TextButton(onClick = onDelete) { Text("Supprimer cette saisie", color = MaterialTheme.colorScheme.error) }
                 }
                 if (operation.source != TransactionSource.MANUAL) {
                     val context = LocalContext.current

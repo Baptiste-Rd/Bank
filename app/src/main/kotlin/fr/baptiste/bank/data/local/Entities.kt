@@ -98,6 +98,8 @@ data class EnvelopeEntity(
     @ColumnInfo(name = "group_name") val groupName: String? = null,
     /** Provision : mois (« 2026-10 ») à partir duquel elle met de côté ; NULL : part habituelle. */
     @ColumnInfo(name = "funding_start") val fundingStart: String? = null,
+    /** Rattrapage d'une provision depuis ce mois (« 2026-11 ») ; NULL : aucun. */
+    @ColumnInfo(name = "catch_up_from") val catchUpFrom: String? = null,
     /** Départ : une dépense antérieure ne compte pas dans son reste (NULL : depuis toujours). */
     @ColumnInfo(name = "start_date") val startDate: LocalDate? = null,
     /** Montant de la première période, s'il diffère (NULL : le montant). */

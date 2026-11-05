@@ -84,6 +84,12 @@ data class Envelope(
      */
     val fundingStart: java.time.YearMonth? = null,
     /**
+     * Provision en retard : mois à partir duquel on rattrape. Les mois d'avant gardent leur part
+     * habituelle (le passé ne se réécrit pas) ; ce qui manque se répartit sur les mois restants,
+     * celui-ci compris. Ne vaut que pour la période qui contient ce mois. Null : pas de rattrapage.
+     */
+    val catchUpFrom: java.time.YearMonth? = null,
+    /**
      * Départ : jour à partir duquel l'enveloppe existe. Une dépense antérieure peut y être rangée
      * (elle reste dans les statistiques de son mois) mais ne compte pas dans son reste : un billet
      * payé en août ne vide pas une enveloppe Vacances créée en octobre. Null : depuis toujours

@@ -115,6 +115,10 @@ fun GlassHomeContent(
     onOpenOperation: (OperationRow) -> Unit = {},
     /** Salaire retenu pour le mois (celui du tableau de bord), pour le détail du reste. */
     salary: Money? = null,
+    /** Bilan du mois précédent, la première semaine du mois (null : rien à rappeler). */
+    recap: fr.baptiste.bank.data.MonthSavings? = null,
+    onOpenRecap: () -> Unit = {},
+    onDismissRecap: () -> Unit = {},
 ) {
     var showRest by rememberSaveable { mutableStateOf(false) }
     if (showRest && dashboard != null) RestDetailSheet(dashboard, salary) { showRest = false }
@@ -133,6 +137,9 @@ fun GlassHomeContent(
 
         // 1. Le reste du mois et par jour.
         item(key = "hero") { MonthHero(dashboard, onInfo = { showRest = true }) }
+
+        // 1 bis. Début de mois : le bilan du mois précédent, en un chiffre (doc UX, « Fin de période »).
+        if (recap != null) item(key = "recap") { RecapCard(recap, onOpenRecap, onDismissRecap) }
 
         // 2. À trier.
         if (unsortedCount > 0) {
@@ -197,6 +204,28 @@ fun GlassHomeContent(
         if (pace != null && pace.budget.isPositive) {
             sectionHeader("pace-label", "Rythme du mois")
             item(key = "pace") { PaceCard(pace) }
+        }
+    }
+}
+
+/** « Bilan d'octobre · 312 € épargnés », Voir et Fermer : le mois passé, sans fenêtre qui s'ouvre. */
+@Composable
+private fun RecapCard(recap: fr.baptiste.bank.data.MonthSavings, onOpen: () -> Unit, onDismiss: () -> Unit) {
+    val name = recap.month.month.getDisplayName(java.time.format.TextStyle.FULL, Locale.FRANCE)
+    val saved = recap.outlook.forecast
+    GlassCard(contentPadding = 16.dp, onClick = onOpen) {
+        Text(if (name.first() in "aeiouâéèêîôû") "Bilan d'$name" else "Bilan de $name", style = MaterialTheme.typography.titleMedium)
+        Text(
+            if (saved.isNegative) "Il a manqué ${(-saved).summary()}" else "${saved.summary()} épargnés",
+            style = MaterialTheme.typography.titleLarge,
+            color = if (saved.isNegative) BankTheme.status.over else MaterialTheme.colorScheme.onSurface,
+        )
+        if (!recap.counted) {
+            Text("Hors référence", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.End) {
+            androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Fermer") }
+            androidx.compose.material3.TextButton(onClick = onOpen) { Text("Voir le bilan") }
         }
     }
 }

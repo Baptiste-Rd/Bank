@@ -181,7 +181,7 @@ fun computeDashboard(
             available = available,
             spent = spent,
             remaining = available - spent,
-            monthlyShare = envelope.monthShare(currentMonth, period, allocated),
+            monthlyShare = envelope.monthShare(currentMonth, period, allocated, trackingStart),
             funded = envelope.fundedThrough(currentMonth, period, allocated, trackingStart),
             catchUp = envelope.catchUpProposal(period, allocated, currentMonth, trackingStart),
             fromReserve = transfers.filter { it.fromReserve && it.date in period && it.targetEnvelopeId == envelope.id }
@@ -280,14 +280,14 @@ fun computeDashboard(
     val reserveToSavings = transfers
         .filter { it.fromReserve && it.date in month && it.targetEnvelopeId in savingsIds }
         .sumOfMoney { it.amount }
-    // Argent pris sur le compte qui pèse sur le mois : vers le quotidien (son budget grandit) ou vers
-    // une enveloppe dont la période se termine ce mois-ci (son dépassement ou son reste en dépend).
-    val monthBound = lines
-        .filter { it.envelope.type != EnvelopeType.SAVINGS && (it.envelope.type == EnvelopeType.DAILY || it.period.endInclusive in month) }
-        .map { it.envelope.id }.toSet()
+    // Argent pris sur le compte qui pèse sur le mois : vers le quotidien ce mois-ci (son budget
+    // grandit), ou vers une enveloppe dont la période se termine ce mois-ci, sur toute sa période
+    // (son dépassement ou son reste en dépend : une provision de mars à décembre compte en décembre).
     val reserveIntoMonth = transfers
-        .filter { it.fromReserve && it.date in month && it.targetEnvelopeId in monthBound }
-        .sumOfMoney { it.amount }
+        .filter { it.fromReserve && it.date in month && it.targetEnvelopeId in dailyIds }
+        .sumOfMoney { it.amount } +
+        lines.filter { it.envelope.type != EnvelopeType.DAILY && it.envelope.type != EnvelopeType.SAVINGS && it.period.endInclusive in month }
+            .sumOfMoney { it.fromReserve }
     val savings = SavingsOutlook(
         target = savingsLines.sumOfMoney { it.allocated.convert(it.envelope.frequency, Frequency.MONTHLY) },
         // L'argent venu de la réserve était déjà là : il n'est pas de l'épargne du mois.
