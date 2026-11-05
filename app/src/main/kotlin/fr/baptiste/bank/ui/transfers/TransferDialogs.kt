@@ -105,10 +105,10 @@ fun CoverDialog(
     val plan = remember(dashboard, target, chosen, reserve) { dashboard.coveragePlan(target, chosen, reserve) } ?: return
     fun choiceLabel(key: String): String = when (val source = sourceOf(key)) {
         null -> key
-        CoverSource.Wallet -> "$WALLET (${dashboard.unallocated?.formatted()})"
-        CoverSource.Reserve -> "$RESERVE (${reserve?.formatted()})"
+        CoverSource.Wallet -> "$WALLET · ${dashboard.unallocated?.summary()}"
+        CoverSource.Reserve -> "$RESERVE · ${reserve?.summary()}"
         is CoverSource.FromEnvelope -> dashboard.envelopes.first { it.envelope.id == source.envelopeId }
-            .let { "${it.envelope.name} (reste ${it.remaining.formatted()})" }
+            .let { "${it.envelope.name} · reste ${it.remaining.summary()}" }
     }
     fun legName(leg: TransferLeg): String = if (leg.fromReserve) RESERVE else dashboard.nameOf(leg.sourceEnvelopeId)
     androidx.compose.material3.ModalBottomSheet(
@@ -208,12 +208,12 @@ fun TransferDialog(
     val amount = parseMoney(amountText)
 
     fun optionLabel(id: Long): String {
-        if (id == RESERVE_ID) return "Disponible sur le compte (${reserve?.formatted()})"
+        if (id == RESERVE_ID) return "$RESERVE · ${reserve?.summary()}"
         if (id == WALLET_ID) {
-            return dashboard.unallocated?.let { "$WALLET (${it.formatted()})" } ?: WALLET
+            return dashboard.unallocated?.let { "$WALLET · ${it.summary()}" } ?: WALLET
         }
         val other = others.first { it.envelope.id == id }
-        return "${other.envelope.name} (reste ${other.remaining.formatted()})"
+        return "${other.envelope.name} · reste ${other.remaining.summary()}"
     }
 
     androidx.compose.material3.ModalBottomSheet(

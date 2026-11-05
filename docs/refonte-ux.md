@@ -17,10 +17,9 @@ Onglets, dans l'ordre : **Résumé** (où j'en suis ce mois ?), **Budget** (où 
 - Barre des mois en tête de Résumé, Budget et Dépenses : un seul mois choisi pour les trois, puis
   « Année » (sheet de l'année : toucher un mois y mène). Glisser horizontalement change de mois.
   Épargne reste sur le mois en cours.
-- Résumé du mois en cours : deux grands chiffres (Reste du mois, Par jour) et l'écart à la même
-  date du mois précédent ; « N à trier » ; À surveiller (trois enveloppes au plus, celles qui
+- Résumé du mois en cours : deux grands chiffres (Reste du mois, Par jour) ; « N à trier » ; À surveiller (trois enveloppes au plus, celles qui
   dépassent ou vont dépasser) ; Compte courant (et salaire reçu) et Autres comptes en deux lignes ;
-  Dernières dépenses (trois) ; Rythme du mois.
+  Dernières dépenses (trois) ; Rythme du mois (et, dessous, l'écart à la même date du mois précédent).
 - Résumé d'un mois terminé : ce qu'il a coûté, son bilan d'épargne, le chemin vers le détail.
 - Épargne : épargne prévue et « Mettre de côté » ; Mes comptes (livrets et placements) ; Mis de
   côté ; Achats prévus (« Ajouter ») ; Essayer un plan ; Mois par mois.

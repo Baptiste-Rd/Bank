@@ -284,7 +284,7 @@ private fun monthName(month: YearMonth): String = month.month.getDisplayName(Tex
 private fun shortMonth(month: YearMonth): String = month.month.getDisplayName(TextStyle.SHORT, Locale.FRANCE)
 
 /** « −196 € vs budget », « +104 € vs 4 oct. » : un écart porte son signe et sa référence. */
-private fun Money.signedVs(reference: String): String =
+internal fun Money.signedVs(reference: String): String =
     (if (isNegative) "−" else "+") + (if (isNegative) -this else this).summary() + " vs " + reference
 
 /** Le mois : total, reste à trier, une barre par catégorie. */
@@ -560,7 +560,7 @@ private fun CategoryRow(category: CategorySpent, scale: Long, expanded: Boolean,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (category.over.isPositive) {
-                fr.baptiste.bank.ui.components.StatusChip("Dépassé · +${fr.baptiste.bank.domain.money.Money.euros(Math.round(category.over.cents / 100.0).coerceAtLeast(1)).summary()}", fr.baptiste.bank.ui.components.StatusKind.OVER)
+                fr.baptiste.bank.ui.components.StatusChip("Dépassé ${fr.baptiste.bank.domain.money.Money.euros(Math.round(category.over.cents / 100.0).coerceAtLeast(1)).summary()}", fr.baptiste.bank.ui.components.StatusKind.OVER)
             }
         }
     }

@@ -45,7 +45,7 @@ done
 
 # Mouvement : une courte vidéo de l'interface verre (changement d'onglet, défilement), pour
 # vérifier ce qu'une capture fixe ne montre pas. Les animations sont réactivées le temps de la
-# vidéo. Coordonnées pour un Pixel 7 (1080 x 2400) : centres des trois onglets de la barre.
+# vidéo. Coordonnées pour un Pixel 7 (1080 x 2400) : centres des onglets Dépenses, Épargne, Résumé.
 adb shell cmd uimode night yes
 adb shell settings put global animator_duration_scale 1
 adb shell am force-stop "$PKG"
@@ -57,8 +57,8 @@ adb shell screenrecord --time-limit 12 --bit-rate 8000000 /sdcard/motion.mp4 &
 REC=$!
 sleep 1.5
 adb shell input tap 540 2226; sleep 1.5
-adb shell input tap 774 2226; sleep 1.5
-adb shell input tap 306 2226; sleep 1.5
+adb shell input tap 736 2226; sleep 1.5
+adb shell input tap 150 2226; sleep 1.5
 # Défilement lent : les cartes passent sous la barre d'onglets puis sous les boutons du haut.
 adb shell input swipe 540 1700 540 900 1800; sleep 1
 adb exec-out screencap -p > "$OUT/glass-home-defile.png"

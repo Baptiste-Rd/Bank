@@ -367,12 +367,9 @@ private fun PaceCard(pace: MonthPace) {
             val before = pace.month.minusMonths(1)
             val day = minOf(pace.cumulative.size, before.lengthOfMonth())
             val name = before.month.getDisplayName(java.time.format.TextStyle.SHORT, Locale.FRANCE)
+            // Même écriture que dans Dépenses (« −85 € vs 5 oct. »), en texte discret sous la puce de rythme.
             Text(
-                when {
-                    gap.isPositive -> "${gap.summary()} de plus qu'au $day $name"
-                    gap.isNegative -> "${(-gap).summary()} de moins qu'au $day $name"
-                    else -> "Autant qu'au $day $name"
-                },
+                gap.signedVs("$day $name"),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 6.dp),
