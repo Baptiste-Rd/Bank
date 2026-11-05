@@ -137,6 +137,42 @@ class JournalTest {
     }
 
     @Test
+    fun movingIntoAnUnusedCategoryCreatesItAndUndoTakesItBack() = runBlocking {
+        val id = repository.saveEnvelope(envelope("Courses", 300))
+        val periodsBefore = database.allocationDao().forEnvelope(id).map { it.periodKey to it.amountCents }
+        repository.moveEnvelope(id, "Nourriture")
+        assertEquals("Nourriture", database.envelopeDao().byId(id)?.groupName)
+        assertTrue(database.categoryDao().byName("Nourriture") != null)
+        repository.undo(lastEntry().id)
+        assertNull(database.envelopeDao().byId(id)?.groupName)
+        assertNull(database.categoryDao().byName("Nourriture"))
+        assertEquals(periodsBefore, database.allocationDao().forEnvelope(id).map { it.periodKey to it.amountCents })
+    }
+
+    @Test
+    fun aCategoryGoesUnderAnotherButNeverIntoItsOwnChild() = runBlocking {
+        val id = repository.saveEnvelope(envelope("Supermarché", 300))
+        repository.moveEnvelope(id, "Courses")
+        assertTrue(repository.moveCategory("Courses", "Nourriture"))
+        assertEquals("Nourriture", database.categoryDao().byName("Courses")?.parentName)
+        assertEquals(false, repository.moveCategory("Nourriture", "Courses"))
+        repository.undo(lastEntry().id)
+        assertNull(database.categoryDao().byName("Courses")?.parentName)
+    }
+
+    @Test
+    fun renamingACategoryMovesItsEnvelopesAndUndoRestoresThem() = runBlocking {
+        val id = repository.saveEnvelope(envelope("Supermarché", 300))
+        repository.moveEnvelope(id, "Bouffe")
+        assertTrue(repository.renameCategory("Bouffe", "Nourriture"))
+        assertEquals("Nourriture", database.envelopeDao().byId(id)?.groupName)
+        repository.undo(lastEntry().id)
+        assertEquals("Bouffe", database.envelopeDao().byId(id)?.groupName)
+        assertTrue(database.categoryDao().byName("Bouffe") != null)
+        assertNull(database.categoryDao().byName("Nourriture"))
+    }
+
+    @Test
     fun theJournalKeepsTheTenLastChanges() = runBlocking {
         repeat(12) { repository.saveEnvelope(envelope("Enveloppe $it", 10)) }
         val entries = repository.journal.first()

@@ -22,7 +22,20 @@ import java.time.YearMonth
 
 data class EnvelopeSpent(val envelope: Envelope, val spent: Money, val budget: Money)
 
-data class CategorySpent(val name: String, val spent: Money, val budget: Money, val envelopes: List<EnvelopeSpent>) {
+/**
+ * Une catégorie du mois. [spent] et [budget] comprennent ceux de ses sous-catégories ([children]) ;
+ * [envelopes] ne liste que ses enveloppes directes.
+ */
+data class CategorySpent(
+    val name: String,
+    val spent: Money,
+    val budget: Money,
+    val envelopes: List<EnvelopeSpent>,
+    val children: List<CategorySpent> = emptyList(),
+) {
+    /** Cette catégorie et toutes ses sous-catégories, à plat. */
+    val descendants: List<CategorySpent> get() = children.flatMap { listOf(it) + it.descendants }
+
     /** Dépassement du budget (zéro si dans le budget). */
     val over: Money get() = (spent - budget).let { if (it.isPositive) it else Money.ZERO }
 }
@@ -72,6 +85,8 @@ fun monthSpending(
     tracked: Boolean = true,
     outOfBudget: Money = Money.ZERO,
     toAccounts: Money = Money.ZERO,
+    /** Catégories imbriquées : la mère de chaque catégorie (voir parentsOf). */
+    parents: Map<String, String> = emptyMap(),
 ): MonthSpending {
     if (!tracked) return MonthSpending(month, tracked = false, categories = emptyList())
     val spentById = countedSpendings(month, envelopes, spendings)
@@ -87,20 +102,39 @@ fun monthSpending(
             EnvelopeSpent(envelope, spentById[envelope.id] ?: Money.ZERO, budget)
         }
         .filter { it.spent != Money.ZERO || it.budget != Money.ZERO }
-    val categories = lines.groupBy { it.envelope.category }
-        .map { (name, list) ->
-            CategorySpent(
-                name = name,
-                spent = list.sumOfMoney { it.spent },
-                budget = list.sumOfMoney { it.budget },
-                envelopes = list.sortedByDescending { it.spent },
-            )
-        }
-        .sortedWith(compareByDescending<CategorySpent> { it.spent }.thenByDescending { it.budget })
+    val direct = lines.groupBy { it.envelope.category }
+    val categories = categoryTree(direct, parents)
     return MonthSpending(month, tracked = true, categories = categories, unsorted = unsorted, outOfBudget = outOfBudget, toAccounts = toAccounts)
 }
 
-/** Une catégorie sur l'année : total, moyenne par mois renseigné, écart au budget (positif : dépassé). */
+/**
+ * Range les enveloppes de chaque catégorie dans l'arbre : une catégorie mère apparaît dès qu'une de
+ * ses sous-catégories a une ligne, et additionne leurs dépenses et budgets aux siens. Rendu : les
+ * catégories principales, la plus grosse dépense en premier (de même à chaque niveau).
+ */
+private fun categoryTree(direct: Map<String, List<EnvelopeSpent>>, parents: Map<String, String>): List<CategorySpent> {
+    val key: (String) -> String = { fr.baptiste.bank.domain.bank.envelopeNameKey(it) }
+    // Toutes les catégories utiles : celles qui ont des lignes, et leurs mères.
+    val names = (direct.keys + direct.keys.flatMap { fr.baptiste.bank.domain.model.ancestorsOf(it, parents) })
+        .distinctBy(key)
+    val byKey = names.associateBy(key)
+    fun parentKey(name: String): String? = fr.baptiste.bank.domain.model.ancestorsOf(name, parents).firstOrNull()?.let(key)
+    fun build(name: String): CategorySpent {
+        val own = direct.entries.firstOrNull { key(it.key) == key(name) }?.value.orEmpty()
+        val children = names.filter { parentKey(it) == key(name) }.map(::build)
+            .sortedWith(compareByDescending<CategorySpent> { it.spent }.thenByDescending { it.budget })
+        return CategorySpent(
+            name = byKey[key(name)] ?: name,
+            spent = own.sumOfMoney { it.spent } + children.sumOfMoney { it.spent },
+            budget = own.sumOfMoney { it.budget } + children.sumOfMoney { it.budget },
+            envelopes = own.sortedByDescending { it.spent },
+            children = children,
+        )
+    }
+    return names.filter { parentKey(it) == null }.map(::build)
+        .sortedWith(compareByDescending<CategorySpent> { it.spent }.thenByDescending { it.budget })
+}
+
 /**
  * Une catégorie sur l'année. [average] et [gap] ne portent que sur les mois terminés : un mois en
  * cours (un loyer pas encore prélevé) ferait croire à une économie.
@@ -178,6 +212,7 @@ fun yearSpending(
     outOfBudgetByMonth: Map<YearMonth, Money> = emptyMap(),
     toAccountsByMonth: Map<YearMonth, Money> = emptyMap(),
     excluded: Set<YearMonth> = emptySet(),
+    parents: Map<String, String> = emptyMap(),
 ): YearSpending {
     val current = YearMonth.from(today)
     val last = if (year == current.year) current.monthValue else if (year < current.year) 12 else 0
@@ -192,6 +227,7 @@ fun yearSpending(
             tracked,
             outOfBudgetByMonth[month] ?: Money.ZERO,
             toAccountsByMonth[month] ?: Money.ZERO,
+            parents,
         )
     }
     return YearSpending(year, months, inProgress = current.takeIf { it.year == year }, excluded = excluded)

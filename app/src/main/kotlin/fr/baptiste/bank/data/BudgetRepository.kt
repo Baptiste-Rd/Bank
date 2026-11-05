@@ -87,6 +87,83 @@ class BudgetRepository(
     private val transactionDao = database.transactionDao()
     private val transferDao = database.transferDao()
     private val journalDao = database.journalDao()
+    private val categoryDao = database.categoryDao()
+
+    // --- Catégories imbriquées ---
+
+    /** Les catégories enregistrées et leur mère. */
+    val categories: Flow<List<fr.baptiste.bank.domain.model.CategoryNode>> = categoryDao.observeAll().map { rows ->
+        rows.map { fr.baptiste.bank.domain.model.CategoryNode(it.name, it.parentName) }
+    }
+
+    /** La mère de chaque catégorie (voir parentsOf). */
+    val categoryParents: Flow<Map<String, String>> = categories.map { fr.baptiste.bank.domain.model.parentsOf(it) }
+
+    /** Crée la catégorie si elle n'existe pas encore ; vrai si elle vient d'être créée. « Autres » n'est jamais créée. */
+    private suspend fun ensureCategory(name: String?): Boolean {
+        val stored = name?.let { fr.baptiste.bank.domain.model.storedCategory(it) } ?: return false
+        if (categoryDao.byName(stored) != null) return false
+        categoryDao.insert(fr.baptiste.bank.data.local.CategoryEntity(name = stored))
+        return true
+    }
+
+    /** Range une enveloppe dans [category] (créée au besoin, même encore vide) ; s'annule depuis l'historique. */
+    suspend fun moveEnvelope(envelopeId: Long, category: String) = database.withTransaction {
+        val before = envelopeState(envelopeId)
+        val name = before.envelopesBefore.firstOrNull()?.name ?: return@withTransaction
+        val stored = fr.baptiste.bank.domain.model.storedCategory(category)
+        val created = ensureCategory(category)
+        envelopeDao.setCategory(envelopeId, stored)
+        record("$name → ${stored ?: fr.baptiste.bank.domain.model.DEFAULT_CATEGORY}", before + JournalPayload(categoriesCreated = listOfNotNull(stored.takeIf { created })))
+    }
+
+    /**
+     * Range une catégorie dans [parent] (null : catégorie principale). Faux si c'est impossible :
+     * dans elle-même, dans une de ses sous-catégories, ou pour « Autres ».
+     */
+    suspend fun moveCategory(name: String, parent: String?): Boolean = database.withTransaction {
+        val parents = fr.baptiste.bank.domain.model.parentsOf(categoryDao.all().map { fr.baptiste.bank.domain.model.CategoryNode(it.name, it.parentName) })
+        val stored = fr.baptiste.bank.domain.model.storedCategory(name) ?: return@withTransaction false
+        val target = parent?.let { fr.baptiste.bank.domain.model.storedCategory(it) ?: return@withTransaction false }
+        if (!fr.baptiste.bank.domain.model.canMoveCategory(stored, target, parents)) return@withTransaction false
+        val before = categoryDao.byName(stored)
+        val created = listOfNotNull(stored.takeIf { ensureCategory(it) }, target?.takeIf { ensureCategory(it) })
+        categoryDao.setParent(stored, target)
+        record(
+            "$stored → ${target ?: "catégorie principale"}",
+            JournalPayload(categoriesBefore = listOfNotNull(before?.let { CategoryState(it.name, it.parentName) }), categoriesCreated = created),
+        )
+        true
+    }
+
+    /**
+     * Renomme une catégorie : ses enveloppes et ses sous-catégories suivent. Vers un nom qui existe
+     * déjà, les deux catégories n'en font plus qu'une. Faux pour « Autres » ou un nom vide.
+     */
+    suspend fun renameCategory(oldName: String, newName: String): Boolean = database.withTransaction {
+        val old = fr.baptiste.bank.domain.model.storedCategory(oldName) ?: return@withTransaction false
+        val target = fr.baptiste.bank.domain.model.storedCategory(newName) ?: return@withTransaction false
+        if (old.equals(target, ignoreCase = false)) return@withTransaction false
+        val affected = envelopeDao.inCategory(old).map { envelopeState(it.id) }
+        val oldRow = categoryDao.byName(old)
+        val children = categoryDao.all().filter { it.parentName?.equals(old, ignoreCase = true) == true }
+        val existing = categoryDao.byName(target)?.takeIf { !it.name.equals(old, ignoreCase = true) }
+        envelopeDao.renameCategory(old, target)
+        categoryDao.reparentChildren(old, target)
+        when {
+            existing != null -> categoryDao.delete(old)
+            oldRow != null -> categoryDao.rename(old, target)
+            else -> categoryDao.insert(fr.baptiste.bank.data.local.CategoryEntity(name = target))
+        }
+        record(
+            "$old renommée $target",
+            affected.fold(JournalPayload()) { all, part -> all + part } + JournalPayload(
+                categoriesBefore = listOfNotNull(oldRow?.let { CategoryState(it.name, it.parentName) }) + children.map { CategoryState(it.name, it.parentName) },
+                categoriesCreated = listOfNotNull(target.takeIf { existing == null }),
+            ),
+        )
+        true
+    }
 
     // --- Historique des changements (annulables) ---
 
@@ -152,6 +229,12 @@ class BudgetRepository(
         database.ruleDao().delete(payload.rulesCreated)
         payload.rulesRemoved.forEach { database.ruleDao().insert(it) }
         database.transferRuleDao().delete(payload.transferRulesCreated)
+        // Catégories : celles créées par le changement partent, les autres retrouvent leur mère.
+        payload.categoriesCreated.forEach { categoryDao.delete(it) }
+        payload.categoriesBefore.forEach { state ->
+            if (categoryDao.byName(state.name) == null) categoryDao.insert(fr.baptiste.bank.data.local.CategoryEntity(name = state.name, parentName = state.parent))
+            else categoryDao.setParent(state.name, state.parent)
+        }
         payload.envelopesBefore.forEach { before ->
             envelopeDao.upsert(before)
             database.allocationDao().deleteForEnvelope(before.id)
@@ -411,6 +494,7 @@ class BudgetRepository(
                 }
             }
         }
+        ensureCategory(adjusted.group)
         val rowId = envelopeDao.upsert(adjusted.toEntity())
         // Upsert renvoie -1 pour une mise à jour : l'identifiant est alors celui qu'on avait.
         val id = if (envelope.id != 0L) envelope.id else rowId
@@ -1138,12 +1222,12 @@ class BudgetRepository(
             rows.groupBy { YearMonth.from(it.date) }.mapValues { (_, list) -> Money(list.sumOf { it.amountCents }) }
         }
         val excluded = transactionDao.observeExcludedOutRows(from, to)
-        val startAndExcluded = combine(trackingStart(today), excludedMonths) { start, months -> start to months }
-        return combine(all, spendings, unsorted, excluded, startAndExcluded) { envelopes, spent, toSort, out, (start, months) ->
+        val startAndExcluded = combine(trackingStart(today), excludedMonths, categoryParents) { start, months, parents -> Triple(start, months, parents) }
+        return combine(all, spendings, unsorted, excluded, startAndExcluded) { envelopes, spent, toSort, out, (start, months, parents) ->
             fun byMonth(rows: List<fr.baptiste.bank.data.local.ExcludedAmount>) =
                 rows.groupBy { YearMonth.from(it.date) }.mapValues { (_, list) -> Money(list.sumOf { it.amountCents }) }
             val (toAccounts, outOfBudget) = out.partition { it.toAccount }
-            yearSpending(year, today, start, envelopes, spent, toSort, byMonth(outOfBudget), byMonth(toAccounts), months)
+            yearSpending(year, today, start, envelopes, spent, toSort, byMonth(outOfBudget), byMonth(toAccounts), months, parents)
         }
     }
 

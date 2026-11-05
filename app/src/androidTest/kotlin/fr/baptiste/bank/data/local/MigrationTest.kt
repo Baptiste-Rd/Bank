@@ -209,6 +209,37 @@ class MigrationTest {
         database.close()
     }
 
+    @Test
+    fun migrate15To16CreatesOneCategoryPerUsedName() {
+        createDatabase(version = 15) { db ->
+            db.execSQL(
+                "INSERT INTO envelope (id, name, type, scale, amount_cents, status, priority, carry_over, archived, every, repeats, group_name) " +
+                    "VALUES (1, 'Courses', 'DAILY', 'MONTH', 40000, 'FLEXIBLE', 0, 0, 0, 1, 1, 'Nourriture')",
+            )
+            db.execSQL(
+                "INSERT INTO envelope (id, name, type, scale, amount_cents, status, priority, carry_over, archived, every, repeats, group_name) " +
+                    "VALUES (2, 'Bar', 'DAILY', 'MONTH', 6000, 'FLEXIBLE', 0, 0, 0, 1, 1, 'Nourriture')",
+            )
+            db.execSQL(
+                "INSERT INTO envelope (id, name, type, scale, amount_cents, status, priority, carry_over, archived, every, repeats, group_name) " +
+                    "VALUES (3, 'Divers', 'DAILY', 'MONTH', 5000, 'FLEXIBLE', 0, 0, 0, 1, 1, NULL)",
+            )
+        }
+        val database = open()
+        val db = database.openHelper.writableDatabase
+        db.query("SELECT name, parent_name FROM category ORDER BY name").use { cursor ->
+            assertEquals(1, cursor.count)
+            cursor.moveToFirst()
+            assertEquals("Nourriture", cursor.getString(0))
+            assertEquals(true, cursor.isNull(1))
+        }
+        db.query("SELECT group_name FROM envelope WHERE id = 2").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals("Nourriture", cursor.getString(0))
+        }
+        database.close()
+    }
+
     /** Recrée une base de [version] à partir de son schéma exporté, puis y écrit [fill]. */
     private fun createDatabase(version: Int, fill: (SQLiteDatabase) -> Unit) {
         val assets = InstrumentationRegistry.getInstrumentation().context.assets
@@ -234,7 +265,7 @@ class MigrationTest {
     }
 
     private fun open(): BankDatabase = Room.databaseBuilder(context, BankDatabase::class.java, DB)
-        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
+        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
         .build()
 
     private companion object {

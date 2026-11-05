@@ -275,3 +275,16 @@ data class JournalEntity(
     val payload: String,
     @ColumnInfo(defaultValue = "0") val undone: Boolean = false,
 )
+
+/**
+ * Une catégorie et sa catégorie mère (null : principale). Les enveloppes désignent leur catégorie
+ * par son nom (envelope.group_name) ; une catégorie existe ici dès qu'on y range quelque chose ou
+ * qu'on la crée, même vide. « Autres » n'y figure pas : c'est l'absence de catégorie.
+ */
+@Entity(tableName = "category", indices = [Index(value = ["name"], unique = true)])
+data class CategoryEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    @ColumnInfo(name = "parent_name") val parentName: String? = null,
+    @ColumnInfo(defaultValue = "0") val position: Int = 0,
+)

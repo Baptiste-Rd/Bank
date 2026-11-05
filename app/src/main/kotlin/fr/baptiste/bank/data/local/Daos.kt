@@ -175,6 +175,15 @@ interface EnvelopeDao {
     @Query("SELECT id FROM envelope")
     suspend fun allIds(): List<Long>
 
+    @Query("SELECT * FROM envelope WHERE group_name = :category COLLATE NOCASE")
+    suspend fun inCategory(category: String): List<EnvelopeEntity>
+
+    @Query("UPDATE envelope SET group_name = :category WHERE id = :id")
+    suspend fun setCategory(id: Long, category: String?)
+
+    @Query("UPDATE envelope SET group_name = :newName WHERE group_name = :oldName COLLATE NOCASE")
+    suspend fun renameCategory(oldName: String, newName: String?)
+
     @Query("SELECT * FROM envelope WHERE archived = 0")
     suspend fun active(): List<EnvelopeEntity>
 
@@ -743,4 +752,32 @@ interface JournalDao {
     /** On ne garde que les dix derniers. */
     @Query("DELETE FROM journal_entry WHERE id NOT IN (SELECT id FROM journal_entry ORDER BY at DESC, id DESC LIMIT 10)")
     suspend fun trim()
+}
+
+@Dao
+interface CategoryDao {
+    @Query("SELECT * FROM category ORDER BY position, name")
+    fun observeAll(): Flow<List<CategoryEntity>>
+
+    @Query("SELECT * FROM category ORDER BY position, name")
+    suspend fun all(): List<CategoryEntity>
+
+    @Query("SELECT * FROM category WHERE name = :name COLLATE NOCASE LIMIT 1")
+    suspend fun byName(name: String): CategoryEntity?
+
+    /** Une catégorie déjà connue (même nom) est gardée telle quelle. */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(category: CategoryEntity): Long
+
+    @Query("UPDATE category SET parent_name = :parent WHERE name = :name COLLATE NOCASE")
+    suspend fun setParent(name: String, parent: String?)
+
+    @Query("UPDATE category SET name = :newName WHERE name = :oldName COLLATE NOCASE")
+    suspend fun rename(oldName: String, newName: String)
+
+    @Query("UPDATE category SET parent_name = :newName WHERE parent_name = :oldName COLLATE NOCASE")
+    suspend fun reparentChildren(oldName: String, newName: String?)
+
+    @Query("DELETE FROM category WHERE name = :name COLLATE NOCASE")
+    suspend fun delete(name: String)
 }

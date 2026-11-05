@@ -21,8 +21,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         BalanceEntity::class,
         TransferRuleEntity::class,
         JournalEntity::class,
+        CategoryEntity::class,
     ],
-    version = 15,
+    version = 16,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -38,12 +39,13 @@ abstract class BankDatabase : RoomDatabase() {
     abstract fun balanceDao(): BalanceDao
     abstract fun transferRuleDao(): TransferRuleDao
     abstract fun journalDao(): JournalDao
+    abstract fun categoryDao(): CategoryDao
 
     companion object {
         /** [name] permet au mode démo d'utiliser une base séparée, sans toucher aux vraies données. */
         fun create(context: Context, name: String = "bank.db"): BankDatabase =
             Room.databaseBuilder(context, BankDatabase::class.java, name)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
                 .build()
     }
 }
@@ -211,6 +213,24 @@ val MIGRATION_14_15 = object : Migration(14, 15) {
         db.execSQL(
             "CREATE TABLE IF NOT EXISTS `journal_entry` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
                 "`at` INTEGER NOT NULL, `label` TEXT NOT NULL, `payload` TEXT NOT NULL, `undone` INTEGER NOT NULL DEFAULT 0)",
+        )
+    }
+}
+
+/**
+ * Version 16 : catégories imbriquées. Une catégorie par nom déjà utilisé par une enveloppe, toutes
+ * principales ; rien d'autre ne change.
+ */
+val MIGRATION_15_16 = object : Migration(15, 16) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `category` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, " +
+                "`parent_name` TEXT, `position` INTEGER NOT NULL DEFAULT 0)",
+        )
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_category_name` ON `category` (`name`)")
+        db.execSQL(
+            "INSERT OR IGNORE INTO category (name) SELECT DISTINCT TRIM(group_name) FROM envelope " +
+                "WHERE group_name IS NOT NULL AND TRIM(group_name) <> '' AND LOWER(TRIM(group_name)) <> 'autres'",
         )
     }
 }

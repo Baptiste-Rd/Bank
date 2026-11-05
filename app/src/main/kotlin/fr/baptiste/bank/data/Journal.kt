@@ -24,6 +24,9 @@ import java.time.LocalDate
  * - les dépenses saisies à la main (à supprimer).
  */
 
+/** Une catégorie et sa mère, avant un changement. */
+data class CategoryState(val name: String, val parent: String?)
+
 /** État d'une opération avant un changement. */
 data class OperationState(
     val transactionId: Long,
@@ -42,10 +45,14 @@ data class JournalPayload(
     val allocationsBefore: List<AllocationEntity> = emptyList(),
     val envelopesCreated: List<Long> = emptyList(),
     val manualCreated: List<Long> = emptyList(),
+    /** Catégories telles qu'avant (nom, mère) ; celles créées par le changement, à retirer. */
+    val categoriesBefore: List<CategoryState> = emptyList(),
+    val categoriesCreated: List<String> = emptyList(),
 ) {
     val isEmpty: Boolean
         get() = operations.isEmpty() && rulesCreated.isEmpty() && rulesRemoved.isEmpty() && transferRulesCreated.isEmpty() &&
-            transfersCreated.isEmpty() && envelopesBefore.isEmpty() && envelopesCreated.isEmpty() && manualCreated.isEmpty()
+            transfersCreated.isEmpty() && envelopesBefore.isEmpty() && envelopesCreated.isEmpty() && manualCreated.isEmpty() &&
+            categoriesBefore.isEmpty() && categoriesCreated.isEmpty()
 
     /**
      * Plusieurs changements faits d'un coup (un tri assisté, un plan appliqué) : une seule entrée.
@@ -61,6 +68,8 @@ data class JournalPayload(
         allocationsBefore = allocationsBefore + other.allocationsBefore.filter { a -> envelopesBefore.none { it.id == a.envelopeId } },
         envelopesCreated = envelopesCreated + other.envelopesCreated,
         manualCreated = manualCreated + other.manualCreated,
+        categoriesBefore = (categoriesBefore + other.categoriesBefore).distinctBy { it.name.lowercase() },
+        categoriesCreated = categoriesCreated + other.categoriesCreated,
     )
 
     fun encode(): String = JSONObject().apply {
@@ -73,6 +82,8 @@ data class JournalPayload(
         put("allocationsBefore", JSONArray(allocationsBefore.map { it.toJson() }))
         put("envelopesCreated", JSONArray(envelopesCreated))
         put("manualCreated", JSONArray(manualCreated))
+        put("categoriesBefore", JSONArray(categoriesBefore.map { JSONObject().put("name", it.name).putNullable("parent", it.parent) }))
+        put("categoriesCreated", JSONArray(categoriesCreated))
     }.toString()
 
     companion object {
@@ -88,6 +99,8 @@ data class JournalPayload(
                 allocationsBefore = json.objects("allocationsBefore").map { it.toAllocation() },
                 envelopesCreated = json.longs("envelopesCreated"),
                 manualCreated = json.longs("manualCreated"),
+                categoriesBefore = json.objects("categoriesBefore").map { CategoryState(it.getString("name"), it.stringOrNull("parent")) },
+                categoriesCreated = json.optJSONArray("categoriesCreated")?.let { array -> (0 until array.length()).map { array.getString(it) } }.orEmpty(),
             )
         }
     }
