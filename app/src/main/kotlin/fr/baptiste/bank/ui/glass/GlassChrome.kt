@@ -274,7 +274,7 @@ fun SettingsSheet(
             entries.forEachIndexed { index, entry ->
                 item(key = entry.title) {
                     if (index > 0) HorizontalDivider(Modifier.padding(start = 24.dp), color = Color.White.copy(alpha = 0.08f))
-                    SheetRow(entry.title, entry.detail, entry.badge, entry.onClick)
+                    SheetRow(entry.title, entry.detail, entry.badge, onClick = entry.onClick)
                 }
             }
             if (taps >= 7) {
