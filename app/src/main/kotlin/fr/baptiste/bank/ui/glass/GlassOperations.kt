@@ -1,5 +1,6 @@
 package fr.baptiste.bank.ui.glass
 
+import fr.baptiste.bank.domain.model.category
 import androidx.compose.foundation.layout.Spacer
 import fr.baptiste.bank.ui.format.summary
 import fr.baptiste.bank.ui.format.plural
@@ -105,8 +106,11 @@ fun GlassOperationsContent(
     val proposals = remember(toValidate, proposal) { toValidate.associate { it.id to proposal(it) } }
     val ready = toValidate.mapNotNull { operation -> proposals[operation.id]?.let { operation to it } }
 
+    // La couleur de la catégorie de l'enveloppe, comme partout (une sous-catégorie hérite de sa mère).
+    val parents = fr.baptiste.bank.ui.theme.LocalCategoryParents.current
+    val categoryByName = remember(envelopes) { envelopes.associate { it.name to it.category } }
     fun colorOf(operation: OperationRow): Color =
-        operation.envelopeNames?.split(", ")?.firstOrNull()?.let { typeByName[it] }?.let(::envelopeTypeColor) ?: quiet
+        operation.envelopeNames?.split(", ")?.firstOrNull()?.let { categoryByName[it] }?.let { fr.baptiste.bank.ui.theme.categoryColorOf(it, parents) } ?: quiet
 
     fun clickOf(operation: OperationRow): () -> Unit =
         if (operation.source == TransactionSource.MANUAL) {

@@ -78,7 +78,7 @@ fun DateCheckDialog(
                     val moving = report.corrections.count { it.changesMonth }
                     Hint(
                         fr.baptiste.bank.ui.format.plural(report.corrections.size, "opération", "opérations") +
-                            (if (moving > 0) " · $moving changent de mois" else "") + " · décoche pour garder",
+                            (if (moving == 1) " · 1 change de mois" else if (moving > 1) " · $moving changent de mois" else "") + " · décocher pour garder",
                     )
                     report.corrections.forEachIndexed { index, correction ->
                         if (index > 0) RowDivider(0.dp)

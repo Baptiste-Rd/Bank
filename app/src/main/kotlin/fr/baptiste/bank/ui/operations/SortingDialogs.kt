@@ -157,7 +157,15 @@ fun UnsortDialog(
                     UnsortChoice.ALL -> Unit
                     UnsortChoice.ENVELOPE -> FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         // Rangées par catégorie, avec leur point de couleur.
-                        envelopes.sortedWith(compareBy({ it.category.lowercase() }, { it.name.lowercase() })).forEach { envelope ->
+                        val parents = fr.baptiste.bank.ui.theme.LocalCategoryParents.current
+                        // L'ordre de l'arbre (une sous-catégorie suit sa mère), « Autres » en dernier.
+                        envelopes.sortedWith(
+                            compareBy(
+                                { fr.baptiste.bank.domain.bank.envelopeNameKey(it.category) == fr.baptiste.bank.domain.bank.envelopeNameKey(fr.baptiste.bank.domain.model.DEFAULT_CATEGORY) },
+                                { fr.baptiste.bank.domain.model.categoryPath(it.category, parents).lowercase() },
+                                { it.name.lowercase() },
+                            ),
+                        ).forEach { envelope ->
                             FilterChip(
                                 selected = envelope.id == envelopeId,
                                 onClick = { envelopeId = envelope.id },

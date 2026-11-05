@@ -368,7 +368,7 @@ fun GlassTabBar(
         animationSpec = tween(320, easing = FastOutSlowInEasing),
         label = "indicateur",
     )
-    fr.baptiste.bank.ui.components.CappedFontScale {
+    fr.baptiste.bank.ui.components.CappedFontScale(max = 1.15f) {
     Box(modifier.height(64.dp)) {
         // 1. Verre de la barre, enregistré pour que l'indicateur puisse le courber.
         Box(
