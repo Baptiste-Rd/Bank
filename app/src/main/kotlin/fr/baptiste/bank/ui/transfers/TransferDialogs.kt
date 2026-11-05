@@ -131,7 +131,8 @@ fun CoverDialog(
                 // revient dans « À faire » dès le lendemain.
                 // Une phrase : combien il manque, puis d'où vient l'argent.
                 Text(
-                    "Il manque ${plan.needed.summary()} pour finir ${target.period.label}.",
+                    // L'année seulement si ce n'est pas celle d'aujourd'hui : « pour finir novembre ».
+                    "Il manque ${plan.needed.summary()} pour finir ${target.period.label.removeSuffix(" ${java.time.LocalDate.now().year}")}.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 if (choices.isNotEmpty()) {

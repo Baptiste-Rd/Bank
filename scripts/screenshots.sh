@@ -123,6 +123,8 @@ shot_budget glass-fiche-enveloppe --es tab BUDGET --es dialog ENVELOPE
 shot_budget glass-fiche-provision --es tab BUDGET --es dialog PROVISION
 shot_budget glass-reserve --es tab SAVINGS --es dialog RESERVE
 shot_budget glass-ajouter-argent --es tab BUDGET --es dialog COVER
+# Une catégorie sans dépense ce mois-ci, dépliée : ses enveloppes à 0 € y sont.
+shot_budget glass-categorie-sans-depense --es tab OPERATIONS --es expand Voyages
 shot_budget glass-essayer-un-plan --es tab BUDGET --es dialog PLAN
 adb shell input swipe 540 1900 540 900 900
 sleep 2

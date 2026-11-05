@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -214,11 +215,12 @@ private fun RecapCard(recap: fr.baptiste.bank.data.MonthSavings, onOpen: () -> U
     val name = recap.month.month.getDisplayName(java.time.format.TextStyle.FULL, Locale.FRANCE)
     val saved = recap.outlook.forecast
     GlassCard(contentPadding = 16.dp, onClick = onOpen) {
-        Text(if (name.first() in "aeiouâéèêîôû") "Bilan d'$name" else "Bilan de $name", style = MaterialTheme.typography.titleMedium)
+        // Le chiffre domine : un titre discret, le montant en grand.
+        Text(if (name.first() in "aeiouâéèêîôû") "Bilan d'$name" else "Bilan de $name", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         // Le même chiffre et les mêmes mots que le bilan : « Épargne du mois ».
         Text(
             saved.summary(),
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.headlineSmall,
             color = if (saved.isNegative) BankTheme.status.over else MaterialTheme.colorScheme.onSurface,
         )
         Text(
@@ -226,7 +228,7 @@ private fun RecapCard(recap: fr.baptiste.bank.data.MonthSavings, onOpen: () -> U
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.End) {
+        Row(Modifier.fillMaxWidth().padding(top = 4.dp).offset(y = 8.dp), horizontalArrangement = Arrangement.End) {
             androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Fermer") }
             androidx.compose.material3.TextButton(onClick = onOpen) { Text("Voir le bilan") }
         }

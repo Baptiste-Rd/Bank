@@ -142,14 +142,15 @@ fun UnsortDialog(
 
     fr.baptiste.bank.ui.components.SheetAlert(
         onDismissRequest = onDismiss,
-        title = { Text("Remettre à trier · ${month.month.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.FRANCE)}") },
+        title = { Text("Remettre à trier") },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                // Le mois visé, puis une seule ligne d'aide ; l'annulation est dans le message qui confirme.
                 Text(
-                    "Tes saisies gardent leur enveloppe. Tu peux annuler depuis l'Historique.",
+                    "${month.month.getDisplayName(java.time.format.TextStyle.FULL_STANDALONE, java.util.Locale.FRANCE).replaceFirstChar { it.titlecase(java.util.Locale.FRANCE) }} · tes saisies restent rangées.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
