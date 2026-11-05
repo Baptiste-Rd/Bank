@@ -180,6 +180,12 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
         .flatMapLatest { repository.monthOperations(it) }
         .asState(emptyList())
 
+    /** « Cumul du mois » du mois choisi, compté comme son total (voir cumulativeByDay). */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val monthCumulative: StateFlow<Map<LocalDate, Money>> = _selectedMonth
+        .flatMapLatest { repository.monthCumulative(it) }
+        .asState(emptyMap())
+
     /** Dépenses de l'année du mois consulté (vue Mois de l'analyse). */
     @OptIn(ExperimentalCoroutinesApi::class)
     val monthYearSpending: StateFlow<YearSpending?> = _selectedMonth

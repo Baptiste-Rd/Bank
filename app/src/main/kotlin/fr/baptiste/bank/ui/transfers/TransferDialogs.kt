@@ -41,7 +41,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import fr.baptiste.bank.data.local.TransferRow
-import fr.baptiste.bank.domain.budget.CoveragePlan
+import fr.baptiste.bank.domain.budget.CoverSource
+import fr.baptiste.bank.domain.budget.coveragePlan
+import fr.baptiste.bank.domain.budget.coverSources
 import fr.baptiste.bank.domain.budget.Dashboard
 import fr.baptiste.bank.domain.budget.monthLeft
 import fr.baptiste.bank.domain.budget.monthLeftAfterTransfer
@@ -58,7 +60,15 @@ import fr.baptiste.bank.ui.format.label
 import fr.baptiste.bank.ui.theme.BankTheme
 
 private const val WALLET = "À répartir ce mois-ci"
+private const val RESERVE = "Disponible sur le compte"
+
+/** D'où vient l'argent d'un ajout : une enveloppe, le compte (hors mois) ou le mois. */
+private val TransferRow.sourceLabel: String get() = sourceName ?: if (fromReserve) RESERVE else WALLET
 private const val WALLET_ID = -1L
+private const val AUTO = "auto"
+private const val WALLET_KEY = "wallet"
+private const val RESERVE_KEY = "reserve"
+private const val ENVELOPE_KEY = "envelope:"
 private const val RESERVE_ID = -2L
 
 /** Nom d'une extrémité de transfert : une enveloppe, ou le portefeuille (null). */
@@ -73,11 +83,36 @@ private fun Dashboard.nameOf(envelopeId: Long?): String =
 @Composable
 fun CoverDialog(
     dashboard: Dashboard,
-    plan: CoveragePlan,
+    target: EnvelopeLine,
     onDismiss: () -> Unit,
     onConfirm: (List<TransferLeg>) -> Unit,
+    /** « Disponible sur le compte » (null : inconnu ou vide) : une source possible, jamais prise d'office. */
+    reserve: Money? = null,
 ) {
-    val target = plan.target
+    // « Pris sur » : la proposition de l'app (le non réparti, puis les enveloppes souples), ou une
+    // source choisie, complétée au besoin par les autres.
+    // Une clé par choix (la proposition de l'app n'est pas une source : elle n'a pas d'objet du domaine).
+    var chosenKey by remember(target.envelope.id) { mutableStateOf(AUTO) }
+    fun sourceOf(key: String): CoverSource? = when {
+        key == WALLET_KEY -> CoverSource.Wallet
+        key == RESERVE_KEY -> CoverSource.Reserve
+        key.startsWith(ENVELOPE_KEY) -> CoverSource.FromEnvelope(key.removePrefix(ENVELOPE_KEY).toLong())
+        else -> null
+    }
+    val chosen = sourceOf(chosenKey)
+    val plan = remember(dashboard, target, chosen, reserve) { dashboard.coveragePlan(target, chosen, reserve) } ?: return
+    val choices: List<String> = listOf(AUTO) +
+        listOfNotNull(WALLET_KEY.takeIf { dashboard.unallocated?.isPositive == true }) +
+        listOfNotNull(RESERVE_KEY.takeIf { reserve?.isPositive == true }) +
+        dashboard.coverSources(target).map { ENVELOPE_KEY + it.envelope.id }
+    fun choiceLabel(key: String): String = when (val source = sourceOf(key)) {
+        null -> "Proposition de l'app"
+        CoverSource.Wallet -> "$WALLET (${dashboard.unallocated?.formatted()})"
+        CoverSource.Reserve -> "$RESERVE (${reserve?.formatted()})"
+        is CoverSource.FromEnvelope -> dashboard.envelopes.first { it.envelope.id == source.envelopeId }
+            .let { "${it.envelope.name} (reste ${it.remaining.formatted()})" }
+    }
+    fun legName(leg: TransferLeg): String = if (leg.fromReserve) RESERVE else dashboard.nameOf(leg.sourceEnvelopeId)
     androidx.compose.material3.ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -101,6 +136,15 @@ fun CoverDialog(
                     "Il manque ${plan.needed.summary()} pour finir ${target.period.label}.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
+                if (choices.size > 1) {
+                    ChoiceField(
+                        label = "Pris sur",
+                        selected = chosenKey,
+                        options = choices,
+                        optionLabel = ::choiceLabel,
+                        onSelect = { chosenKey = it },
+                    )
+                }
                 if (plan.legs.isEmpty()) {
                     Text(
                         "Aucune enveloppe ne peut en donner pour l'instant.",
@@ -108,10 +152,9 @@ fun CoverDialog(
                         color = BankTheme.status.over,
                     )
                 } else {
-                    Text("Pris sur", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     plan.legs.forEach { leg ->
                         Row(modifier = Modifier.fillMaxWidth()) {
-                            Text(dashboard.nameOf(leg.sourceEnvelopeId), modifier = Modifier.weight(1f))
+                            Text(legName(leg), modifier = Modifier.weight(1f))
                             Text(leg.amount.formatted(), style = MaterialTheme.typography.titleMedium)
                         }
                     }
@@ -124,7 +167,7 @@ fun CoverDialog(
                     }
                     val before = dashboard.monthLeft
                     val after = plan.legs.fold(before) { left, leg ->
-                        left + (dashboard.monthLeftAfterTransfer(leg.sourceEnvelopeId, target.envelope.id, leg.amount) - before)
+                        left + (dashboard.monthLeftAfterTransfer(leg.sourceEnvelopeId, target.envelope.id, leg.amount, leg.fromReserve) - before)
                     }
                     Text(
                         if (after == before) "Ton reste du mois ne change pas." else "Reste du mois : ${before.summary()} → ${after.summary()}",
@@ -444,7 +487,7 @@ fun EnvelopeSheet(
                     val incoming = row.targetEnvelopeId == line.envelope.id
                     Row(modifier = Modifier.fillMaxWidth()) {
                         Text(
-                            if (incoming) "Depuis ${row.sourceName ?: WALLET}" else "Vers ${row.targetName ?: WALLET}",
+                            if (incoming) "Depuis ${row.sourceLabel}" else "Vers ${row.targetName ?: WALLET}",
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.weight(1f),
                         )
@@ -512,7 +555,7 @@ private fun JournalRow(row: TransferRow, onCancel: () -> Unit) {
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                "${row.sourceName ?: WALLET} vers ${row.targetName ?: WALLET}",
+                "${row.sourceLabel} vers ${row.targetName ?: WALLET}",
                 style = MaterialTheme.typography.bodyMedium,
                 textDecoration = decoration,
             )

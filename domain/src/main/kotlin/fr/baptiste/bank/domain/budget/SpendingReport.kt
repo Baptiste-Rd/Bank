@@ -76,6 +76,19 @@ fun countedSpendings(month: YearMonth, envelopes: List<Envelope>, spendings: Lis
     return spendings.filter { YearMonth.from(it.date) == month && it.envelopeId in counted }
 }
 
+/**
+ * Dépensé de [month] cumulé à la fin de chaque jour qui a une dépense comptée : « Cumul du mois »
+ * de la liste des opérations. Même règle que le total du mois ([countedSpendings]) : une part
+ * d'épargne d'une dépense répartie n'y compte pas.
+ */
+fun cumulativeByDay(month: YearMonth, envelopes: List<Envelope>, spendings: List<Spending>): Map<LocalDate, Money> {
+    var total = Money.ZERO
+    return countedSpendings(month, envelopes, spendings)
+        .groupBy { it.date }
+        .toSortedMap()
+        .mapValues { (_, list) -> total += list.sumOfMoney { it.amount }; total }
+}
+
 /** Dépenses de [month] par catégorie. [envelopes] : toutes, archivées comprises (leurs dépenses restent). */
 fun monthSpending(
     month: YearMonth,
@@ -87,6 +100,8 @@ fun monthSpending(
     toAccounts: Money = Money.ZERO,
     /** Catégories imbriquées : la mère de chaque catégorie (voir parentsOf). */
     parents: Map<String, String> = emptyMap(),
+    /** Ajouts et retraits non annulés : ceux datés du mois changent le budget de l'enveloppe, comme dans Budget. */
+    transfers: List<Transfer> = emptyList(),
 ): MonthSpending {
     if (!tracked) return MonthSpending(month, tracked = false, categories = emptyList())
     val spentById = countedSpendings(month, envelopes, spendings)
@@ -98,7 +113,11 @@ fun monthSpending(
             // Une enveloppe retirée garde son budget dans les mois qu'elle a couverts. Une archivée
             // avant que l'app ne retienne la date du retrait n'en a plus : on ne sait pas quand.
             val known = !envelope.archived || envelope.retiredOn != null
-            val budget = if (known && envelope.existedDuring(month)) envelope.monthlyBudget(month) else Money.ZERO
+            val planned = if (known && envelope.existedDuring(month)) envelope.monthlyBudget(month) else Money.ZERO
+            // Un dépassement couvert (ou de l'argent retiré) ce mois-ci change ce dont l'enveloppe disposait.
+            val moved = transfers.filter { YearMonth.from(it.date) == month }
+                .sumOfMoney { t -> if (t.targetEnvelopeId == envelope.id) t.amount else if (t.sourceEnvelopeId == envelope.id) -t.amount else Money.ZERO }
+            val budget = planned + moved
             EnvelopeSpent(envelope, spentById[envelope.id] ?: Money.ZERO, budget)
         }
         .filter { it.spent != Money.ZERO || it.budget != Money.ZERO }
@@ -213,6 +232,7 @@ fun yearSpending(
     toAccountsByMonth: Map<YearMonth, Money> = emptyMap(),
     excluded: Set<YearMonth> = emptySet(),
     parents: Map<String, String> = emptyMap(),
+    transfers: List<Transfer> = emptyList(),
 ): YearSpending {
     val current = YearMonth.from(today)
     val last = if (year == current.year) current.monthValue else if (year < current.year) 12 else 0
@@ -228,6 +248,7 @@ fun yearSpending(
             outOfBudgetByMonth[month] ?: Money.ZERO,
             toAccountsByMonth[month] ?: Money.ZERO,
             parents,
+            transfers,
         )
     }
     return YearSpending(year, months, inProgress = current.takeIf { it.year == year }, excluded = excluded)

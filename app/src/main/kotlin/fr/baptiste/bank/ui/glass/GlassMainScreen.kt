@@ -94,6 +94,7 @@ fun GlassMainScreen(
     val dashboard by viewModel.dashboard.collectAsStateWithLifecycle()
     val operations by viewModel.operations.collectAsStateWithLifecycle()
     val monthOperations by viewModel.monthOperations.collectAsStateWithLifecycle()
+    val monthCumulative by viewModel.monthCumulative.collectAsStateWithLifecycle()
     val unsortedOperations by viewModel.unsortedOperations.collectAsStateWithLifecycle()
     val recurringExpenses by viewModel.recurringExpenses.collectAsStateWithLifecycle()
     // Épargne depuis janvier (année en cours) : affichée dans Épargne.
@@ -282,7 +283,8 @@ fun GlassMainScreen(
                         val yearOverview by viewModel.yearOverview.collectAsStateWithLifecycle()
                         GlassBudgetContent(
                             dashboard = monthDashboard,
-                            monthlyIncome = income,
+                            // Le salaire du mois consulté, celui de son calcul (pas celui d'aujourd'hui).
+                            monthlyIncome = monthDashboard?.income ?: income.takeIf { selectedMonth == YearMonth.now() },
                             archived = archived,
                             month = selectedMonth,
                             canNextMonth = selectedMonth < YearMonth.now(),
@@ -400,6 +402,7 @@ fun GlassMainScreen(
                     } else GlassOperationsContent(
                         header = spendingHeader,
                         operations = monthOperations,
+                        cumulativeByDay = monthCumulative,
                         envelopes = envelopes + archived,
                         onDelete = viewModel::deleteExpense,
                         onSort = { controller.dialog = OpenDialog.SortOperation(it) },

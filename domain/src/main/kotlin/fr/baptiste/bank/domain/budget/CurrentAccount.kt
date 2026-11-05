@@ -29,12 +29,14 @@ data class CurrentAccountExplained(
     val unsortedOut: Money,
     /** Provisions mises de côté mois après mois (vacances, projets) et pas encore dépensées. */
     val provisionsHeld: Money = Money.ZERO,
+    /** Salaire déjà reçu qui finance le mois suivant (versé en fin de mois) : il n'est pas libre. */
+    val nextMonthSalary: Money = Money.ZERO,
 ) {
     /**
      * Ce qui reste sur le compte hors budget du mois (négatif : il manque de l'argent) : la réserve,
      * que l'on peut mettre de côté sans toucher au mois.
      */
-    val free: Money get() = balance - monthLeft - chargesDue - savingsPending - provisionsHeld
+    val free: Money get() = balance - monthLeft - chargesDue - savingsPending - provisionsHeld - nextMonthSalary
 }
 
 /**
@@ -49,6 +51,8 @@ fun Dashboard.explainCurrentAccount(
     unsortedOut: Money = Money.ZERO,
     /** Début des données : une provision ne compte pas les mois d'avant (ils n'ont pas été mis de côté). */
     since: LocalDate? = null,
+    /** Salaire déjà sur le compte pour le mois suivant (voir [nextMonthSalaryReceived]). */
+    nextMonthSalary: Money = Money.ZERO,
 ): CurrentAccountExplained {
     val monthLeft = dailyBudget - dailySpent
     val monthEnd = today.withDayOfMonth(today.lengthOfMonth())
@@ -77,7 +81,18 @@ fun Dashboard.explainCurrentAccount(
         savingsPending = if (pending.isPositive) pending else Money.ZERO,
         unsortedOut = unsortedOut,
         provisionsHeld = provisionsHeld,
+        nextMonthSalary = nextMonthSalary,
     )
+}
+
+/**
+ * Salaire déjà reçu le [today] pour le mois suivant : un salaire versé en fin de mois
+ * ([paysNextMonth]) et arrivé ce mois-ci finance le mois prochain, pas celui-ci. Zéro sinon.
+ */
+fun nextMonthSalaryReceived(today: LocalDate, inflows: List<Inflow>, key: String, paysNextMonth: Boolean): Money {
+    if (!paysNextMonth) return Money.ZERO
+    val next = monthIncome(java.time.YearMonth.from(today).plusMonths(1), inflows.filter { !it.date.isAfter(today) }, key, true)
+    return if (next != null && next.received) next.amount else Money.ZERO
 }
 
 /**

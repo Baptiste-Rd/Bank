@@ -95,6 +95,8 @@ data class DayCell(
  */
 data class Dashboard(
     val today: LocalDate,
+    /** Revenu du mois de [today] utilisé par le calcul (le salaire de ce mois-là), null s'il est inconnu. */
+    val income: Money? = null,
     val dailyAllowance: DailyAllowance,
     val dailyBudget: Money,
     val dailyAssigned: Money,
@@ -135,8 +137,15 @@ fun computeDashboard(
     /** Dépense habituelle par mois des enveloppes quotidiennes (12 mois glissants), pour la projection. */
     habits: Map<Long, Money> = emptyMap(),
 ): Dashboard {
-    // Une enveloppe retirée figure encore dans le tableau d'un jour d'avant son retrait (un mois passé).
-    val active = envelopes.filter { (!it.archived || it.retiredOn?.let { on -> today.isBefore(on) } == true) && it.existsOn(today) }
+    // Une enveloppe retirée garde son budget et ses dépenses dans les mois qu'elle a couverts : elle
+    // figure dans le tableau de tout jour du mois de son retrait, et de tout jour d'avant. Une
+    // archivée sans date de retrait (d'avant la version 13) n'y figure plus : on ne sait pas quand.
+    val todayMonth = java.time.YearMonth.from(today)
+    val active = envelopes.filter { envelope ->
+        val retired = envelope.retiredOn
+        val kept = !envelope.archived || (retired != null && java.time.YearMonth.from(retired) >= todayMonth)
+        kept && envelope.existsOn(envelope.boardDate(today))
+    }
     // Une dépense antérieure au départ de son enveloppe ne compte pas dans son reste (un rattrapage,
     // qui porte sur la période choisie, compte toujours).
     val byId = envelopes.associateBy { it.id }
@@ -151,7 +160,9 @@ fun computeDashboard(
             transfers.filter { it.date in window && it.sourceEnvelopeId == envelopeId }.sumOfMoney { it.amount }
 
     val lines = active.map { envelope ->
-        val period = envelope.periodContaining(today)
+        // Retirée plus tôt ce mois-ci : sa dernière période, et plus rien ne s'y dépense ensuite.
+        val retiredEarlier = envelope.boardDate(today) != today
+        val period = envelope.periodContaining(envelope.boardDate(today))
         val allocated = allocations[envelope.id to period.key] ?: envelope.amountIn(period)
         val transferred = netTransfers(envelope.id, period)
         val available = allocated + transferred
@@ -180,8 +191,8 @@ fun computeDashboard(
                 period,
                 today,
                 alertThresholdPercent,
-                if (envelope.type == EnvelopeType.DAILY) lumpSum else spent,
-                habit = habits[envelope.id]?.takeIf { envelope.type == EnvelopeType.DAILY && period is Period.Month },
+                if (envelope.type == EnvelopeType.DAILY && !retiredEarlier) lumpSum else spent,
+                habit = habits[envelope.id]?.takeIf { envelope.type == EnvelopeType.DAILY && period is Period.Month && !retiredEarlier },
             ),
         )
     }
@@ -277,6 +288,7 @@ fun computeDashboard(
 
     return Dashboard(
         today = today,
+        income = monthlyIncome,
         dailyAllowance = allowance,
         dailyBudget = dailyBudget,
         dailyAssigned = dailyAssigned,
@@ -303,8 +315,22 @@ fun dashboardDateRange(today: LocalDate, envelopes: List<Envelope> = emptyList()
     return periods.minOf { it.start }..periods.maxOf { it.endInclusive }
 }
 
-/** Une part d'un plan de couverture : d'où vient l'argent (null = portefeuille) et combien. */
-data class TransferLeg(val sourceEnvelopeId: Long?, val amount: Money)
+/**
+ * Une part d'un plan de couverture : d'où vient l'argent (null = portefeuille, ou « Disponible sur
+ * le compte » si [fromReserve]) et combien.
+ */
+data class TransferLeg(val sourceEnvelopeId: Long?, val amount: Money, val fromReserve: Boolean = false)
+
+/** D'où prendre l'argent pour couvrir une enveloppe, quand on choisit soi-même. */
+sealed interface CoverSource {
+    /** « À répartir ce mois-ci » : le salaire du mois pas encore réparti. */
+    data object Wallet : CoverSource
+
+    /** « Disponible sur le compte » : l'argent des mois passés, hors budget du mois. */
+    data object Reserve : CoverSource
+
+    data class FromEnvelope(val envelopeId: Long) : CoverSource
+}
 
 /**
  * Proposition pour couvrir une enveloppe en dépassement (constaté ou prévu).
@@ -325,7 +351,7 @@ data class CoveragePlan(
  * sont pas elles-mêmes en alerte, par priorité croissante puis par restant décroissant.
  * Une enveloppe protégée n'est jamais sollicitée.
  */
-fun Dashboard.coveragePlan(target: EnvelopeLine): CoveragePlan? {
+fun Dashboard.coveragePlan(target: EnvelopeLine, preferred: CoverSource? = null, reserve: Money? = null): CoveragePlan? {
     // Le dépassement prévu jusqu'à la fin de la période comprend le constaté (on ne dépense pas
     // moins qu'on a déjà dépensé) : couvrir le prévu évite que l'enveloppe revienne dans « À faire ».
     val raw = when {
@@ -336,29 +362,42 @@ fun Dashboard.coveragePlan(target: EnvelopeLine): CoveragePlan? {
     val needed = raw.divideCeil(100) * 100
     val legs = mutableListOf<TransferLeg>()
     var left = needed
-
-    val wallet = unallocated
-    if (wallet != null && wallet.isPositive && left.isPositive) {
-        val taken = minOf(wallet, left)
-        legs += TransferLeg(sourceEnvelopeId = null, amount = taken)
+    fun take(available: Money, leg: (Money) -> TransferLeg) {
+        if (!available.isPositive || !left.isPositive) return
+        val taken = minOf(available, left)
+        legs += leg(taken)
         left -= taken
     }
-    val sources = envelopes
-        .filter {
-            it.envelope.id != target.envelope.id &&
-                it.envelope.status == EnvelopeStatus.FLEXIBLE &&
-                it.remaining.isPositive &&
-                !it.needsCover
-        }
-        .sortedWith(compareBy<EnvelopeLine> { it.envelope.priority }.thenByDescending { it.remaining })
+    val sources = coverSources(target)
+    // La source choisie d'abord ; le reste selon l'ordre habituel (sans la réserve, jamais prise d'office).
+    when (preferred) {
+        null -> Unit
+        CoverSource.Wallet -> take(unallocated ?: Money.ZERO) { TransferLeg(null, it) }
+        CoverSource.Reserve -> take(reserve ?: Money.ZERO) { TransferLeg(null, it, fromReserve = true) }
+        is CoverSource.FromEnvelope -> sources.firstOrNull { it.envelope.id == preferred.envelopeId }
+            ?.let { source -> take(source.remaining) { TransferLeg(source.envelope.id, it) } }
+    }
+    if (preferred != CoverSource.Wallet) take(unallocated ?: Money.ZERO) { TransferLeg(null, it) }
     for (source in sources) {
-        if (!left.isPositive) break
-        val taken = minOf(source.remaining, left)
-        legs += TransferLeg(sourceEnvelopeId = source.envelope.id, amount = taken)
-        left -= taken
+        if (preferred == CoverSource.FromEnvelope(source.envelope.id)) continue
+        take(source.remaining) { TransferLeg(source.envelope.id, it) }
     }
     return CoveragePlan(target = target, needed = needed, legs = legs, shortfall = left)
 }
+
+/**
+ * Enveloppes qui peuvent donner pour couvrir [target] : souples, avec un reste, sans dépassement
+ * elles-mêmes ; les moins prioritaires et les plus garnies d'abord. Une enveloppe protégée
+ * (charge, épargne fixée) n'en fait jamais partie.
+ */
+fun Dashboard.coverSources(target: EnvelopeLine): List<EnvelopeLine> = envelopes
+    .filter {
+        it.envelope.id != target.envelope.id &&
+            it.envelope.status == EnvelopeStatus.FLEXIBLE &&
+            it.remaining.isPositive &&
+            !it.needsCover
+    }
+    .sortedWith(compareBy<EnvelopeLine> { it.envelope.priority }.thenByDescending { it.remaining })
 
 /** Reste du mois du quotidien : son budget moins ce qui en est déjà dépensé. */
 val Dashboard.monthLeft: Money get() = dailyBudget - dailySpent
@@ -381,3 +420,6 @@ fun Dashboard.monthLeftAfterTransfer(sourceId: Long?, targetId: Long?, amount: M
     }
     return monthLeft + delta
 }
+
+/** Jour où lire une enveloppe dans le tableau de [today] : son jour de retrait s'il est passé. */
+private fun Envelope.boardDate(today: LocalDate): LocalDate = retiredOn?.takeIf { it.isBefore(today) } ?: today

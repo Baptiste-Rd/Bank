@@ -132,7 +132,7 @@ fun GlassHomeContent(
         val today = dashboard.today
 
         // 1. Le reste du mois et par jour.
-        item(key = "hero") { MonthHero(dashboard, pace, onInfo = { showRest = true }) }
+        item(key = "hero") { MonthHero(dashboard, onInfo = { showRest = true }) }
 
         // 2. À trier.
         if (unsortedCount > 0) {
@@ -209,9 +209,12 @@ private fun HeroFigure(label: String, value: String, negative: Boolean) {
     }
 }
 
-/** Deux grands chiffres côte à côte, puis une seule pastille de comparaison. */
+/**
+ * Deux grands chiffres côte à côte. La comparaison au mois précédent est dans « Rythme du mois » :
+ * elle compte tout le dépensé (loyer compris), pas seulement le quotidien que mesure le reste.
+ */
 @Composable
-private fun MonthHero(dashboard: Dashboard, pace: MonthPace?, onInfo: () -> Unit) {
+private fun MonthHero(dashboard: Dashboard, onInfo: () -> Unit) {
     val rest = dashboard.dailyBudget - dashboard.dailySpent
     // Toucher les chiffres en montre le calcul (séance : « d'où vient ce reste ? »).
     GlassCard(strong = true, contentPadding = 20.dp, onClick = onInfo) {
@@ -239,19 +242,6 @@ private fun MonthHero(dashboard: Dashboard, pace: MonthPace?, onInfo: () -> Unit
                     maxLines = 1,
                 )
             }
-        }
-        val previous = pace?.previousSameDay
-        if (pace != null && previous != null && pace.cumulative.isNotEmpty()) {
-            val gap = pace.spent - previous
-            val before = pace.month.minusMonths(1)
-            val day = minOf(pace.cumulative.size, before.lengthOfMonth())
-            val name = before.month.getDisplayName(java.time.format.TextStyle.SHORT, Locale.FRANCE)
-            // « dépensés » : sous le reste du mois, un « +104 € » seul se lirait comme un reste plus haut.
-            StatusChip(
-                "${if (gap.isNegative) "−" else "+"}${(if (gap.isNegative) -gap else gap).summary()} dépensés vs $day $name",
-                if (gap.isPositive) StatusKind.WARNING else StatusKind.GAIN,
-                Modifier.padding(top = 10.dp),
-            )
         }
     }
 }
@@ -370,6 +360,24 @@ private fun PaceCard(pace: MonthPace) {
             },
             modifier = Modifier.padding(top = 4.dp),
         )
+        // Comparaison de début de mois : tout le dépensé, à la même date du mois précédent.
+        val previous = pace.previousSameDay
+        if (previous != null && pace.cumulative.isNotEmpty()) {
+            val gap = pace.spent - previous
+            val before = pace.month.minusMonths(1)
+            val day = minOf(pace.cumulative.size, before.lengthOfMonth())
+            val name = before.month.getDisplayName(java.time.format.TextStyle.SHORT, Locale.FRANCE)
+            Text(
+                when {
+                    gap.isPositive -> "${gap.summary()} de plus qu'au $day $name"
+                    gap.isNegative -> "${(-gap).summary()} de moins qu'au $day $name"
+                    else -> "Autant qu'au $day $name"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+        }
         val spentColor = if (above) status.warning else status.good
         val paceColor = MaterialTheme.colorScheme.onSurfaceVariant
         Canvas(Modifier.fillMaxWidth().height(120.dp).padding(top = 12.dp)) {

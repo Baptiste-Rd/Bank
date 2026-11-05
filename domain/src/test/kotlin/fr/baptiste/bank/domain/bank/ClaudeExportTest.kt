@@ -39,6 +39,15 @@ class ClaudeExportTest {
     }
 
     @Test
+    fun `rule keywords are cleaned and transfer keywords never leave`() {
+        assertEquals(null, exportRulePattern("VIR SEPA DUPONT"))
+        assertEquals(null, exportRulePattern("virement instantane martin"))
+        assertEquals("PRLV EDF", exportRulePattern("PRLV EDF 0012345678"))
+        assertEquals("CARREFOUR", exportRulePattern("CARREFOUR"))
+        assertEquals(null, exportRulePattern("4970XXXXXXXX1234"))
+    }
+
+    @Test
     fun `the plan object is found in a fenced block or in plain text`() {
         val fenced = "Voici le plan (2 actions) :\n```json\n{\"format\":\"bank-plan\",\"actions\":[{\"type\":\"flag\",\"issue\":\"x\"}]}\n```"
         assertEquals("{\"format\":\"bank-plan\",\"actions\":[{\"type\":\"flag\",\"issue\":\"x\"}]}", extractJsonObject(fenced))

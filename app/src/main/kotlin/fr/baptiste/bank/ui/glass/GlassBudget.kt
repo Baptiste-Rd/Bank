@@ -514,6 +514,7 @@ internal fun CurrentAccountCard(explained: CurrentAccountExplained?, onSetBalanc
             if (explained.chargesDue.isPositive) AccountLine("Charges à payer ce mois", explained.chargesDue)
             if (explained.savingsPending.isPositive) AccountLine("Épargne du mois à virer", explained.savingsPending)
             if (explained.provisionsHeld.isPositive) AccountLine("Mis de côté pour les budgets rares", explained.provisionsHeld)
+            if (explained.nextMonthSalary.isPositive) AccountLine("Salaire du mois prochain", explained.nextMonthSalary)
             fr.baptiste.bank.ui.components.RowDivider(0.dp)
             val free = explained.free
             AccountLine(if (free.isNegative) "Il manque" else "Disponible sur le compte", free, strong = true, positiveGood = true)

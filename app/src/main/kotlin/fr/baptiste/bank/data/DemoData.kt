@@ -77,6 +77,8 @@ object DemoData {
         spend("Courses", today.dayOfMonth, 1240L, "Boulangerie")
         spend("Essence", 2, 5800L, "Station")
         spend("Essence", 14, 6250L, "Station")
+        // Un concert en début de mois : Sorties dépasse, pour montrer « Ajouter de l'argent ».
+        spend("Sorties", 1, 9500L, "Concert")
         spend("Sorties", 8, 2400L, "Cinéma")
         spend("Sorties", 20, 3650L, "Restaurant")
         spend("Bar", 16, 1800L, "Bar du coin")

@@ -241,6 +241,8 @@ data class DatedImputation(
 )
 
 /** Une sortie d'argent nommée (montant positif). */
+data class IdLabel(val id: Long, val label: String)
+
 data class LabeledAmount(
     val label: String,
     val date: LocalDate,
@@ -482,6 +484,17 @@ interface TransactionDao {
     )
     fun observeUnsortedInflows(): Flow<List<LabeledAmount>>
 
+    /** Virements reçus encore à trier, identifiant et libellé d'origine : pour écarter le salaire reconnu de la file. */
+    @Query(
+        """
+        SELECT t.id AS id, t.raw_label AS label
+        FROM transaction_record t
+        WHERE t.ignored = 0 AND t.amount_cents > 0 AND t.source != 'MANUAL'
+          AND NOT EXISTS (SELECT 1 FROM imputation i WHERE i.transaction_id = t.id)
+        """,
+    )
+    fun observeUnsortedInflowLabels(): Flow<List<IdLabel>>
+
     /** Virements vers mes comptes, par compte, sur une plage de dates. */
     @Query("SELECT transfer_account_id AS accountId, date, amount_cents AS amountCents FROM transaction_record WHERE transfer_account_id IS NOT NULL AND date BETWEEN :from AND :to")
     fun observeTransfersByAccount(from: LocalDate, to: LocalDate): Flow<List<AccountTransferRow>>
@@ -661,6 +674,8 @@ data class TransferRow(
     @ColumnInfo(name = "target_name") val targetName: String?,
     @ColumnInfo(name = "source_envelope_id") val sourceEnvelopeId: Long?,
     @ColumnInfo(name = "target_envelope_id") val targetEnvelopeId: Long?,
+    /** Pris sur « Disponible sur le compte » (hors budget du mois) plutôt que sur le mois. */
+    @ColumnInfo(name = "from_reserve") val fromReserve: Boolean = false,
 )
 
 @Dao
@@ -678,8 +693,9 @@ interface TransferDao {
         """
         SELECT t.id AS id, t.effective_date AS effective_date, t.amount_cents AS amount_cents,
                t.reason AS reason, t.cancelled AS cancelled,
-               CASE WHEN t.from_reserve = 1 THEN 'Réserve' ELSE s.name END AS source_name, d.name AS target_name,
-               t.source_envelope_id AS source_envelope_id, t.target_envelope_id AS target_envelope_id
+               s.name AS source_name, d.name AS target_name,
+               t.source_envelope_id AS source_envelope_id, t.target_envelope_id AS target_envelope_id,
+               t.from_reserve AS from_reserve
         FROM transfer t
         LEFT JOIN envelope s ON s.id = t.source_envelope_id
         LEFT JOIN envelope d ON d.id = t.target_envelope_id

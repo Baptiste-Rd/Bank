@@ -563,6 +563,7 @@ fun AppDialogs(
             }
         }
         is OpenDialog.Cover -> {
+            val reserve by viewModel.currentAccount.collectAsStateWithLifecycle()
             val board = dashboard
             val line = board?.envelopes?.firstOrNull { it.envelope.id == current.envelopeId }
             val plan = line?.let { board.coveragePlan(it) }
@@ -571,19 +572,20 @@ fun AppDialogs(
             } else {
                 CoverDialog(
                     dashboard = board,
-                    plan = plan,
+                    target = line,
+                    reserve = reserve?.free?.takeIf { it.isPositive },
                     onDismiss = ::close,
                     onConfirm = { legs ->
                         viewModel.addTransfers(legs, plan.target.envelope.id, incoming = true, reason = "Couverture")
                         // Dire d'où vient l'argent : un dépassement couvert ne disparaît pas, il est
-                        // payé par le non réparti ou par d'autres enveloppes.
+                        // payé par le non réparti, par le compte ou par d'autres enveloppes.
                         val sources = legs.joinToString(", ") { leg ->
-                            "${leg.amount.formatted()} de ${leg.sourceEnvelopeId?.let(::nameOf) ?: "À répartir"}"
+                            "${leg.amount.formatted()} de ${leg.sourceEnvelopeId?.let(::nameOf) ?: if (leg.fromReserve) "ton compte" else "À répartir"}"
                         }
                         // Pris sur le non réparti pour une enveloppe hors quotidien : le budget du quotidien
                         // baisse. Pour une enveloppe du quotidien, rien ne bouge : le dépassement le
                         // réduisait déjà, l'argent change seulement d'étiquette.
-                        val fromWallet = legs.any { it.sourceEnvelopeId == null }
+                        val fromWallet = legs.any { it.sourceEnvelopeId == null && !it.fromReserve }
                         val daily = plan.target.envelope.type == fr.baptiste.bank.domain.model.EnvelopeType.DAILY
                         controller.notify(
                             "${plan.target.envelope.name} couverte : $sources." +

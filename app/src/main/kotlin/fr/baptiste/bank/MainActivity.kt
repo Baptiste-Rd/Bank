@@ -63,6 +63,8 @@ class MainActivity : ComponentActivity() {
             "PLAN" -> OpenDialog.TryPlan("Voyage", Money.euros(2000))
             // Mettre de côté sur l'épargne de la démo : la réserve est proposée en premier.
             "RESERVE" -> OpenDialog.Move(10, incoming = true)
+            // « Ajouter de l'argent » sur Sorties, en dépassement dans la démo : la source se choisit.
+            "COVER" -> OpenDialog.Cover(4)
             "UNSORT" -> OpenDialog.Unsort
             "DATES" -> OpenDialog.DateCheck
             // Contrôle avec Claude : accueil, puis un plan d'exemple à valider.

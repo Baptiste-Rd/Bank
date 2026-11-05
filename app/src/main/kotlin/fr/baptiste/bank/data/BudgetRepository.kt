@@ -305,70 +305,68 @@ class BudgetRepository(
 
     suspend fun setGlassTuning(encoded: String?) = settings.setGlassTuning(encoded)
 
-    /** Tableau de bord recalculé à chaque changement d'enveloppe, de dépense, d'allocation ou de salaire. */
+    /**
+     * Tout ce qu'il faut pour les tableaux de [dates] (voir BudgetData) : enveloppes actives et
+     * retirées, dépenses et transferts de la plage utile, virements reçus pour le salaire de chaque mois.
+     */
     @OptIn(ExperimentalCoroutinesApi::class)
-    fun dashboard(today: LocalDate = LocalDate.now()): Flow<Dashboard> {
+    private fun budgetData(dates: List<LocalDate>): Flow<fr.baptiste.bank.domain.budget.BudgetData> {
         val allocations = database.allocationDao().observeAll()
             .map { rows -> rows.associate { (it.envelopeId to it.periodKey) to Money(it.amountCents) } }
-        // La plage de dépenses à charger dépend des périodes des enveloppes (une période de
-        // 3 mois peut commencer avant l'année en cours) : elle est recalculée quand elles changent.
-        // Les enveloppes retirées depuis comptent dans le tableau d'un jour passé (bilan d'un mois terminé).
-        val known = combine(envelopes, archivedEnvelopes) { active, archived -> active + archived.filter { it.retiredOn?.isAfter(today) == true } }
+        // Les enveloppes retirées comptent dans les mois qu'elles ont couverts ; le calcul choisit
+        // lesquelles figurent à chaque date.
+        val known = combine(envelopes, archivedEnvelopes) { active, archived -> active + archived.filter { it.retiredOn != null } }
+        val incomeRange = fr.baptiste.bank.domain.budget.incomeLoadRange(dates)
+        val inflows = transactionDao.observeInflows(incomeRange.start, incomeRange.endInclusive)
+            .map { rows -> rows.map { Inflow(it.label, it.date, Money(it.amountCents)) } }
+        val income = combine(settings.salary, settings.monthlyIncome, inflows) { salary, typed, received -> Triple(salary, typed, received) }
+        val startAndExcluded = combine(trackingStart(dates.max()), excludedMonths) { start, excluded -> start to excluded }
         return known.flatMapLatest { envelopes ->
-            val range = dashboardDateRange(today, envelopes)
+            // La plage dépend des périodes des enveloppes (une période de 3 mois peut commencer avant
+            // l'année) : elle est recalculée quand elles changent.
+            val range = fr.baptiste.bank.domain.budget.boardLoadRange(dates, envelopes)
             val spendings = imputationDao.observeSpendings(range.start, range.endInclusive)
                 .map { rows -> rows.map { Spending(it.envelopeId, it.date, Money(it.amountCents), it.wholePeriod) } }
             val transfers = transferDao.observeActive(range.start, range.endInclusive)
                 .map { rows -> rows.map { it.toDomain() } }
-            // L'habitude des enveloppes quotidiennes (12 mois terminés) tempère la projection du mois.
-            val history = imputationDao.observeSpendings(
-                YearMonth.from(today).minusMonths(12).atDay(1),
-                YearMonth.from(today).minusMonths(1).atEndOfMonth(),
-            ).map { rows -> rows.map { Spending(it.envelopeId, it.date, Money(it.amountCents), it.wholePeriod) } }
-            val startAndHabits = combine(trackingStart(today), history, excludedMonths) { start, past, excluded ->
-                start to fr.baptiste.bank.domain.budget.dailyHabits(envelopes, past, today, start, excluded)
-            }
-            combine(allocations, spendings, transfers, monthlyIncome, startAndHabits) { allocs, spent, moves, income, (start, habits) ->
-                computeDashboard(envelopes, allocs, spent, income, today, transfers = moves, trackingStart = start, habits = habits)
+            combine(allocations, spendings, transfers, income, startAndExcluded) { allocs, spent, moves, (salary, typed, received), (start, excluded) ->
+                fr.baptiste.bank.domain.budget.BudgetData(
+                    envelopes = envelopes,
+                    allocations = allocs,
+                    spendings = spent,
+                    transfers = moves,
+                    inflows = received,
+                    salary = salary,
+                    typedIncome = typed,
+                    trackingStart = start,
+                    excluded = excluded,
+                )
             }
         }
     }
 
+    /** Tableau d'un jour (le mois en cours, ou le dernier jour d'un mois passé) : voir dashboardAt. */
+    fun dashboard(today: LocalDate = LocalDate.now()): Flow<Dashboard> =
+        budgetData(listOf(today)).map { fr.baptiste.bank.domain.budget.dashboardAt(it, today) }
+
     /**
      * Épargne des [months] derniers mois, le mois en cours compris (en dernier). Chaque mois passé
-     * est calculé comme le tableau de bord de son dernier jour : ses chiffres sont alors réels.
-     * Les enveloppes sont celles d'aujourd'hui ; une enveloppe glissante (achat prévu...) ne
-     * compte qu'à partir de son début.
+     * est le tableau de son dernier jour : le même calcul que son Bilan, avec son salaire et les
+     * enveloppes qui existaient alors.
      */
-    @OptIn(ExperimentalCoroutinesApi::class)
     fun savingsHistory(today: LocalDate = LocalDate.now(), months: Int = 6): Flow<List<MonthSavings>> {
-        val allocations = database.allocationDao().observeAll()
-            .map { rows -> rows.associate { (it.envelopeId to it.periodKey) to Money(it.amountCents) } }
         val current = YearMonth.from(today)
         val dates = (months - 1 downTo 1).map { current.minusMonths(it.toLong()).atEndOfMonth() } + today
-        return envelopes.flatMapLatest { active ->
-            val ranges = dates.map { dashboardDateRange(it, active) }
-            val from = ranges.minOf { it.start }
-            val to = ranges.maxOf { it.endInclusive }
-            val spendings = imputationDao.observeSpendings(from, to)
-                .map { rows -> rows.map { Spending(it.envelopeId, it.date, Money(it.amountCents), it.wholePeriod) } }
-            val transfers = transferDao.observeActive(from, to).map { rows -> rows.map { it.toDomain() } }
-            combine(
-                allocations,
-                spendings,
-                transfers,
-                monthlyIncome,
-                combine(trackingStart(today), excludedMonths) { start, excluded -> start to excluded },
-            ) { allocs, spent, moves, income, (start, excluded) ->
-                // Un mois avant le début du suivi n'est pas « tout épargné » : il est absent. Le mois
-                // en cours reste toujours.
-                dates.filter { YearMonth.from(it) >= start || YearMonth.from(it) == YearMonth.now() }.map { date ->
-                    MonthSavings(
-                        month = YearMonth.from(date),
-                        outlook = computeDashboard(active, allocs, spent, income, date, transfers = moves, trackingStart = start).savings,
-                        counted = YearMonth.from(date) !in excluded,
-                    )
-                }
+        return budgetData(dates).map { data ->
+            val start = data.trackingStart
+            // Un mois avant le début du suivi n'est pas « tout épargné » : il est absent. Le mois
+            // en cours reste toujours.
+            dates.filter { start == null || YearMonth.from(it) >= start || YearMonth.from(it) == current }.map { date ->
+                MonthSavings(
+                    month = YearMonth.from(date),
+                    outlook = fr.baptiste.bank.domain.budget.dashboardAt(data, date).savings,
+                    counted = YearMonth.from(date) !in data.excluded,
+                )
             }
         }
     }
@@ -409,6 +407,8 @@ class BudgetRepository(
                 targetEnvelopeId = if (incoming) envelopeId else leg.sourceEnvelopeId,
                 amountCents = leg.amount.cents,
                 reason = reason?.takeIf { it.isNotBlank() },
+                // Pris sur « Disponible sur le compte » : le mois n'est pas touché.
+                fromReserve = incoming && leg.fromReserve && leg.sourceEnvelopeId == null,
             )
         }
         if (rows.isEmpty()) return
@@ -659,12 +659,8 @@ class BudgetRepository(
         }
     }
 
-    /** Nombre d'opérations ni rangées ni mises hors budget. */
-    /** Opérations à trier, sans le salaire reconnu (il n'est pas une dépense et se range seul dans le revenu). */
-    val unsortedCount: Flow<Int> = combine(transactionDao.observeUnsortedCount(), transactionDao.observeUnsortedInflows(), settings.salary) { count, inflows, salary ->
-        val key = salary?.first ?: return@combine count
-        count - inflows.count { fr.baptiste.bank.domain.budget.salaryKey(it.label) == key }
-    }
+    /** Nombre d'opérations à trier : la taille de la file elle-même (liste, cartes et pastilles disent le même nombre). */
+    val unsortedCount: Flow<Int> get() = unsortedOperations.map { it.size }
 
     /**
      * Relie le compte bancaire synchronisé au compte de l'app. Le compte courant déjà créé pour
@@ -1043,7 +1039,16 @@ class BudgetRepository(
 
     /** Met une opération hors budget : elle reste visible mais n'est comptée dans aucune enveloppe. */
     /** Opérations de la banque à trier, toutes. */
-    val unsortedOperations: Flow<List<OperationRow>> = transactionDao.observeUnsortedOperations()
+    val unsortedOperations: Flow<List<OperationRow>> = combine(
+        transactionDao.observeUnsortedOperations(),
+        transactionDao.observeUnsortedInflowLabels(),
+        settings.salary,
+    ) { operations, inflows, salary ->
+        // Le salaire reconnu n'est pas une dépense : il se range seul dans le revenu, il n'est pas à trier.
+        val key = salary?.first ?: return@combine operations
+        val salaryIds = inflows.filter { fr.baptiste.bank.domain.budget.salaryKey(it.label) == key }.map { it.id }.toSet()
+        operations.filter { it.id !in salaryIds }
+    }
 
     /**
      * Valide plusieurs propositions d'un coup : chaque opération va dans son enveloppe, ou hors budget
@@ -1222,14 +1227,25 @@ class BudgetRepository(
             rows.groupBy { YearMonth.from(it.date) }.mapValues { (_, list) -> Money(list.sumOf { it.amountCents }) }
         }
         val excluded = transactionDao.observeExcludedOutRows(from, to)
-        val startAndExcluded = combine(trackingStart(today), excludedMonths, categoryParents) { start, months, parents -> Triple(start, months, parents) }
-        return combine(all, spendings, unsorted, excluded, startAndExcluded) { envelopes, spent, toSort, out, (start, months, parents) ->
+        // Les ajouts et retraits changent le budget de chaque enveloppe dans son mois, comme dans Budget.
+        val transfers = transferDao.observeActive(from, to).map { rows -> rows.map { it.toDomain() } }
+        val context = combine(trackingStart(today), excludedMonths, categoryParents, transfers) { start, months, parents, moves ->
+            SpendingContext(start, months, parents, moves)
+        }
+        return combine(all, spendings, unsorted, excluded, context) { envelopes, spent, toSort, out, ctx ->
             fun byMonth(rows: List<fr.baptiste.bank.data.local.ExcludedAmount>) =
                 rows.groupBy { YearMonth.from(it.date) }.mapValues { (_, list) -> Money(list.sumOf { it.amountCents }) }
             val (toAccounts, outOfBudget) = out.partition { it.toAccount }
-            yearSpending(year, today, start, envelopes, spent, toSort, byMonth(outOfBudget), byMonth(toAccounts), months, parents)
+            yearSpending(year, today, ctx.start, envelopes, spent, toSort, byMonth(outOfBudget), byMonth(toAccounts), ctx.excluded, ctx.parents, ctx.transfers)
         }
     }
+
+    private data class SpendingContext(
+        val start: YearMonth,
+        val excluded: Set<YearMonth>,
+        val parents: Map<String, String>,
+        val transfers: List<fr.baptiste.bank.domain.budget.Transfer>,
+    )
 
     /** Rattrapage d'une provision : elle met de côté tout son montant à partir de [from]. */
     suspend fun startFunding(envelopeId: Long, from: YearMonth?) {
@@ -1323,14 +1339,19 @@ class BudgetRepository(
      */
     fun currentAccountExplained(today: LocalDate = LocalDate.now()): Flow<CurrentAccountExplained?> {
         val month = YearMonth.from(today)
+        // Le salaire de fin de mois déjà reçu finance le mois prochain : il n'est pas disponible.
+        val nextSalary = combine(settings.salary, recentInflows(today)) { salary, inflows ->
+            salary?.let { (key, next) -> fr.baptiste.bank.domain.budget.nextMonthSalaryReceived(today, inflows, key, next) } ?: Money.ZERO
+        }
+        val startAndSalary = combine(trackingStart(today), nextSalary) { start, salary -> start to salary }
         return combine(
             dashboard(today),
             currentAccountBalance,
             transfersToAccounts(month),
             transactionDao.observeUnsortedOut(month.atDay(1), month.atEndOfMonth()),
-            trackingStart(today),
-        ) { board, balance, transferred, unsorted, start ->
-            balance?.let { board.explainCurrentAccount(it.balance, it.date, transferred, Money(unsorted), since = start.atDay(1)) }
+            startAndSalary,
+        ) { board, balance, transferred, unsorted, (start, salary) ->
+            balance?.let { board.explainCurrentAccount(it.balance, it.date, transferred, Money(unsorted), since = start.atDay(1), nextMonthSalary = salary) }
         }
     }
 
@@ -1363,6 +1384,14 @@ class BudgetRepository(
 
     suspend fun setMonthlyTarget(accountId: Long, target: Money?) =
         accountDao.setMonthlyTarget(accountId, target?.takeIf { it.isPositive }?.cents)
+
+    /** « Cumul du mois » de la liste des opérations : voir cumulativeByDay. */
+    fun monthCumulative(month: YearMonth): Flow<Map<LocalDate, Money>> {
+        val known = combine(envelopes, archivedEnvelopes) { active, archived -> active + archived }
+        val spent = imputationDao.observeSpendings(month.atDay(1), month.atEndOfMonth())
+            .map { rows -> rows.map { Spending(it.envelopeId, it.date, Money(it.amountCents), it.wholePeriod) } }
+        return combine(known, spent) { all, spendings -> fr.baptiste.bank.domain.budget.cumulativeByDay(month, all, spendings) }
+    }
 
     /** Le mois en cours : dépensé par jour (hors épargne, comme le total du mois) et budget du mois. */
     fun monthPace(today: LocalDate = LocalDate.now()): Flow<fr.baptiste.bank.domain.budget.MonthPace?> {

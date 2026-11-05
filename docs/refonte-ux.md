@@ -121,8 +121,8 @@ placement peut porter son total versé et son enveloppe fiscale : l'app affiche 
 
 ## Disponible sur le compte, et provisions
 
-- « Disponible sur le compte » (la réserve, dans le code) est ce qui reste sur le compte courant une fois le mois, les charges, l'épargne à virer
-  et les provisions mises de côté retirés. « Ajouter » sur une enveloppe le propose en premier pour
+- « Disponible sur le compte » (la réserve, dans le code) est ce qui reste sur le compte courant une fois le mois, les charges, l'épargne à virer,
+  les provisions mises de côté et le salaire déjà reçu pour le mois suivant retirés. « Ajouter » sur une enveloppe le propose en premier pour
   l'épargne et les provisions : y prendre ne change ni le budget ni l'épargne du mois.
 - Une provision créée en cours de période répartit son montant sur les mois restants ; une ancienne
   garde sa part, et sa fiche propose de rattraper quand le suivi a commencé après sa période.
@@ -164,15 +164,18 @@ Un chiffre affiché à plusieurs endroits vient d'une seule fonction du module `
 
 | Chiffre | Fonction | Où il s'affiche |
 | --- | --- | --- |
+| Tableau d'un mois (reste, épargne prévue, lignes d'enveloppes) | `dashboardAt` (`MonthBoard.kt`) : le salaire de ce mois-là, les enveloppes qui existaient alors (arrêtées depuis comprises), l'habitude des 12 mois d'avant | Accueil, Budget, Bilan, Épargne (mois par mois, depuis janvier) |
 | Reste du mois, par jour | `dailyAllowance` (`DailyBudget.kt`) | Accueil ; l'Épargne le reprend dans « Si tu dépenses X € par jour : Y € » |
 | Épargne si l'on dépense exactement sa part du jour | `SavingsOutlook.atDailyAllowance` : l'épargne prévue sans la marge du quotidien | Épargne, sous l'épargne prévue |
-| Dépensé du mois | `countedSpendings` (`SpendingReport.kt`), via `monthPace` et `monthSpending` | Accueil (rythme), Analyse (total du mois) |
+| Dépensé du mois | `countedSpendings` (`SpendingReport.kt`), via `monthPace`, `monthSpending` et `cumulativeByDay` | Accueil (rythme), Analyse (total du mois), Opérations (« Cumul du mois ») |
+| Budget d'une enveloppe dans Dépenses, « Dépassé » | `monthSpending` : la part du mois plus les ajouts, moins les retraits du mois (comme le disponible de Budget) | Dépenses › Catégories |
 | Prévu + | `project` (`Projection.kt`) : rien avant le 10, puis rythme du mois mêlé à l'habitude (`dailyHabits`, 12 mois) | Enveloppes, fiche, Claude |
-| Comparaison de début de mois | `MonthPace.previousSameDay` | Analyse du mois en cours |
+| Comparaison de début de mois | `MonthPace.previousSameDay` : tout le dépensé, loyer compris | Accueil (Rythme du mois), Analyse du mois en cours |
 | Bilan d'un mois terminé | `monthClosing` (`MonthClosing.kt`) : épargne du mois, virée ou encore sur le compte | Budget, mois passé |
 | Moyennes et écarts de l'année | `YearSpending.complete` : mois terminés seulement | Analyse, Année |
 | Montant proposé | `suggestedAmount` sur l'historique de l'enveloppe ; rien pour une nouvelle | Formulaire d'enveloppe |
-| À trier | `observeUnsortedCount` moins le salaire reconnu | Accueil, onglet Dépenses |
+| À trier | la taille de `unsortedOperations` (sans le salaire reconnu) | Accueil, onglet Dépenses, tri carte par carte, Claude |
+| Disponible sur le compte | `CurrentAccountExplained.free` | Budget (compte courant), « Pris sur » des ajouts |
 
 ## Encarts : le modèle du prototype
 
@@ -180,6 +183,6 @@ Chaque carte suit la même règle : un chiffre clé, une ligne d'aide au plus, l
 
 - **Ligne d'enveloppe** : nom et reste (euros ronds), une barre, une ligne « X € sur Y € » ou une puce d'état. Aucun bouton dans la ligne ; les lignes sont plates dans leur famille (plus de groupe par catégorie dans Budget).
 - **Fiche d'enveloppe** : le reste en grand, une ligne « dépensé sur disponible · période » (pour une provision : « mis de côté sur … », la puce « En retard » et « Mettre X € de côté par mois » en action principale), une puce si l'enveloppe dérape, « Ajouter de l'argent » seulement dans ce cas, Ajouter et Retirer, les dépenses. Le détail (Budget, Ajouts, Dépensé, Reste), les périodes passées et les ajouts et retraits sont repliés dans « Détail du budget » (« Historique » est réservé à la liste des annulations).
-- **« Couvrir » devient « Ajouter de l'argent »** : la fenêtre dit combien il manque, d'où vient l'argent et ce que devient le reste du mois. Le bouton n'existe que dans la fiche.
+- **« Couvrir » devient « Ajouter de l'argent »** : la fenêtre dit combien il manque, d'où vient l'argent et ce que devient le reste du mois. « Pris sur » propose d'abord la répartition de l'app (À répartir ce mois-ci, puis les enveloppes souples) ; on peut choisir une source (À répartir, Disponible sur le compte, une enveloppe), complétée au besoin par les autres. Le bouton n'existe que dans la fiche.
 - **Formulaire d'enveloppe** : Nom, C'est pour, Combien, Catégorie (et la remise à zéro pour un budget rare). Le départ, le rythme, la suite d'un budget rare et la protection sont dans « Plus d'options ».
 - **Plan du mois** : la barre et sa légende seulement ; « Essayer un plan » vit dans Épargne.

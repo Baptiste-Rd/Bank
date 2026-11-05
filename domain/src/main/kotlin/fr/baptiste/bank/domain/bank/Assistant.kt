@@ -32,6 +32,9 @@ const val ACCOUNT_PREFIX = "COMPTE: "
 /** Familles qu'une nouvelle enveloppe peut prendre, dans le vocabulaire de l'app. */
 val assistantFamilies = listOf("quotidien", "charges fixes", "provisions", "épargne")
 
+/** Ce qui reste d'un libellé entièrement masqué. */
+const val MASKED_LABEL = "(libellé masqué)"
+
 private val ibanLike = Regex("""\b[A-Z]{2}\d{2}(?:\s?[A-Z0-9]{4}){3,8}(?:\s?[A-Z0-9]{1,3})?\b""", RegexOption.IGNORE_CASE)
 private val email = Regex("""\b[\w.+-]+@[\w-]+\.[\w.]+\b""")
 private val maskedCard = Regex("""\b\d*[X*]{3,}\d*\b""", RegexOption.IGNORE_CASE)
@@ -52,7 +55,7 @@ fun anonymizeLabel(label: String): String =
         .replace(longNumber, " ")
         .replace(Regex("""\s+"""), " ")
         .trim()
-        .ifEmpty { "(libellé masqué)" }
+        .ifEmpty { MASKED_LABEL }
 
 private val shortDate = DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.FRANCE)
 

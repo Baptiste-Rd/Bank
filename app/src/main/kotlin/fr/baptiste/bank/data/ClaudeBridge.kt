@@ -98,9 +98,11 @@ class ClaudeBridge(
             .put(
                 "rules",
                 JSONArray(
+                    // Mots-clés nettoyés comme les libellés ; ceux d'un virement ne partent pas.
                     database.ruleDao().all().mapNotNull { rule ->
-                        envId[rule.envelopeId]?.let { JSONObject().put("pattern", rule.pattern).put("envelope", it) }
-                    },
+                        val pattern = fr.baptiste.bank.domain.bank.exportRulePattern(rule.pattern) ?: return@mapNotNull null
+                        envId[rule.envelopeId]?.let { JSONObject().put("pattern", pattern).put("envelope", it) }
+                    }.distinctBy { it.getString("pattern") + it.getString("envelope") },
                 ),
             )
             .put(

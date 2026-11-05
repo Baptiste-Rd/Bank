@@ -137,6 +137,25 @@ class JournalTest {
     }
 
     @Test
+    fun aCoverTakenOnTheAccountIsAReserveTransferAndUndoes() = runBlocking {
+        val courses = envelope("Courses", 300).let { it.copy(id = repository.saveEnvelope(it)) }
+        repository.addTransfers(
+            listOf(fr.baptiste.bank.domain.budget.TransferLeg(null, Money.euros(40), fromReserve = true)),
+            courses.id,
+            incoming = true,
+            reason = "Couverture",
+        )
+        val row = repository.transferJournal().first().single()
+        assertTrue(row.fromReserve)
+        assertNull(row.sourceName)
+        // Pris sur le compte : le mois n'est pas touché.
+        val active = database.transferDao().observeActive(today.minusDays(1), today.plusDays(1)).first().single()
+        assertTrue(active.fromReserve)
+        repository.undo(lastEntry().id)
+        assertTrue(repository.transferJournal().first().all { it.cancelled })
+    }
+
+    @Test
     fun movingIntoAnUnusedCategoryCreatesItAndUndoTakesItBack() = runBlocking {
         val id = repository.saveEnvelope(envelope("Courses", 300))
         val periodsBefore = database.allocationDao().forEnvelope(id).map { it.periodKey to it.amountCents }
