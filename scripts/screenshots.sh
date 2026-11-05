@@ -165,3 +165,23 @@ adb exec-out screencap -p > "$OUT/glass-epargne-comptes-suite.png"
 adb shell input swipe 540 1900 540 800 900
 sleep 2
 adb exec-out screencap -p > "$OUT/glass-budget-annee-suite.png"
+# Lot 7 : glisser une ligne de catégorie, le panneau « Déplacer », une sous-catégorie dépliée.
+# Coordonnées pour un Pixel 7 (1080 x 2400) : première ligne de catégorie vers y = 1290.
+shot_budget glass-categories --es tab OPERATIONS
+adb shell input swipe 900 1290 250 1290 300
+sleep 2
+adb exec-out screencap -p > "$OUT/glass-glisser.png"
+adb shell input tap 886 1290
+sleep 3
+adb exec-out screencap -p > "$OUT/glass-deplacer.png"
+shot_budget glass-categories-2 --es tab OPERATIONS
+adb shell input tap 400 1520
+sleep 2
+adb exec-out screencap -p > "$OUT/glass-sous-categorie.png"
+# Accessibilité : texte à 200 %, pour voir ce qui se coupe ou déborde.
+adb shell settings put system font_scale 2.0
+sleep 2
+shot_budget glass-texte-200-resume --es tab HOME
+shot_budget glass-texte-200-depenses --es tab OPERATIONS
+shot_budget glass-texte-200-epargne --es tab SAVINGS
+adb shell settings put system font_scale 1.0

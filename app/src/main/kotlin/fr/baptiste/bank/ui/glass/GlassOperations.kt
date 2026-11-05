@@ -1,5 +1,6 @@
 package fr.baptiste.bank.ui.glass
 
+import androidx.compose.foundation.layout.Spacer
 import fr.baptiste.bank.ui.format.summary
 import fr.baptiste.bank.ui.format.plural
 import androidx.compose.foundation.clickable
@@ -167,11 +168,6 @@ fun GlassOperationsContent(
                 action = if (ready.size > 1) "Tout valider (${ready.size})" else null,
                 onAction = { onAcceptAll(ready) },
             )
-            if (onSortCards != null) {
-                item(key = "to-sort-cards") {
-                    fr.baptiste.bank.ui.components.RowActionButton("Trier une par une", onClick = onSortCards)
-                }
-            }
             item(key = "to-sort") {
                 GlassRowsCard(toSort.take(QUEUE_LIMIT)) { operation ->
                     QueueRow(
@@ -193,22 +189,29 @@ fun GlassOperationsContent(
                 }
             }
         }
-        // Le tri se règle ici : ce que l'app range seule (règles, alias) et le retour en arrière.
+        // Une seule ligne d'actions : « Trier une par une », et les outils dans un menu ⋯ (Claude,
+        // noms et règles, remise à trier), qui ne repoussent plus la liste.
         if (operations.any { it.source != TransactionSource.MANUAL }) {
             item(key = "sort-tools") {
-                GlassCard(contentPadding = 16.dp, verticalPadding = 4.dp) {
-                    if (toSort.size > ready.size) {
-                        ToolRow(
-                            "Trier avec Claude",
-                            "${toSort.size - ready.size} sans proposition : Claude identifie et propose",
-                            onAssistedSort,
-                        )
-                        RowDivider(0.dp)
+                var menu by remember { mutableStateOf(false) }
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    if (toSort.isNotEmpty() && onSortCards != null) {
+                        fr.baptiste.bank.ui.components.RowActionButton("Trier une par une", onClick = onSortCards)
                     }
-                    // Les règles s'appliquent seules (à l'import, et dès qu'une est retenue) : plus de bouton.
-                    ToolRow("Noms et règles", rulesSummary, onOpenRules)
-                    RowDivider(0.dp)
-                    ToolRow("Remettre à trier", "Tout le mois, une enveloppe ou un libellé", onUnsort)
+                    Spacer(Modifier.weight(1f))
+                    Box {
+                        TextButton(onClick = { menu = true }) { Text("Outils ⋯") }
+                        androidx.compose.material3.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            if (toSort.size > ready.size) {
+                                androidx.compose.material3.DropdownMenuItem(
+                                    text = { Text("Trier avec Claude (${toSort.size - ready.size})") },
+                                    onClick = { menu = false; onAssistedSort() },
+                                )
+                            }
+                            androidx.compose.material3.DropdownMenuItem(text = { Text("Noms et règles") }, onClick = { menu = false; onOpenRules() })
+                            androidx.compose.material3.DropdownMenuItem(text = { Text("Remettre à trier") }, onClick = { menu = false; onUnsort() })
+                        }
+                    }
                 }
             }
         }

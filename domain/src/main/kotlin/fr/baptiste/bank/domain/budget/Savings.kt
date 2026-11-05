@@ -38,6 +38,13 @@ data class SavingsOutlook(
     /** Épargne prévue en fin de mois (ou réelle, pour un mois terminé). */
     val forecast: Money get() = secured + dailyMargin + surpluses - overruns
 
+    /**
+     * Épargne de fin de mois si le quotidien s'en tient exactement à sa part du jour d'ici la fin du
+     * mois : la marge du quotidien tombe à zéro, il reste l'épargne à l'abri, les restes et les
+     * dépassements. Ne diffère de [forecast] que par [dailyMargin].
+     */
+    val atDailyAllowance: Money get() = forecast - dailyMargin
+
     /** Écart à l'objectif : négatif si la prévision est en dessous. */
     val gapToTarget: Money get() = forecast - target
 }

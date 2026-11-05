@@ -60,11 +60,10 @@ fun AccountsDialog(
     onAdd: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
+    fr.baptiste.bank.ui.components.SheetAlert(
         onDismissRequest = onDismiss,
         title = { Text("Mes comptes") },
         text = {
-            BlurBehindWindow()
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(
                     "Livrets et investissements, pour voir tout ce que tu as de côté. Un compte autorisé lors " +

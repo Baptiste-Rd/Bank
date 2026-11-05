@@ -79,3 +79,20 @@ class TrackingStartTest {
         assertEquals(Money.euros(220), withoutAugust.monthlyAverage)
     }
 }
+
+class DisciplinedSavingsTest {
+    @Test
+    fun `holding the daily share removes only the daily margin`() {
+        val outlook = SavingsOutlook(
+            target = Money.euros(300),
+            transferred = Money.euros(50),
+            dailyMargin = Money.euros(-89),
+            overruns = Money.euros(20),
+            isFinal = false,
+            surpluses = Money.euros(10),
+        )
+        assertEquals(Money.euros(251), outlook.forecast)
+        assertEquals(Money.euros(340), outlook.atDailyAllowance)
+        assertEquals(outlook.dailyMargin, outlook.forecast - outlook.atDailyAllowance)
+    }
+}

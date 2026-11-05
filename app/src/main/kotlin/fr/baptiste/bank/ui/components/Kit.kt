@@ -1,5 +1,7 @@
 package fr.baptiste.bank.ui.components
 
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -179,4 +181,40 @@ fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifi
         modifier = modifier,
         colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB), contentColor = Color.White),
     ) { Text(text, maxLines = 1) }
+}
+
+/**
+ * Une fenêtre en sheet qui monte du bas, avec les mêmes emplacements qu'une AlertDialog : la sortie
+ * à gauche, le titre au centre, l'action à droite, puis le contenu qui défile. Pour toute saisie ou
+ * tout contenu un peu long ; une AlertDialog reste réservée aux confirmations.
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+fun SheetAlert(
+    onDismissRequest: () -> Unit,
+    title: @Composable () -> Unit,
+    text: @Composable () -> Unit,
+    confirmButton: @Composable () -> Unit,
+    dismissButton: (@Composable () -> Unit)? = null,
+) {
+    androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = onDismissRequest,
+        sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) { dismissButton?.invoke() }
+            androidx.compose.runtime.CompositionLocalProvider(
+                androidx.compose.material3.LocalTextStyle provides MaterialTheme.typography.titleMedium,
+            ) { Box(Modifier.weight(2f), contentAlignment = Alignment.Center) { title() } }
+            Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) { confirmButton() }
+        }
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .navigationBarsPadding()
+                .imePadding()
+                .padding(bottom = 24.dp),
+        ) { text() }
+    }
 }

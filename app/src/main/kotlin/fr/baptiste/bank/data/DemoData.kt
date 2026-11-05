@@ -28,6 +28,7 @@ object DemoData {
     suspend fun seedIfEmpty(database: BankDatabase, repository: BudgetRepository, today: LocalDate = LocalDate.now()) {
         repository.setMonthlyIncome(Money.euros(2400))
         database.withTransaction { seed(repository, today) }
+        repository.moveCategory("Bars", "Nourriture")
         // L'installation de la démo n'est pas un changement de l'utilisateur : l'historique part vide.
         database.journalDao().clear()
     }
@@ -50,7 +51,8 @@ object DemoData {
         listOf(
             // Une catégorie partagée : Courses et Bar sont réunis sous « Nourriture ».
             envelope("Courses", EnvelopeType.DAILY, 320).copy(group = "Nourriture"),
-            envelope("Bar", EnvelopeType.DAILY, 60).copy(group = "Nourriture"),
+            // Une sous-catégorie, pour montrer l'arbre : Bars dans Nourriture.
+            envelope("Bar", EnvelopeType.DAILY, 60).copy(group = "Bars"),
             envelope("Essence", EnvelopeType.DAILY, 120).copy(group = "Transports"),
             envelope("Sorties", EnvelopeType.DAILY, 80).copy(group = "Loisirs"),
             envelope("Coiffeur", EnvelopeType.RECURRING, 30, Frequency(6, Scale.WEEK)).copy(group = "Santé"),

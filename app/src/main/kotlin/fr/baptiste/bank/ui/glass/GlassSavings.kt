@@ -143,8 +143,14 @@ fun GlassSavingsContent(
                     if (gap.isNegative) fr.baptiste.bank.ui.components.StatusKind.WARNING else fr.baptiste.bank.ui.components.StatusKind.GAIN,
                     Modifier.padding(top = 4.dp),
                 )
-                adviceFor(dashboard)?.let {
-                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                // Le scénario discipliné, à côté du scénario habituel : la part du jour tenue chaque jour.
+                if (!outlook.isFinal && !readOnly) {
+                    Text(
+                        "En tenant ${dashboard.dailyAllowance.allowance.summary()}/jour : ${outlook.atDailyAllowance.summary()}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
                 }
                 if (!readOnly) savingsLines.firstOrNull()?.let { target ->
                     GlassPillButton("Mettre de côté", onClick = { onPutAside(target) }, modifier = Modifier.padding(top = 12.dp))

@@ -134,11 +134,10 @@ fun UnsortDialog(
         UnsortChoice.LABEL -> text.trim().takeIf { it.isNotEmpty() }?.let { UnsortScope.Containing(it) }
     }
 
-    AlertDialog(
+    fr.baptiste.bank.ui.components.SheetAlert(
         onDismissRequest = onDismiss,
         title = { Text("Remettre à trier") },
         text = {
-            BlurBehindWindow()
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp),

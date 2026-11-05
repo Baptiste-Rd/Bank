@@ -55,11 +55,10 @@ fun DateCheckDialog(
 ) {
     var excluded by remember { mutableStateOf(emptySet<Long>()) }
     val selected = report?.corrections.orEmpty().filter { it.operation.id !in excluded }
-    AlertDialog(
+    fr.baptiste.bank.ui.components.SheetAlert(
         onDismissRequest = onDismiss,
         title = { Text("Vérifier les dates") },
         text = {
-            BlurBehindWindow()
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
