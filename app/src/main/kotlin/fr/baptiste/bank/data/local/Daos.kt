@@ -173,6 +173,9 @@ interface EnvelopeDao {
     suspend fun byId(id: Long): EnvelopeEntity?
 
     @Query("SELECT id FROM envelope")
+    fun observeIds(): Flow<List<Long>>
+
+    @Query("SELECT id FROM envelope")
     suspend fun allIds(): List<Long>
 
     @Query("SELECT * FROM envelope WHERE group_name = :category COLLATE NOCASE")

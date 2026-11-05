@@ -124,7 +124,14 @@ data class JournalPayload(
 
     /** Enveloppes utilisées sans être changées : où vont ses opérations, saisies, ajouts et règles. */
     fun uses(): Set<String> = (extraTouched.filter { it.startsWith(USE_PREFIX) }.map { it.removePrefix(USE_PREFIX) } +
-        rulesRemoved.map { "env:${it.envelopeId}" }).toSet()
+        rulesRemoved.map { "env:${it.envelopeId}" } +
+        manualDeleted.flatMap { m -> m.imputations.map { "env:${it.envelopeId}" } }).toSet()
+
+    /** Enveloppes dont l'entrée a besoin pour s'annuler : celles qu'elle change ou utilise (pas celles qu'elle crée). */
+    fun envelopesNeeded(): Set<Long> = ((touched() - creates()) + uses())
+        .filter { it.startsWith("env:") }
+        .mapNotNull { it.removePrefix("env:").toLongOrNull() }
+        .toSet()
 
     /**
      * Plusieurs changements faits d'un coup (un tri assisté, un plan appliqué) : une seule entrée.

@@ -169,9 +169,21 @@ class BudgetRepository(
     // --- Historique des changements (annulables) ---
 
     /** Les dix derniers changements, le plus récent en premier. */
-    val journal: Flow<List<JournalLine>> = journalDao.observeRecent().map { rows ->
-        val blocked = fr.baptiste.bank.domain.history.blockedEntries(rows.map { it.toHistoryEntry() })
+    val journal: Flow<List<JournalLine>> = combine(journalDao.observeRecent(), envelopeDao.observeIds()) { rows, ids ->
+        val blocked = blockedNow(rows, ids.toSet())
         rows.map { JournalLine(it.id, it.at, it.label, it.undone, blocked = it.id in blocked) }
+    }
+
+    /**
+     * Entrées qui ne s'annulent pas maintenant : bloquées par une plus récente (blockedEntries), ou
+     * qui ont besoin d'une enveloppe supprimée définitivement depuis (rien ne pourrait revenir).
+     */
+    private fun blockedNow(rows: List<fr.baptiste.bank.data.local.JournalEntity>, alive: Set<Long>): Set<Long> {
+        val byOrder = fr.baptiste.bank.domain.history.blockedEntries(rows.map { it.toHistoryEntry() })
+        val orphan = rows.filter { row ->
+            !row.undone && runCatching { JournalPayload.decode(row.payload) }.getOrNull()?.envelopesNeeded()?.any { it !in alive } == true
+        }.map { it.id }
+        return byOrder + orphan
     }
 
     private fun fr.baptiste.bank.data.local.JournalEntity.toHistoryEntry(): fr.baptiste.bank.domain.history.HistoryEntry {
@@ -247,8 +259,7 @@ class BudgetRepository(
         val entry = journalDao.byId(entryId) ?: return@withTransaction null
         if (entry.undone) return@withTransaction null
         // Une entrée plus récente touche les mêmes éléments : l'annuler l'écraserait.
-        val recent = journalDao.recent()
-        if (entryId in fr.baptiste.bank.domain.history.blockedEntries(recent.map { it.toHistoryEntry() })) return@withTransaction null
+        if (entryId in blockedNow(journalDao.recent(), envelopeDao.allIds().toSet())) return@withTransaction null
         val payload = JournalPayload.decode(entry.payload)
         // Saisies supprimées : remises telles quelles, avec leurs parts.
         // Seules les enveloppes qui existent encore reçoivent ce qui revient (une supprimée depuis ne le peut plus).
@@ -573,11 +584,7 @@ class BudgetRepository(
      * à trier, ses saisies, règles, transferts et périodes sont effacés.
      */
     suspend fun deleteEnvelope(id: Long) = database.withTransaction {
-        // Les changements qui la touchent ne peuvent plus s'annuler sans elle : ils quittent l'Historique.
-        val touching = journalDao.recent().filter { entry ->
-            runCatching { JournalPayload.decode(entry.payload) }.getOrNull()?.let { "env:$id" in it.touched() || "env:$id" in it.uses() } ?: false
-        }
-        journalDao.delete(touching.map { it.id })
+        // Les changements qui en ont besoin restent dans l'Historique, bloqués (voir blockedNow).
         transactionDao.deleteManualIn(id)
         imputationDao.deleteForEnvelope(id)
         database.ruleDao().deleteForEnvelope(id)
@@ -1259,7 +1266,8 @@ class BudgetRepository(
      */
     fun previousMonthRecap(today: LocalDate = LocalDate.now()): Flow<MonthSavings?> =
         combine(savingsHistory(today, 2), settings.recapDismissed) { months, dismissed ->
-            // La date est relue à chaque mise à jour : l'encart disparaît le 8 même si l'app reste ouverte.
+            // La date est relue à chaque mise à jour des données (pas à minuit : un encart peut rester
+            // affiché le 8 si l'app est restée ouverte sans changement).
             val month = fr.baptiste.bank.domain.budget.recapMonth(LocalDate.now(), dismissed)
             months.firstOrNull { it.month == month }
         }

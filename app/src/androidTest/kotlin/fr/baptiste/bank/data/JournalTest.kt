@@ -332,4 +332,29 @@ class JournalTest {
         repository.undo(lastEntry().id)
         assertEquals("CARREFOUR", database.ruleDao().all().single().pattern)
     }
+
+    @Test
+    fun anAliasOrARuleIsUndoneInTheRightOrderOnly() = runBlocking {
+        bankOperation("PRLV FREE MOBILE 123", 20)
+        repository.addAlias("FREE MOBILE", "Forfait")
+        val creation = lastEntry()
+        repository.deleteAlias(database.aliasDao().all().single().id, restoreLabels = false)
+        // La création est bloquée par la suppression, plus récente.
+        assertNull(repository.undo(creation.id))
+        repository.undo(lastEntry().id)
+        repository.undo(creation.id)
+        assertTrue(database.aliasDao().all().isEmpty())
+
+        val courses = envelope("Courses", 300).let { it.copy(id = repository.saveEnvelope(it)) }
+        val maison = envelope("Maison", 50).let { it.copy(id = repository.saveEnvelope(it)) }
+        val first = bankOperation("CARREFOUR", 15)
+        val second = bankOperation("CARREFOUR", 25)
+        repository.sortOperation(first, courses, "CARREFOUR")
+        val firstSort = lastEntry()
+        // Un second tri au même mot-clé remplace la règle : le premier tri ne s'annule qu'après lui.
+        repository.unsortOperations(listOf(second))
+        repository.sortOperation(second, maison, "CARREFOUR")
+        assertNull(repository.undo(firstSort.id))
+        assertTrue(repository.journal.first().first { it.id == firstSort.id }.blocked)
+    }
 }
