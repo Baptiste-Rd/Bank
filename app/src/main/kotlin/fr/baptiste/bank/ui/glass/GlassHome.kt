@@ -208,21 +208,24 @@ fun GlassHomeContent(
     }
 }
 
-/** « Bilan d'octobre · 312 € épargnés », Voir et Fermer : le mois passé, sans fenêtre qui s'ouvre. */
+/** « Bilan d'octobre », l'épargne du mois, Voir et Fermer : le mois passé, sans fenêtre qui s'ouvre. */
 @Composable
 private fun RecapCard(recap: fr.baptiste.bank.data.MonthSavings, onOpen: () -> Unit, onDismiss: () -> Unit) {
     val name = recap.month.month.getDisplayName(java.time.format.TextStyle.FULL, Locale.FRANCE)
     val saved = recap.outlook.forecast
     GlassCard(contentPadding = 16.dp, onClick = onOpen) {
         Text(if (name.first() in "aeiouâéèêîôû") "Bilan d'$name" else "Bilan de $name", style = MaterialTheme.typography.titleMedium)
+        // Le même chiffre et les mêmes mots que le bilan : « Épargne du mois ».
         Text(
-            if (saved.isNegative) "Il a manqué ${(-saved).summary()}" else "${saved.summary()} épargnés",
+            saved.summary(),
             style = MaterialTheme.typography.titleLarge,
             color = if (saved.isNegative) BankTheme.status.over else MaterialTheme.colorScheme.onSurface,
         )
-        if (!recap.counted) {
-            Text("Hors référence", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+        Text(
+            if (recap.counted) "Épargne du mois" else "Épargne du mois · hors référence",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.End) {
             androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Fermer") }
             androidx.compose.material3.TextButton(onClick = onOpen) { Text("Voir le bilan") }
