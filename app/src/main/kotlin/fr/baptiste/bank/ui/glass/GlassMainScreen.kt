@@ -1,5 +1,6 @@
 package fr.baptiste.bank.ui.glass
 
+import androidx.compose.runtime.LaunchedEffect
 import fr.baptiste.bank.domain.model.category
 import fr.baptiste.bank.ui.format.summary
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -85,6 +86,9 @@ fun GlassMainScreen(
     initialSpendingView: SpendingTabView = SpendingTabView.ANALYSIS,
     /** Sheet ouverte au lancement (captures) : ADD ou SETTINGS. */
     initialSheet: String? = null,
+    /** Captures : une catégorie dépliée, et le panneau Déplacer d'une enveloppe. */
+    initialExpand: String? = null,
+    initialMoveEnvelopeId: Long? = null,
 ) {
     val controller = rememberAppController(initialTab, initialDialog)
     val dashboard by viewModel.dashboard.collectAsStateWithLifecycle()
@@ -124,7 +128,11 @@ fun GlassMainScreen(
     val categoryParents by viewModel.categoryParents.collectAsStateWithLifecycle()
     var moveSubject by remember { mutableStateOf<fr.baptiste.bank.ui.components.MoveSubject?>(null) }
     var renaming by remember { mutableStateOf<String?>(null) }
-    var expandCategory by remember { mutableStateOf<String?>(null) }
+    var expandCategory by remember { mutableStateOf(initialExpand) }
+    LaunchedEffect(envelopes, initialMoveEnvelopeId) {
+        val envelope = envelopes.firstOrNull { it.id == initialMoveEnvelopeId } ?: return@LaunchedEffect
+        if (moveSubject == null) moveSubject = fr.baptiste.bank.ui.components.MoveSubject.EnvelopeSubject(envelope.id, envelope.name, envelope.category)
+    }
     val moveEnvelope: (fr.baptiste.bank.domain.model.Envelope) -> Unit = { envelope ->
         moveSubject = fr.baptiste.bank.ui.components.MoveSubject.EnvelopeSubject(envelope.id, envelope.name, envelope.category)
     }
@@ -196,6 +204,7 @@ fun GlassMainScreen(
         LocalTabListState provides listState,
         LocalMonthNavigation provides monthNavigation,
         LocalFirstOperationDate provides firstOperationDate,
+        fr.baptiste.bank.ui.theme.LocalCategoryParents provides categoryParents,
     ) {
         GlassSurfaceColors(onBackground = true) {
         Column(Modifier.fillMaxSize()) {

@@ -146,7 +146,7 @@ fun GlassSavingsContent(
                 // Le scénario discipliné, à côté du scénario habituel : la part du jour tenue chaque jour.
                 if (!outlook.isFinal && !readOnly) {
                     Text(
-                        "En tenant ${dashboard.dailyAllowance.allowance.summary()}/jour : ${outlook.atDailyAllowance.summary()}",
+                        "Si tu dépenses ${dashboard.dailyAllowance.allowance.summary()} par jour : ${outlook.atDailyAllowance.summary()}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 6.dp),

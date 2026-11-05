@@ -201,13 +201,26 @@ fun GlassHomeContent(
     }
 }
 
+@Composable
+private fun HeroFigure(label: String, value: String, negative: Boolean) {
+    Column {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.displaySmall, color = if (negative) BankTheme.status.over else MaterialTheme.colorScheme.onSurface, maxLines = 1)
+    }
+}
+
 /** Deux grands chiffres côte à côte, puis une seule pastille de comparaison. */
 @Composable
 private fun MonthHero(dashboard: Dashboard, pace: MonthPace?, onInfo: () -> Unit) {
     val rest = dashboard.dailyBudget - dashboard.dailySpent
     // Toucher les chiffres en montre le calcul (séance : « d'où vient ce reste ? »).
     GlassCard(strong = true, contentPadding = 20.dp, onClick = onInfo) {
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        // Texte agrandi : les deux chiffres l'un sous l'autre plutôt que coupés.
+        val stacked = androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f
+        if (stacked) Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            HeroFigure("Reste du mois", rest.summary(), rest.isNegative)
+            HeroFigure("Par jour", dashboard.dailyAllowance.allowance.summary(), dashboard.dailyAllowance.allowance.isNegative)
+        } else Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Column(Modifier.weight(1f)) {
                 Text("Reste du mois", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(

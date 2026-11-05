@@ -295,7 +295,20 @@ private val otherCategoryColors = listOf(
     Color(0xFFF9A8D4), Color(0xFF93C5FD), Color(0xFFD8B4FE), Color(0xFF86EFAC),
 )
 
-fun categoryColor(name: String): Color {
+/** Catégories imbriquées : la mère de chaque catégorie, pour la couleur des sous-catégories. */
+val LocalCategoryParents = androidx.compose.runtime.staticCompositionLocalOf<Map<String, String>> { emptyMap() }
+
+/**
+ * Couleur d'une catégorie. Une sous-catégorie sans couleur propre prend celle de sa catégorie
+ * principale (Bars, dans Nourriture, est orange), comme dans le prototype.
+ */
+fun categoryColorOf(name: String, parents: Map<String, String>): Color {
     val key = name.trim().lowercase(java.util.Locale.FRANCE)
-    return knownCategoryColors[key] ?: otherCategoryColors[Math.floorMod(key.hashCode(), otherCategoryColors.size)]
+    knownCategoryColors[key]?.let { return it }
+    val root = fr.baptiste.bank.domain.model.rootOf(name, parents)
+    if (!root.equals(name, ignoreCase = true)) return categoryColorOf(root, emptyMap())
+    return otherCategoryColors[Math.floorMod(key.hashCode(), otherCategoryColors.size)]
 }
+
+@androidx.compose.runtime.Composable
+fun categoryColor(name: String): Color = categoryColorOf(name, LocalCategoryParents.current)

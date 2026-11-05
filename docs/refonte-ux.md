@@ -24,6 +24,11 @@ Onglets, dans l'ordre : **Résumé** (où j'en suis ce mois ?), **Budget** (où 
 - Résumé d'un mois terminé : ce qu'il a coûté, son bilan d'épargne, le chemin vers le détail.
 - Épargne : épargne prévue et « Mettre de côté » ; Mes comptes (livrets et placements) ; Mis de
   côté ; Achats prévus (« Ajouter ») ; Essayer un plan ; Mois par mois.
+- Catégories imbriquées : une catégorie peut en contenir d'autres, les totaux remontent. Une
+  sous-catégorie sans couleur propre prend celle de sa catégorie principale. On glisse une ligne vers
+  la gauche (Dépenses › Catégories, Budget) : « Déplacer » et « Renommer » pour une catégorie,
+  « Déplacer » et « Modifier » pour une enveloppe ; le rangement est immédiat, même dans une
+  catégorie encore vide, et s'annule depuis le message ou l'Historique.
 - Une catégorie se repère à son point de couleur (plus d'initiale) ; une catégorie dépliable
   porte un chevron, une catégorie sans dépense du mois n'en a pas. Les en-têtes de famille n'ont
   pas de point (les couleurs des familles restent dans la barre du plan et sa légende).
@@ -159,7 +164,8 @@ Un chiffre affiché à plusieurs endroits vient d'une seule fonction du module `
 
 | Chiffre | Fonction | Où il s'affiche |
 | --- | --- | --- |
-| Reste du mois, par jour | `dailyAllowance` (`DailyBudget.kt`) | Accueil seulement ; l'Épargne parle d'un total (`spendableForTarget`) |
+| Reste du mois, par jour | `dailyAllowance` (`DailyBudget.kt`) | Accueil ; l'Épargne le reprend dans « Si tu dépenses X € par jour : Y € » |
+| Épargne si l'on dépense exactement sa part du jour | `SavingsOutlook.atDailyAllowance` : l'épargne prévue sans la marge du quotidien | Épargne, sous l'épargne prévue |
 | Dépensé du mois | `countedSpendings` (`SpendingReport.kt`), via `monthPace` et `monthSpending` | Accueil (rythme), Analyse (total du mois) |
 | Prévu + | `project` (`Projection.kt`) : rien avant le 10, puis rythme du mois mêlé à l'habitude (`dailyHabits`, 12 mois) | Enveloppes, fiche, Claude |
 | Comparaison de début de mois | `MonthPace.previousSameDay` | Analyse du mois en cours |

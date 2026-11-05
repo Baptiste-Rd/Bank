@@ -199,6 +199,7 @@ internal val SegmentSelected = Color.White.copy(alpha = 0.14f)
 
 @Composable
 internal fun SegmentedToggle(options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
+    fr.baptiste.bank.ui.components.CappedFontScale {
     // Le contrôle segmenté du prototype, le même pour les mois, les vues et la recherche :
     // fond opaque, coins de 14 dp, choix en blanc à 14 %.
     Row(
@@ -226,6 +227,7 @@ internal fun SegmentedToggle(options: List<String>, selected: Int, onSelect: (In
                 )
             }
         }
+    }
     }
 }
 

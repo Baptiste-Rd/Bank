@@ -98,7 +98,7 @@ fun MoveSheet(
         }
         LazyColumn(Modifier.navigationBarsPadding().imePadding().padding(bottom = 16.dp)) {
             if (isCategory) {
-                item(key = "root") { DestinationRow("Catégorie principale", null, 0, current == null) { onPick(null) } }
+                item(key = "root") { DestinationRow("Aucune (catégorie principale)", null, 0, current == null) { onPick(null) } }
             }
             items(rows, key = { it.first }) { (name, depth) ->
                 DestinationRow(name, categoryColor(name), depth, current?.let(::envelopeNameKey) == envelopeNameKey(name)) { onPick(name) }
@@ -136,10 +136,11 @@ private fun DestinationRow(name: String, color: androidx.compose.ui.graphics.Col
         if (color != null) Box(Modifier.padding(end = 12.dp).size(10.dp).clip(CircleShape).background(color))
         Text(
             name,
-            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal),
+            style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.weight(1f),
         )
-        if (selected) Text("Actuelle", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        // L'emplacement actuel porte une coche, comme une liste de choix d'iOS.
+        if (selected) Text("✓", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
     }
 }
 

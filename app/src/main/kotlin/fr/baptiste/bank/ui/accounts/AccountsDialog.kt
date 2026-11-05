@@ -1,5 +1,6 @@
 package fr.baptiste.bank.ui.accounts
 
+import fr.baptiste.bank.ui.format.summary
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -66,8 +67,7 @@ fun AccountsDialog(
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(
-                    "Livrets et investissements, pour voir tout ce que tu as de côté. Un compte autorisé lors " +
-                        "de la connexion à ta banque se met à jour seul ; les autres, tu donnes le solde quand tu veux.",
+                    "Reliés à la banque : mis à jour seuls.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 8.dp),
@@ -86,12 +86,12 @@ fun AccountsDialog(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                        Text(line.balance?.formatted() ?: "–", style = MaterialTheme.typography.titleSmall)
+                        Text(line.balance?.summary() ?: "–", style = MaterialTheme.typography.titleSmall)
                     }
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onAdd) { Text("Ajouter un compte") } },
+        confirmButton = { TextButton(onClick = onAdd) { Text("Ajouter") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Fermer") } },
     )
 }

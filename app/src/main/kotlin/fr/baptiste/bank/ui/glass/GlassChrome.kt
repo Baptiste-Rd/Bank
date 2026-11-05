@@ -150,6 +150,7 @@ fun MonthStripBar(modifier: Modifier = Modifier) {
     val index = months.indexOf(navigation.selected).coerceAtLeast(0)
     val first = if (index >= months.size - 4) (months.size - 4).coerceAtLeast(0) else (index - 1).coerceAtLeast(0)
     val window = months.subList(first, minOf(first + 4, months.size))
+    fr.baptiste.bank.ui.components.CappedFontScale {
     Row(
         modifier
             .fillMaxWidth()
@@ -190,6 +191,7 @@ fun MonthStripBar(modifier: Modifier = Modifier) {
         ) {
             Text("Année", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, maxLines = 1)
         }
+    }
     }
 }
 
@@ -388,15 +390,31 @@ fun SearchSheet(
                 SegmentedToggle(listOf(monthName.replaceFirstChar { it.titlecase(Locale.FRANCE) }, "Tous les mois"), if (allMonths) 1 else 0) { allMonths = it == 1 }
             }
         }
-        val categories = envelopes.map { it.group?.trim()?.takeIf { g -> g.isNotEmpty() } ?: fr.baptiste.bank.domain.model.DEFAULT_CATEGORY }.distinct().sorted()
+        // L'arbre complet, comme le prototype : les catégories (et leurs mères, même sans enveloppe
+        // directe), décalées d'un cran par niveau, puis leurs enveloppes. L'épargne n'y est pas.
+        val parents = fr.baptiste.bank.ui.theme.LocalCategoryParents.current
+        val listed = envelopes.filter { it.type != fr.baptiste.bank.domain.model.EnvelopeType.SAVINGS }
+        fun categoryOf(envelope: fr.baptiste.bank.domain.model.Envelope) =
+            envelope.group?.trim()?.takeIf { g -> g.isNotEmpty() } ?: fr.baptiste.bank.domain.model.DEFAULT_CATEGORY
+        val direct = listed.map(::categoryOf)
+        val categories = (direct + direct.flatMap { fr.baptiste.bank.domain.model.ancestorsOf(it, parents) })
+            .distinctBy { fr.baptiste.bank.domain.bank.envelopeNameKey(it) }.sortedBy { it.lowercase() }
+        fun parentOf(name: String) = fr.baptiste.bank.domain.model.ancestorsOf(name, parents).firstOrNull()
+        fun walk(parent: String?, depth: Int): List<Pair<String, Int>> =
+            categories.filter { name -> parentOf(name)?.lowercase() == parent?.lowercase() }
+                .flatMap { listOf(it to depth) + walk(it, depth + 1) }
+        val tree = walk(null, 0)
         fun matches(text: String) = key.isNotBlank() && fr.baptiste.bank.domain.bank.envelopeNameKey(text).contains(key)
         LazyColumn(Modifier.navigationBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp)) {
             if (key.isBlank()) {
                 // Recherche vide : tout parcourir.
-                categories.forEach { category ->
-                    item(key = "c-$category") { SheetRow(category, dot = fr.baptiste.bank.ui.theme.categoryColor(category)) { onOpen(SearchHit.Category(category)) } }
-                    envelopes.filter { (it.group?.trim()?.takeIf { g -> g.isNotEmpty() } ?: fr.baptiste.bank.domain.model.DEFAULT_CATEGORY) == category }
-                        .forEach { envelope -> item(key = "e-${envelope.id}") { SheetRow(envelope.name, indent = 22.dp) { onOpen(SearchHit.EnvelopeHit(envelope)) } } }
+                item { SearchTitle("Toutes les catégories") }
+                tree.forEach { (category, depth) ->
+                    item(key = "c-$category") {
+                        SheetRow(category, dot = fr.baptiste.bank.ui.theme.categoryColor(category), indent = 20.dp * depth) { onOpen(SearchHit.Category(category)) }
+                    }
+                    listed.filter { categoryOf(it).equals(category, ignoreCase = true) }
+                        .forEach { envelope -> item(key = "e-${envelope.id}") { SheetRow(envelope.name, indent = 22.dp + 20.dp * depth) { onOpen(SearchHit.EnvelopeHit(envelope)) } } }
                 }
                 return@LazyColumn
             }

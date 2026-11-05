@@ -1,5 +1,9 @@
 package fr.baptiste.bank.ui.operations
 
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.size
+import fr.baptiste.bank.domain.model.category
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -143,23 +147,27 @@ fun UnsortDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
-                    "Les opérations de la banque choisies repassent à trier. Tes saisies gardent leur enveloppe.",
+                    "Tes saisies gardent leur enveloppe.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    UnsortChoice.entries.forEach { option ->
-                        FilterChip(selected = option == choice, onClick = { choice = option }, label = { Text(option.label) })
-                    }
-                }
+                // Un choix de portée : le contrôle segmenté de l'app.
+                fr.baptiste.bank.ui.glass.SegmentedToggle(UnsortChoice.entries.map { it.label }, UnsortChoice.entries.indexOf(choice)) { choice = UnsortChoice.entries[it] }
                 when (choice) {
                     UnsortChoice.ALL -> Unit
                     UnsortChoice.ENVELOPE -> FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        envelopes.forEach { envelope ->
+                        // Rangées par catégorie, avec leur point de couleur.
+                        envelopes.sortedWith(compareBy({ it.category.lowercase() }, { it.name.lowercase() })).forEach { envelope ->
                             FilterChip(
                                 selected = envelope.id == envelopeId,
                                 onClick = { envelopeId = envelope.id },
                                 label = { Text(envelope.name) },
+                                leadingIcon = {
+                                    androidx.compose.foundation.layout.Box(
+                                        Modifier.size(8.dp).clip(androidx.compose.foundation.shape.CircleShape)
+                                            .background(fr.baptiste.bank.ui.theme.categoryColor(envelope.category)),
+                                    )
+                                },
                             )
                         }
                     }
@@ -174,7 +182,7 @@ fun UnsortDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { scope?.let(onUnsort) }, enabled = scope != null) { Text("Remettre à trier") }
+            TextButton(onClick = { scope?.let(onUnsort) }, enabled = scope != null) { Text("Remettre") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } },
     )

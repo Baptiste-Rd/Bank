@@ -138,6 +138,8 @@ class MainActivity : ComponentActivity() {
                     initialTuningOpen,
                     initialSpendingView,
                     initialSheet,
+                    initialExpand = intent.getStringExtra("expand"),
+                    initialMoveEnvelopeId = intent.getLongExtra("moveEnvelope", -1L).takeIf { it > 0 },
                 )
             }
         }

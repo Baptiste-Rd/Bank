@@ -559,7 +559,7 @@ private fun CategoryRow(category: CategorySpent, scale: Long, expanded: Boolean,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (category.over.isPositive) {
-                fr.baptiste.bank.ui.components.StatusChip("Dépassé · +${category.over.summary()}", fr.baptiste.bank.ui.components.StatusKind.OVER)
+                fr.baptiste.bank.ui.components.StatusChip("Dépassé · +${fr.baptiste.bank.domain.money.Money.euros(Math.round(category.over.cents / 100.0).coerceAtLeast(1)).summary()}", fr.baptiste.bank.ui.components.StatusKind.OVER)
             }
         }
     }

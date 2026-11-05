@@ -218,3 +218,17 @@ fun SheetAlert(
         ) { text() }
     }
 }
+
+/**
+ * Plafonne l'agrandissement du texte pour les éléments de navigation (barre d'onglets, barre des
+ * mois, contrôles segmentés), comme iOS : au-delà, les libellés seraient coupés. Le contenu, lui,
+ * suit la taille de texte choisie dans le téléphone.
+ */
+@Composable
+fun CappedFontScale(max: Float = 1.3f, content: @Composable () -> Unit) {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    androidx.compose.runtime.CompositionLocalProvider(
+        androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(density.density, minOf(density.fontScale, max)),
+        content = content,
+    )
+}

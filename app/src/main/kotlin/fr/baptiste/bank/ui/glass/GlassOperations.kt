@@ -200,7 +200,7 @@ fun GlassOperationsContent(
                     }
                     Spacer(Modifier.weight(1f))
                     Box {
-                        TextButton(onClick = { menu = true }) { Text("Outils ⋯") }
+                        TextButton(onClick = { menu = true }) { Text("Outils ⋯", fontWeight = FontWeight.Normal) }
                         androidx.compose.material3.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                             if (toSort.size > ready.size) {
                                 androidx.compose.material3.DropdownMenuItem(

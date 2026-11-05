@@ -71,6 +71,27 @@ fun DateCheckDialog(
                     Hint("Aucune opération de la banque pour l'instant. Synchronise d'abord le compte.")
                     return@Column
                 }
+                Section("Jours à corriger")
+                if (report.corrections.isEmpty()) {
+                    Hint("Aucun : chaque opération porte déjà le jour de l'achat.")
+                } else {
+                    val moving = report.corrections.count { it.changesMonth }
+                    Hint(
+                        fr.baptiste.bank.ui.format.plural(report.corrections.size, "opération", "opérations") +
+                            (if (moving > 0) " · $moving changent de mois" else "") + " · décoche pour garder",
+                    )
+                    report.corrections.forEachIndexed { index, correction ->
+                        if (index > 0) RowDivider(0.dp)
+                        CorrectionLine(
+                            correction = correction,
+                            checked = correction.operation.id !in excluded,
+                            onCheckedChange = { checked ->
+                                excluded = if (checked) excluded - correction.operation.id else excluded + correction.operation.id
+                            },
+                        )
+                    }
+                }
+
                 Section("Ta carte")
                 Text(report.debitSentence(), style = MaterialTheme.typography.bodyMedium)
                 Hint(report.sourceSentence())
@@ -85,28 +106,6 @@ fun DateCheckDialog(
                     )
                 }
 
-                Section("Jours à corriger")
-                if (report.corrections.isEmpty()) {
-                    Hint("Aucun : chaque opération porte déjà le jour de l'achat.")
-                } else {
-                    val moving = report.corrections.count { it.changesMonth }
-                    Hint(
-                        "${report.corrections.size} opération(s)" +
-                            (if (moving > 0) ", dont $moving changent de mois" else "") +
-                            ". Décoche celles que tu veux garder telles quelles.",
-                    )
-                    report.corrections.forEachIndexed { index, correction ->
-                        if (index > 0) RowDivider(0.dp)
-                        CorrectionLine(
-                            correction = correction,
-                            checked = correction.operation.id !in excluded,
-                            onCheckedChange = { checked ->
-                                excluded = if (checked) excluded - correction.operation.id else excluded + correction.operation.id
-                            },
-                        )
-                    }
-                }
-
                 Section("Dernières opérations")
                 Hint("Compare-les à ton relevé : le jour affiché en premier doit être celui de l'achat ou du prélèvement.")
                 report.lines.take(RECENT_LINES).forEachIndexed { index, line ->
@@ -117,7 +116,7 @@ fun DateCheckDialog(
         },
         confirmButton = {
             if (selected.isNotEmpty()) {
-                TextButton(onClick = { onApply(selected) }) { Text("Appliquer (${selected.size})") }
+                TextButton(onClick = { onApply(selected) }) { Text("Appliquer") }
             } else {
                 TextButton(onClick = onDismiss) { Text("Fermer") }
             }

@@ -174,10 +174,8 @@ adb exec-out screencap -p > "$OUT/glass-glisser.png"
 adb shell input tap 886 1290
 sleep 3
 adb exec-out screencap -p > "$OUT/glass-deplacer.png"
-shot_budget glass-categories-2 --es tab OPERATIONS
-adb shell input tap 400 1520
-sleep 2
-adb exec-out screencap -p > "$OUT/glass-sous-categorie.png"
+shot_budget glass-sous-categorie --es tab OPERATIONS --es expand Bars
+shot_budget glass-deplacer-enveloppe --es tab BUDGET --el moveEnvelope 2
 # Accessibilité : texte à 200 %, pour voir ce qui se coupe ou déborde.
 adb shell settings put system font_scale 2.0
 sleep 2
