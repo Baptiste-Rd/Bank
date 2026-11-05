@@ -45,6 +45,11 @@ class ClaudeExportTest {
         assertEquals("PRLV EDF", exportRulePattern("PRLV EDF 0012345678"))
         assertEquals("CARREFOUR", exportRulePattern("CARREFOUR"))
         assertEquals(null, exportRulePattern("4970XXXXXXXX1234"))
+        // Mot-clé tiré d'un libellé nettoyé : plus de « VIR », mais il désigne un virement.
+        val transfers = listOf("VIR SEPA RECU /DE M JEAN DUPONT /MOTIF CINEMA", "VIR INST EMIS /A MME MARIE-LOU DURAND")
+        assertEquals(null, exportRulePattern("M Jean Dupont", transfers))
+        assertEquals(null, exportRulePattern("Marie-Lou Durand", transfers))
+        assertEquals("CARREFOUR", exportRulePattern("CARREFOUR", transfers))
     }
 
     @Test

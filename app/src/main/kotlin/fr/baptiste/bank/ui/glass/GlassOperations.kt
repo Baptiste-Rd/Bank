@@ -99,9 +99,10 @@ fun GlassOperationsContent(
     val quiet = MaterialTheme.colorScheme.onSurfaceVariant
     val today = LocalDate.now()
     var cumulative by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
-    val sorted = operations.filterNot {
-        it.envelopeNames == null && !it.ignored && it.source != TransactionSource.MANUAL
-    }
+    // La liste du mois montre tout sauf la file « À trier » (déjà au-dessus) : le salaire reconnu,
+    // écarté de la file, reste visible ici.
+    val toSortIds = remember(toValidate) { toValidate.map { it.id }.toSet() }
+    val sorted = operations.filterNot { it.id in toSortIds }
     val toSort = toValidate
     // Une proposition par opération, calculée une fois par liste.
     val proposals = remember(toValidate, proposal) { toValidate.associate { it.id to proposal(it) } }

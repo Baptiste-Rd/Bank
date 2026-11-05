@@ -69,7 +69,11 @@ data class EnvelopeLine(
     /** Reçu de la réserve sur la période (compris dans [transferred]). */
     val fromReserve: Money = Money.ZERO,
 ) {
-    val needsCover: Boolean get() = remaining.isNegative || projection.isAlert
+    /** Arrêtée (elle reste dans le mois de son arrêt) : on la voit, on n'agit plus dessus. */
+    val stopped: Boolean get() = envelope.archived
+
+    /** À couvrir : en dépassement, constaté ou prévu. Jamais une enveloppe arrêtée. */
+    val needsCover: Boolean get() = !stopped && (remaining.isNegative || projection.isAlert)
 }
 
 /** Un jour du mois en cours dans la bande de l'accueil. */
@@ -276,6 +280,14 @@ fun computeDashboard(
     val reserveToSavings = transfers
         .filter { it.fromReserve && it.date in month && it.targetEnvelopeId in savingsIds }
         .sumOfMoney { it.amount }
+    // Argent pris sur le compte qui pèse sur le mois : vers le quotidien (son budget grandit) ou vers
+    // une enveloppe dont la période se termine ce mois-ci (son dépassement ou son reste en dépend).
+    val monthBound = lines
+        .filter { it.envelope.type != EnvelopeType.SAVINGS && (it.envelope.type == EnvelopeType.DAILY || it.period.endInclusive in month) }
+        .map { it.envelope.id }.toSet()
+    val reserveIntoMonth = transfers
+        .filter { it.fromReserve && it.date in month && it.targetEnvelopeId in monthBound }
+        .sumOfMoney { it.amount }
     val savings = SavingsOutlook(
         target = savingsLines.sumOfMoney { it.allocated.convert(it.envelope.frequency, Frequency.MONTHLY) },
         // L'argent venu de la réserve était déjà là : il n'est pas de l'épargne du mois.
@@ -284,6 +296,7 @@ fun computeDashboard(
         overruns = overruns + savingsSpent,
         isFinal = today == month.endInclusive,
         surpluses = surpluses,
+        fromAccount = reserveIntoMonth,
     )
 
     return Dashboard(
@@ -393,6 +406,7 @@ fun Dashboard.coveragePlan(target: EnvelopeLine, preferred: CoverSource? = null,
 fun Dashboard.coverSources(target: EnvelopeLine): List<EnvelopeLine> = envelopes
     .filter {
         it.envelope.id != target.envelope.id &&
+            !it.stopped &&
             it.envelope.status == EnvelopeStatus.FLEXIBLE &&
             it.remaining.isPositive &&
             !it.needsCover

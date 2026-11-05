@@ -78,13 +78,13 @@ fun PlanSimulatorSheet(
     // Un mois exceptionnel (vacances, Noël) peut fausser la moyenne : on peut l'exclure.
     var excluded by remember { mutableStateOf(emptySet<YearMonth>()) }
     // 3. Réduire des dépenses : par enveloppe du quotidien, le temps du projet.
-    val flexible = dashboard.envelopes.filter { it.envelope.type == fr.baptiste.bank.domain.model.EnvelopeType.DAILY }
+    val flexible = dashboard.envelopes.filter { !it.stopped && it.envelope.type == fr.baptiste.bank.domain.model.EnvelopeType.DAILY }
     var reductionTexts by remember { mutableStateOf(emptyMap<Long, String>()) }
     val reductions = reductionTexts.mapNotNull { (id, text) ->
         parseMoney(text)?.takeIf { it.isPositive }?.let { id to it }
     }.toMap()
     // Les provisions (Noël, vacances) ne bougent pas : on les montre, protégées.
-    val provisions = dashboard.envelopes.filter {
+    val provisions = dashboard.envelopes.filter { !it.stopped }.filter {
         it.envelope.type == fr.baptiste.bank.domain.model.EnvelopeType.ANNUAL ||
             it.envelope.type == fr.baptiste.bank.domain.model.EnvelopeType.RECURRING ||
             it.envelope.type == fr.baptiste.bank.domain.model.EnvelopeType.PLANNED

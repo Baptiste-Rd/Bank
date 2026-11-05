@@ -209,7 +209,9 @@ private fun LazyListScope.monthContent(
     onTryPlan: (() -> Unit)? = null,
     onMoveEnvelope: (Envelope) -> Unit = {},
 ) {
-    val byFamily = dashboard.envelopes.groupBy { it.envelope.type.family }
+    // Mois en cours : une enveloppe arrêtée ce mois-ci est dans « Arrêtées », pas deux fois. Un mois
+    // passé la garde dans sa famille : elle en faisait partie.
+    val byFamily = dashboard.envelopes.filter { readOnly || !it.stopped }.groupBy { it.envelope.type.family }
 
     // Un mois terminé commence par son bilan : où est allé ce qui restait, d'où vient ce qui manquait.
     if (readOnly && dashboard.savings.isFinal) item(key = "review") { MonthReview(dashboard, onEdit, monthTransfers) }
@@ -227,8 +229,9 @@ private fun LazyListScope.monthContent(
                 }
                 InfoButton(onClick = onShowInfo, contentDescription = "Comment le salaire est réparti")
             }
+            // Un mois passé ne se corrige pas d'ici : pas de bouton, seulement la mention.
             if (monthlyIncome == null) {
-                RowActionButton("Indiquer mon salaire", onClick = onEditIncome, modifier = Modifier.padding(top = 8.dp))
+                if (!readOnly) RowActionButton("Indiquer mon salaire", onClick = onEditIncome, modifier = Modifier.padding(top = 8.dp))
             } else {
                 PlanBar(parts, Modifier.padding(vertical = 12.dp))
                 parts.forEach { part ->

@@ -31,12 +31,18 @@ data class SavingsOutlook(
     /** Vrai pour un mois terminé : les chiffres sont réels, plus des prévisions. */
     val isFinal: Boolean,
     val surpluses: Money = Money.ZERO,
+    /**
+     * Pris sur « Disponible sur le compte » ce mois-ci vers le quotidien ou une enveloppe qui se
+     * termine ce mois-ci : cet argent était déjà là (épargné un mois d'avant), il n'est pas de
+     * l'épargne du mois. Sans ce retrait, couvrir un dépassement depuis le compte gonflerait le mois.
+     */
+    val fromAccount: Money = Money.ZERO,
 ) {
     /** Épargne déjà à l'abri : l'objectif et les transferts vers l'épargne. */
     val secured: Money get() = target + transferred
 
     /** Épargne prévue en fin de mois (ou réelle, pour un mois terminé). */
-    val forecast: Money get() = secured + dailyMargin + surpluses - overruns
+    val forecast: Money get() = secured + dailyMargin + surpluses - overruns - fromAccount
 
     /**
      * Épargne de fin de mois si le quotidien s'en tient exactement à sa part du jour d'ici la fin du
@@ -63,7 +69,7 @@ data class SavingsOutlook(
  */
 fun Dashboard.spendableForTarget(): Money? {
     if (savings.isFinal || daysRemaining <= 0) return null
-    return savings.secured - savings.target + dailyBudget - dailySpent - savings.overruns
+    return savings.secured - savings.target + dailyBudget - dailySpent - savings.overruns - savings.fromAccount
 }
 
 fun Dashboard.dailyCapForTarget(): Money? {

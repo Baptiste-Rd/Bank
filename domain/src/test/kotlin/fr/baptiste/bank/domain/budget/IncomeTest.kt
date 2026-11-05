@@ -34,7 +34,10 @@ class IncomeTest {
         assertEquals(MonthIncome(Money.euros(2450), received = true), monthIncome(YearMonth.of(2026, 11), inflows, key, paysNextMonth = true))
         assertEquals(MonthIncome(Money.euros(2450), received = false), monthIncome(YearMonth.of(2026, 12), inflows, key, paysNextMonth = true))
         assertEquals(MonthIncome(Money.euros(2450), received = true), monthIncome(YearMonth.of(2026, 10), inflows, key, paysNextMonth = false))
-        assertEquals(null, monthIncome(YearMonth.of(2026, 8), inflows, key, paysNextMonth = true))
+        // Août, premier mois suivi : son salaire est tombé fin juillet, avant les données. On reprend
+        // le premier versé ensuite, attendu, plutôt que d'annoncer un mois sans revenu.
+        assertEquals(MonthIncome(Money.euros(2400), received = false), monthIncome(YearMonth.of(2026, 8), inflows, key, paysNextMonth = true))
+        assertEquals(null, monthIncome(YearMonth.of(2026, 8), emptyList(), key, paysNextMonth = true))
     }
 
     @Test

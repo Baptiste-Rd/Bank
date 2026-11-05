@@ -70,6 +70,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 import java.time.YearMonth
@@ -282,14 +283,6 @@ class BudgetRepository(
             salary?.let { (key, next) -> fr.baptiste.bank.domain.budget.monthIncome(YearMonth.from(today), inflows, key, next) }
         }
 
-    /**
-     * Revenu utilisé par les calculs : le salaire lu à la banque une fois confirmé ; avant, le montant
-     * tapé à la main autrefois (il disparaît à la confirmation).
-     */
-    val monthlyIncome: Flow<Money?> = combine(settings.salary, monthIncome(), settings.monthlyIncome) { salary, read, typed ->
-        if (salary != null) read?.amount else typed
-    }
-
     suspend fun confirmSalary(candidate: SalaryCandidate?, nextMonth: Boolean = candidate?.paysNextMonth ?: true) =
         settings.setSalary(candidate?.key, nextMonth)
 
@@ -348,6 +341,7 @@ class BudgetRepository(
     /** Tableau d'un jour (le mois en cours, ou le dernier jour d'un mois passé) : voir dashboardAt. */
     fun dashboard(today: LocalDate = LocalDate.now()): Flow<Dashboard> =
         budgetData(listOf(today)).map { fr.baptiste.bank.domain.budget.dashboardAt(it, today) }
+            .flowOn(kotlinx.coroutines.Dispatchers.Default)
 
     /**
      * Épargne des [months] derniers mois, le mois en cours compris (en dernier). Chaque mois passé
@@ -358,17 +352,8 @@ class BudgetRepository(
         val current = YearMonth.from(today)
         val dates = (months - 1 downTo 1).map { current.minusMonths(it.toLong()).atEndOfMonth() } + today
         return budgetData(dates).map { data ->
-            val start = data.trackingStart
-            // Un mois avant le début du suivi n'est pas « tout épargné » : il est absent. Le mois
-            // en cours reste toujours.
-            dates.filter { start == null || YearMonth.from(it) >= start || YearMonth.from(it) == current }.map { date ->
-                MonthSavings(
-                    month = YearMonth.from(date),
-                    outlook = fr.baptiste.bank.domain.budget.dashboardAt(data, date).savings,
-                    counted = YearMonth.from(date) !in data.excluded,
-                )
-            }
-        }
+            fr.baptiste.bank.domain.budget.savingsByMonth(data, dates, current).map { MonthSavings(it.month, it.outlook, it.counted) }
+        }.flowOn(kotlinx.coroutines.Dispatchers.Default)
     }
 
     /**
@@ -382,9 +367,13 @@ class BudgetRepository(
             .map { rows ->
                 rows.groupBy { it.envelopeId }.mapValues { (_, list) -> Money(list.sumOf { it.amountCents }) }
             }
-        return combine(savingsHistory(end, end.monthValue), dashboard(end), spent) { months, board, byEnvelope ->
-            YearOverview(year, months, byEnvelope, board, months.count { it.counted })
-        }
+        // Les mois et le tableau du dernier jour viennent des mêmes données : un seul chargement.
+        val dates = (1 until end.monthValue).map { YearMonth.of(year, it).atEndOfMonth() } + end
+        return combine(budgetData(dates), spent) { data, byEnvelope ->
+            val months = fr.baptiste.bank.domain.budget.savingsByMonth(data, dates, YearMonth.from(end))
+                .map { MonthSavings(it.month, it.outlook, it.counted) }
+            YearOverview(year, months, byEnvelope, fr.baptiste.bank.domain.budget.dashboardAt(data, end), months.count { it.counted })
+        }.flowOn(kotlinx.coroutines.Dispatchers.Default)
     }
 
     fun transferJournal(limit: Int = 200): Flow<List<TransferRow>> = transferDao.observeJournal(limit)
@@ -418,23 +407,9 @@ class BudgetRepository(
         record(if (incoming) "${total.formatted()} ajoutés à $name" else "${total.formatted()} retirés de $name", JournalPayload(transfersCreated = ids))
     }
 
-    /** Met [amount] de côté dans une enveloppe depuis la réserve : le mois n'est pas touché. */
-    suspend fun addReserveTransfer(envelopeId: Long, amount: Money, reason: String?, date: LocalDate = LocalDate.now()) {
-        if (!amount.isPositive) return
-        val ids = transferDao.insertAll(
-            listOf(
-                TransferEntity(
-                    effectiveDate = date,
-                    sourceEnvelopeId = null,
-                    targetEnvelopeId = envelopeId,
-                    amountCents = amount.cents,
-                    reason = reason?.takeIf { it.isNotBlank() },
-                    fromReserve = true,
-                ),
-            ),
-        )
-        record("${amount.formatted()} mis de côté dans ${envelopeDao.byId(envelopeId)?.name.orEmpty()}", JournalPayload(transfersCreated = ids))
-    }
+    /** Met [amount] de côté dans une enveloppe depuis « Disponible sur le compte » : le mois n'est pas touché. */
+    suspend fun addReserveTransfer(envelopeId: Long, amount: Money, reason: String?, date: LocalDate = LocalDate.now()) =
+        addTransfers(listOf(TransferLeg(null, amount, fromReserve = true)), envelopeId, incoming = true, reason = reason, date = date)
 
     suspend fun cancelTransfer(id: Long) {
         transferDao.cancel(id)
@@ -1339,19 +1314,19 @@ class BudgetRepository(
      */
     fun currentAccountExplained(today: LocalDate = LocalDate.now()): Flow<CurrentAccountExplained?> {
         val month = YearMonth.from(today)
-        // Le salaire de fin de mois déjà reçu finance le mois prochain : il n'est pas disponible.
-        val nextSalary = combine(settings.salary, recentInflows(today)) { salary, inflows ->
-            salary?.let { (key, next) -> fr.baptiste.bank.domain.budget.nextMonthSalaryReceived(today, inflows, key, next) } ?: Money.ZERO
-        }
-        val startAndSalary = combine(trackingStart(today), nextSalary) { start, salary -> start to salary }
+        val startAndSalary = combine(trackingStart(today), settings.salary, recentInflows(today)) { start, salary, inflows -> Triple(start, salary, inflows) }
         return combine(
             dashboard(today),
             currentAccountBalance,
             transfersToAccounts(month),
             transactionDao.observeUnsortedOut(month.atDay(1), month.atEndOfMonth()),
             startAndSalary,
-        ) { board, balance, transferred, unsorted, (start, salary) ->
-            balance?.let { board.explainCurrentAccount(it.balance, it.date, transferred, Money(unsorted), since = start.atDay(1), nextMonthSalary = salary) }
+        ) { board, balance, transferred, unsorted, (start, salary, inflows) ->
+            balance?.let {
+                // Le salaire de fin de mois déjà sur le compte au jour du solde finance le mois prochain.
+                val nextSalary = salary?.let { (key, next) -> fr.baptiste.bank.domain.budget.nextMonthSalaryReceived(it.date, inflows, key, next) } ?: Money.ZERO
+                board.explainCurrentAccount(it.balance, it.date, transferred, Money(unsorted), since = start.atDay(1), nextMonthSalary = nextSalary)
+            }
         }
     }
 

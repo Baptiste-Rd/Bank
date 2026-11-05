@@ -71,13 +71,16 @@ fun salaryCandidates(inflows: List<Inflow>): List<SalaryCandidate> =
 
 /**
  * Revenu de [month] : les versements reconnus par [key] (du mois précédent si [paysNextMonth]).
- * Pas encore reçu : le dernier versement connu, attendu. Aucun versement : null.
+ * Pas encore reçu : le dernier versement connu, attendu. Rien avant (premier mois suivi, dont le
+ * salaire est tombé avant le début des données) : le premier versement connu après. Aucun : null.
  */
 fun monthIncome(month: YearMonth, inflows: List<Inflow>, key: String, paysNextMonth: Boolean): MonthIncome? {
     val payments = inflows.filter { salaryKey(it.label) == key }
     val source = if (paysNextMonth) month.minusMonths(1) else month
     val received = payments.filter { YearMonth.from(it.date) == source }
     if (received.isNotEmpty()) return MonthIncome(received.sumOfMoney { it.amount }, received = true)
-    val last = payments.filter { YearMonth.from(it.date) < source }.maxByOrNull { it.date } ?: return null
-    return MonthIncome(last.amount, received = false)
+    val nearest = payments.filter { YearMonth.from(it.date) < source }.maxByOrNull { it.date }
+        ?: payments.filter { YearMonth.from(it.date) > source }.minByOrNull { it.date }
+        ?: return null
+    return MonthIncome(nearest.amount, received = false)
 }

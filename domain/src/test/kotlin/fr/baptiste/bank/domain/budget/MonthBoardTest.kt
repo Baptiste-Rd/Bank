@@ -104,8 +104,52 @@ class MonthBoardTest {
         val board = dashboardAt(budget, early)
         val withoutHabits = computeDashboard(budget.envelopes, budget.allocations, budget.spendings, budget.incomeOf(november), early, trackingStart = budget.trackingStart)
         assertTrue(board.savings.forecast != withoutHabits.savings.forecast)
-        // L'historique d'épargne (savingsHistory) appelle la même fonction pour le mois en cours.
-        assertEquals(board.savings, dashboardAt(budget, early).savings)
+        // L'épargne mois par mois (savingsByMonth) donne, pour chaque mois, le chiffre de son tableau.
+        val dates = listOf(YearMonth.of(2026, 9).atEndOfMonth(), YearMonth.of(2026, 10).atEndOfMonth(), early)
+        val months = savingsByMonth(budget, dates, november)
+        assertEquals(board.savings, months.last().outlook)
+        assertEquals(dashboardAt(budget, dates[1]).savings, months[1].outlook)
+        // Un mois d'avant le début du suivi (septembre) n'y est pas compté comme « tout épargné ».
+        val later = budget.copy(trackingStart = YearMonth.of(2026, 10))
+        assertEquals(listOf(YearMonth.of(2026, 10), november), savingsByMonth(later, dates, november).map { it.month })
+    }
+
+    @Test
+    fun `the first tracked month takes the first salary paid after it`() {
+        // Données à partir de septembre : le salaire de septembre est tombé fin août, avant elles.
+        val budget = data(listOf(food, rent), inflows = listOf(salary(LocalDate.of(2026, 9, 28), 2400), salary(LocalDate.of(2026, 10, 28), 2450)))
+        assertEquals(Money.euros(2400), dashboardAt(budget, YearMonth.of(2026, 9).atEndOfMonth()).income)
+    }
+
+    @Test
+    fun `money taken on the account does not count as the month's savings`() {
+        // Sorties (quotidien, 50 €) dépasse de 30 € ; on couvre depuis « Disponible sur le compte ».
+        val spendings = listOf(spent(hardware, LocalDate.of(2026, 11, 8), 80))
+        val inflows = listOf(salary(LocalDate.of(2026, 10, 28), 2400))
+        val before = dashboardAt(data(listOf(food, hardware), spendings, inflows = inflows), today)
+        val cover = Transfer(1, LocalDate.of(2026, 11, 9), sourceEnvelopeId = null, targetEnvelopeId = hardware.id, amount = Money.euros(30), fromReserve = true)
+        val after = dashboardAt(data(listOf(food, hardware), spendings, listOf(cover), inflows), today)
+        assertEquals(Money.ZERO, after.envelopes.single { it.envelope.id == hardware.id }.remaining)
+        assertEquals(before.savings.forecast, after.savings.forecast)
+        assertEquals(Money.euros(30), after.savings.fromAccount)
+        // Même chose pour une charge qui se termine ce mois-ci.
+        val rentOver = listOf(spent(rent, LocalDate.of(2026, 11, 5), 830))
+        val rentBefore = dashboardAt(data(listOf(food, rent), rentOver, inflows = inflows), today)
+        val rentCover = cover.copy(targetEnvelopeId = rent.id)
+        val rentAfter = dashboardAt(data(listOf(food, rent), rentOver, listOf(rentCover), inflows), today)
+        assertEquals(rentBefore.savings.forecast, rentAfter.savings.forecast)
+    }
+
+    @Test
+    fun `a stopped envelope is shown but never asks for action`() {
+        val stoppedBar = bar.copy(archived = true, retiredOn = LocalDate.of(2026, 11, 5))
+        val spendings = listOf(spent(bar, LocalDate.of(2026, 11, 2), 160), spent(hardware, LocalDate.of(2026, 11, 8), 80))
+        val board = dashboardAt(data(listOf(food, stoppedBar, hardware), spendings), today)
+        val line = board.envelopes.single { it.envelope.id == bar.id }
+        assertTrue(line.stopped && line.remaining.isNegative)
+        assertTrue(board.alerts.none { it.envelope.id == bar.id })
+        val target = board.envelopes.single { it.envelope.id == hardware.id }
+        assertTrue(board.coverSources(target).none { it.envelope.id == bar.id })
     }
 
     @Test

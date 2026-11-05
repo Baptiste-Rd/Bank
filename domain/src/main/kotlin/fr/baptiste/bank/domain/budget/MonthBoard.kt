@@ -51,6 +51,21 @@ fun dashboardAt(data: BudgetData, date: LocalDate): Dashboard = computeDashboard
     habits = dailyHabits(data.envelopes, data.spendings, date, data.trackingStart, data.excluded),
 )
 
+/** L'épargne d'un mois : celle du tableau de son dernier jour (ou d'aujourd'hui), comptée ou non dans les moyennes. */
+data class MonthOutlook(val month: YearMonth, val outlook: SavingsOutlook, val counted: Boolean)
+
+/**
+ * Épargne mois par mois, une ligne par date de [dates] (le dernier jour de chaque mois passé, puis
+ * aujourd'hui) : le même calcul que le Bilan de chaque mois. Un mois d'avant le début du suivi n'est
+ * pas « tout épargné » : il est absent ; le mois [current] reste toujours.
+ */
+fun savingsByMonth(data: BudgetData, dates: List<LocalDate>, current: YearMonth): List<MonthOutlook> {
+    val start = data.trackingStart
+    return dates
+        .filter { start == null || YearMonth.from(it) >= start || YearMonth.from(it) == current }
+        .map { date -> MonthOutlook(YearMonth.from(date), dashboardAt(data, date).savings, YearMonth.from(date) !in data.excluded) }
+}
+
 /**
  * Plage de dates à charger pour les tableaux de [dates] : la période de chaque enveloppe à chaque
  * date (voir [dashboardDateRange]) et les douze mois avant la plus ancienne (habitudes).
@@ -61,6 +76,10 @@ fun boardLoadRange(dates: List<LocalDate>, envelopes: List<Envelope>): ClosedRan
     return minOf(habitsFrom, ranges.minOf { it.start })..ranges.maxOf { it.endInclusive }
 }
 
-/** Plage des virements reçus utiles aux salaires de [dates] (quelques mois plus tôt : un salaire pas encore reçu reprend le dernier versé). */
+/**
+ * Plage des virements reçus utiles aux salaires de [dates] : quelques mois plus tôt (un salaire pas
+ * encore reçu reprend le dernier versé) et deux mois plus tard (un premier mois suivi reprend le
+ * premier versé après lui).
+ */
 fun incomeLoadRange(dates: List<LocalDate>): ClosedRange<LocalDate> =
-    YearMonth.from(dates.min()).minusMonths(4).atDay(1)..dates.max()
+    YearMonth.from(dates.min()).minusMonths(4).atDay(1)..YearMonth.from(dates.max()).plusMonths(2).atEndOfMonth()

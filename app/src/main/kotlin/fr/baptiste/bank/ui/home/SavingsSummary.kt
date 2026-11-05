@@ -91,6 +91,7 @@ fun SavingsSummary(dashboard: Dashboard, history: List<MonthSavings>, accent: Co
                 outlook.dailyMargin.signed(),
             )
             if (outlook.overruns.isPositive) Breakdown("Dépassements et retraits d'épargne", "−${outlook.overruns.formatted()}")
+            if (outlook.fromAccount.isPositive) Breakdown("Pris sur Disponible sur le compte", "−${outlook.fromAccount.formatted()}")
         }
 
         val room = dashboard.spendableForTarget()

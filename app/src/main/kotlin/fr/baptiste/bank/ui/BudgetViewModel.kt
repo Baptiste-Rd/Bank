@@ -239,7 +239,8 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
     fun envelopeOperations(envelopeId: Long, periodKey: String): Flow<List<OperationRow>> =
         repository.envelopeOperations(envelopeId, periodKey)
 
-    val monthlyIncome: StateFlow<Money?> = repository.monthlyIncome.asState(null)
+    /** Salaire du mois en cours : celui du tableau du jour (un seul calcul, voir BudgetData.incomeOf). */
+    val monthlyIncome: StateFlow<Money?> = dashboard.map { it?.income }.asState(null)
 
     val transferJournal: StateFlow<List<TransferRow>> = repository.transferJournal().asState(emptyList())
 

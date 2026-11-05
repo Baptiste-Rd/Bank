@@ -65,7 +65,6 @@ private const val RESERVE = "Disponible sur le compte"
 /** D'où vient l'argent d'un ajout : une enveloppe, le compte (hors mois) ou le mois. */
 private val TransferRow.sourceLabel: String get() = sourceName ?: if (fromReserve) RESERVE else WALLET
 private const val WALLET_ID = -1L
-private const val AUTO = "auto"
 private const val WALLET_KEY = "wallet"
 private const val RESERVE_KEY = "reserve"
 private const val ENVELOPE_KEY = "envelope:"
@@ -89,24 +88,23 @@ fun CoverDialog(
     /** « Disponible sur le compte » (null : inconnu ou vide) : une source possible, jamais prise d'office. */
     reserve: Money? = null,
 ) {
-    // « Pris sur » : la proposition de l'app (le non réparti, puis les enveloppes souples), ou une
-    // source choisie, complétée au besoin par les autres.
-    // Une clé par choix (la proposition de l'app n'est pas une source : elle n'a pas d'objet du domaine).
-    var chosenKey by remember(target.envelope.id) { mutableStateOf(AUTO) }
-    fun sourceOf(key: String): CoverSource? = when {
+    // « Pris sur » : la première source de l'ordre habituel (À répartir ce mois-ci, puis les
+    // enveloppes souples) est choisie d'office ; on peut en choisir une autre, complétée au besoin par
+    // les suivantes. « Disponible sur le compte » n'est jamais pris d'office.
+    val choices: List<String> = listOfNotNull(WALLET_KEY.takeIf { dashboard.unallocated?.isPositive == true }) +
+        listOfNotNull(RESERVE_KEY.takeIf { reserve?.isPositive == true }) +
+        dashboard.coverSources(target).map { ENVELOPE_KEY + it.envelope.id }
+    var chosenKey by remember(target.envelope.id) { mutableStateOf(choices.firstOrNull { it != RESERVE_KEY }) }
+    fun sourceOf(key: String?): CoverSource? = when {
         key == WALLET_KEY -> CoverSource.Wallet
         key == RESERVE_KEY -> CoverSource.Reserve
-        key.startsWith(ENVELOPE_KEY) -> CoverSource.FromEnvelope(key.removePrefix(ENVELOPE_KEY).toLong())
+        key != null && key.startsWith(ENVELOPE_KEY) -> CoverSource.FromEnvelope(key.removePrefix(ENVELOPE_KEY).toLong())
         else -> null
     }
     val chosen = sourceOf(chosenKey)
     val plan = remember(dashboard, target, chosen, reserve) { dashboard.coveragePlan(target, chosen, reserve) } ?: return
-    val choices: List<String> = listOf(AUTO) +
-        listOfNotNull(WALLET_KEY.takeIf { dashboard.unallocated?.isPositive == true }) +
-        listOfNotNull(RESERVE_KEY.takeIf { reserve?.isPositive == true }) +
-        dashboard.coverSources(target).map { ENVELOPE_KEY + it.envelope.id }
     fun choiceLabel(key: String): String = when (val source = sourceOf(key)) {
-        null -> "Proposition de l'app"
+        null -> key
         CoverSource.Wallet -> "$WALLET (${dashboard.unallocated?.formatted()})"
         CoverSource.Reserve -> "$RESERVE (${reserve?.formatted()})"
         is CoverSource.FromEnvelope -> dashboard.envelopes.first { it.envelope.id == source.envelopeId }
@@ -136,7 +134,7 @@ fun CoverDialog(
                     "Il manque ${plan.needed.summary()} pour finir ${target.period.label}.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                if (choices.size > 1) {
+                if (choices.isNotEmpty()) {
                     ChoiceField(
                         label = "Pris sur",
                         selected = chosenKey,
@@ -194,7 +192,7 @@ fun TransferDialog(
     /** Réserve : l'argent déjà sur le compte, hors budget du mois (null : inconnue ou vide). */
     reserve: Money? = null,
 ) {
-    val others = dashboard.envelopes.filter { it.envelope.id != line.envelope.id }
+    val others = dashboard.envelopes.filter { it.envelope.id != line.envelope.id && !it.stopped }
     // Le portefeuille et la réserve sont représentés par des identifiants sans enveloppe.
     // La réserve n'est proposée qu'en apport : on y met de côté, on n'y rend rien.
     val withReserve = incoming && reserve != null && reserve.isPositive

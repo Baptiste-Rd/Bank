@@ -52,6 +52,7 @@ class ClaudeBridge(
         val rows = grouped.values.map { it.first() }
         val salaryKey = repository.salary.first()?.first
         val labels = exportLabels(rows.map { Triple(it.rawLabel, it.alias, it.amountCents) }, salaryKey)
+        val transferLabels = transactionDao.transferRawLabels().filter(fr.baptiste.bank.domain.bank::isTransferLabel)
         val spent = database.imputationDao().spentByPeriod()
             .groupBy { it.envelopeId }
             .mapValues { (_, list) -> list.associate { it.periodKey to it.amountCents } }
@@ -98,9 +99,10 @@ class ClaudeBridge(
             .put(
                 "rules",
                 JSONArray(
-                    // Mots-clés nettoyés comme les libellés ; ceux d'un virement ne partent pas.
+                    // Mots-clés nettoyés comme les libellés ; ceux qui désignent un virement (nom d'une
+                    // personne possible) ne partent pas, d'après tous les virements connus.
                     database.ruleDao().all().mapNotNull { rule ->
-                        val pattern = fr.baptiste.bank.domain.bank.exportRulePattern(rule.pattern) ?: return@mapNotNull null
+                        val pattern = fr.baptiste.bank.domain.bank.exportRulePattern(rule.pattern, transferLabels) ?: return@mapNotNull null
                         envId[rule.envelopeId]?.let { JSONObject().put("pattern", pattern).put("envelope", it) }
                     }.distinctBy { it.getString("pattern") + it.getString("envelope") },
                 ),

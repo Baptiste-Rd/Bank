@@ -495,6 +495,10 @@ interface TransactionDao {
     )
     fun observeUnsortedInflowLabels(): Flow<List<IdLabel>>
 
+    /** Libellés bruts des virements (reçus ou émis), tout l'historique : pour ne rien envoyer qui les désigne. */
+    @Query("SELECT DISTINCT raw_label FROM transaction_record WHERE UPPER(TRIM(raw_label)) LIKE 'VIR%'")
+    suspend fun transferRawLabels(): List<String>
+
     /** Virements vers mes comptes, par compte, sur une plage de dates. */
     @Query("SELECT transfer_account_id AS accountId, date, amount_cents AS amountCents FROM transaction_record WHERE transfer_account_id IS NOT NULL AND date BETWEEN :from AND :to")
     fun observeTransfersByAccount(from: LocalDate, to: LocalDate): Flow<List<AccountTransferRow>>

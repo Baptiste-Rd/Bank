@@ -117,7 +117,7 @@ fun GlassSavingsContent(
         val month = java.time.YearMonth.from(dashboard.today)
         val previous = history.dropLast(1).lastOrNull()
         val savingsLines = dashboard.envelopes.filter { it.envelope.type == EnvelopeType.SAVINGS }
-        val planned = dashboard.envelopes.filter { it.envelope.type == EnvelopeType.PLANNED }
+        val planned = dashboard.envelopes.filter { it.envelope.type == EnvelopeType.PLANNED && !it.stopped }
 
         // 1. Le chiffre, le conseil, l'action.
         item(key = "forecast") {
@@ -232,6 +232,8 @@ fun GlassSavingsContent(
                 ),
                 if (outlook.surpluses.isPositive) InfoLine("Restes des enveloppes closes", outlook.surpluses.signed()) else null,
                 if (outlook.overruns.isPositive) InfoLine("Dépassements", "−${outlook.overruns.formatted()}") else null,
+                // Déjà épargné un mois d'avant : ne compte pas une seconde fois.
+                if (outlook.fromAccount.isPositive) InfoLine("Pris sur Disponible sur le compte", "−${outlook.fromAccount.formatted()}") else null,
                 InfoLine("Épargne prévue", outlook.forecast.formatted()),
             ),
             note = "Le reste du quotidien suit ton rythme de dépense actuel. Ce qui reste dans une charge ou un " +

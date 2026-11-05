@@ -284,7 +284,7 @@ fun GlassMainScreen(
                         GlassBudgetContent(
                             dashboard = monthDashboard,
                             // Le salaire du mois consulté, celui de son calcul (pas celui d'aujourd'hui).
-                            monthlyIncome = monthDashboard?.income ?: income.takeIf { selectedMonth == YearMonth.now() },
+                            monthlyIncome = monthDashboard?.income,
                             archived = archived,
                             month = selectedMonth,
                             canNextMonth = selectedMonth < YearMonth.now(),

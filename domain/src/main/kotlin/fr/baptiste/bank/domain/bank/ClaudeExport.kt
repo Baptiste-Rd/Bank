@@ -30,14 +30,22 @@ fun isTransferLabel(rawLabel: String): Boolean = transferLabel.containsMatchIn(r
 
 /**
  * Mot-clé d'une règle tel qu'il part vers Claude, ou null s'il ne doit pas partir. Un mot-clé est
- * tiré d'un libellé bancaire : un virement peut y laisser le nom d'une personne, il ne part donc
- * pas ; les autres passent par le même nettoyage que les libellés (références, numéros, IBAN).
+ * tiré d'un libellé nettoyé, d'où le préfixe du virement a disparu (« M Jean Dupont ») : le texte
+ * seul ne dit pas s'il vient d'un virement. On le compare donc aux libellés bruts des virements
+ * connus ([transferLabels]) : s'il en fait partie, il peut porter le nom d'une personne et ne part
+ * pas. Les autres passent par le même nettoyage que les libellés (références, numéros, IBAN).
  */
-fun exportRulePattern(pattern: String): String? {
+fun exportRulePattern(pattern: String, transferLabels: Collection<String> = emptyList()): String? {
     if (isTransferLabel(pattern)) return null
+    val key = comparable(pattern)
+    if (key.isEmpty() || transferLabels.any { comparable(it).contains(key) }) return null
     val cleaned = anonymizeLabel(pattern)
     return cleaned.takeIf { it != MASKED_LABEL }
 }
+
+/** Libellé réduit aux lettres et chiffres en majuscules, mots séparés d'une espace : pour comparer. */
+private fun comparable(text: String): String =
+    text.uppercase().replace(Regex("""[^\p{L}\p{N}]+"""), " ").trim()
 
 /**
  * Libellés d'export d'un ensemble d'opérations, dans le même ordre. [alias] : le nom choisi dans
