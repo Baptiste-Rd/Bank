@@ -116,7 +116,7 @@ fun GlassSavingsContent(
         val outlook = dashboard.savings
         val month = java.time.YearMonth.from(dashboard.today)
         val previous = history.dropLast(1).lastOrNull()
-        val savingsLines = dashboard.envelopes.filter { it.envelope.type == EnvelopeType.SAVINGS }
+        val savingsLines = dashboard.envelopes.filter { it.envelope.type == EnvelopeType.SAVINGS && !it.stopped }
         val planned = dashboard.envelopes.filter { it.envelope.type == EnvelopeType.PLANNED && !it.stopped }
 
         // 1. Le chiffre, le conseil, l'action.

@@ -145,9 +145,9 @@ fun CoverDialog(
                 }
                 if (plan.legs.isEmpty()) {
                     Text(
-                        "Aucune enveloppe ne peut en donner pour l'instant.",
+                        if (choices.isEmpty()) "Aucune enveloppe ne peut en donner pour l'instant." else "Choisis d'où prendre l'argent.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = BankTheme.status.over,
+                        color = if (choices.isEmpty()) BankTheme.status.over else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 } else {
                     plan.legs.forEach { leg ->

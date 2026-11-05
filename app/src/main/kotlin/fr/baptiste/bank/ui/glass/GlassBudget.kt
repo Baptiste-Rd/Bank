@@ -263,7 +263,8 @@ private fun LazyListScope.monthContent(
     EnvelopeFamily.entries.forEach { family ->
         val familyLines = byFamily[family].orEmpty()
         if (familyLines.isEmpty()) return@forEach
-        val total = familyLines.fold(Money.ZERO) { sum, line -> sum + line.monthlyShare }
+        // Le total compte aussi une enveloppe arrêtée ce mois-ci : sa part reste réservée (comme dans « Plan du mois »).
+        val total = dashboard.envelopes.filter { it.envelope.type.family == family }.fold(Money.ZERO) { sum, line -> sum + line.monthlyShare }
         // Au quotidien, le plan compte aussi ce qui est à répartir : l'en-tête dit « en enveloppes »
         // pour ne pas afficher deux totaux différents sous le même nom.
         sectionHeader(
@@ -299,8 +300,10 @@ private fun LazyListScope.monthContent(
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(envelope.name, style = MaterialTheme.typography.bodyLarge)
+                        // Arrêtée ce mois-ci : ce qu'elle garde encore dans le mois, pour retrouver le total de sa famille.
+                        val kept = dashboard.envelopes.firstOrNull { it.envelope.id == envelope.id }?.monthlyShare?.takeIf { it.isPositive }
                         Text(
-                            "${envelope.amount.summary()} ${envelope.frequency.label}",
+                            kept?.let { "${it.summary()} gardés ce mois-ci" } ?: "${envelope.amount.summary()} ${envelope.frequency.label}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

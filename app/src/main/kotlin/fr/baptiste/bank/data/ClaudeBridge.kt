@@ -52,7 +52,7 @@ class ClaudeBridge(
         val rows = grouped.values.map { it.first() }
         val salaryKey = repository.salary.first()?.first
         val labels = exportLabels(rows.map { Triple(it.rawLabel, it.alias, it.amountCents) }, salaryKey)
-        val transferLabels = transactionDao.transferRawLabels().filter(fr.baptiste.bank.domain.bank::isTransferLabel)
+        val transferLabels = transactionDao.transferRawLabels().filter { fr.baptiste.bank.domain.bank.isTransferLabel(it) }
         val spent = database.imputationDao().spentByPeriod()
             .groupBy { it.envelopeId }
             .mapValues { (_, list) -> list.associate { it.periodKey to it.amountCents } }
