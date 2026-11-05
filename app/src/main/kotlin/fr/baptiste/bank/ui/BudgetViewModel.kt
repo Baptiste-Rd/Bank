@@ -357,6 +357,22 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
 
     fun setMonthCounted(month: YearMonth, counted: Boolean) = perform { repository.setMonthCounted(month, counted) }
 
+    /** Catégories imbriquées : les catégories enregistrées et la mère de chacune. */
+    val categories: StateFlow<List<fr.baptiste.bank.domain.model.CategoryNode>> = repository.categories.asState(emptyList())
+    val categoryParents: StateFlow<Map<String, String>> = repository.categoryParents.asState(emptyMap())
+
+    fun moveEnvelope(envelopeId: Long, category: String, onDone: () -> Unit = {}) {
+        viewModelScope.launch { repository.moveEnvelope(envelopeId, category); onDone() }
+    }
+
+    fun moveCategory(name: String, parent: String?, onDone: (Boolean) -> Unit = {}) {
+        viewModelScope.launch { onDone(repository.moveCategory(name, parent)) }
+    }
+
+    fun renameCategory(oldName: String, newName: String, onDone: (Boolean) -> Unit = {}) {
+        viewModelScope.launch { onDone(repository.renameCategory(oldName, newName)) }
+    }
+
     /** Compte courant décomposé (null tant qu'aucun solde n'est connu). */
     val currentAccount: StateFlow<CurrentAccountExplained?> = repository.currentAccountExplained().asState(null)
     val currentAccountBalance: StateFlow<BalanceSnapshot?> = repository.currentAccountBalance.asState(null)

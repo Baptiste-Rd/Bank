@@ -208,15 +208,16 @@ fun ClaudeButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
 
 /** Une ligne de sheet : un titre, une précision, un chevron. */
 @Composable
-private fun SheetRow(title: String, detail: String? = null, badge: Boolean = false, onClick: () -> Unit) {
+private fun SheetRow(title: String, detail: String? = null, badge: Boolean = false, dot: Color? = null, indent: androidx.compose.ui.unit.Dp = 0.dp, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
             .heightIn(min = 56.dp)
             .clickable(role = Role.Button, onClick = onClick)
-            .padding(horizontal = 24.dp, vertical = 10.dp),
+            .padding(start = 24.dp + indent, end = 24.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (dot != null) Box(Modifier.padding(end = 12.dp).size(10.dp).clip(CircleShape).background(dot))
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
             if (detail != null) {
@@ -393,9 +394,9 @@ fun SearchSheet(
             if (key.isBlank()) {
                 // Recherche vide : tout parcourir.
                 categories.forEach { category ->
-                    item(key = "c-$category") { SheetRow(category, "Catégorie") { onOpen(SearchHit.Category(category)) } }
+                    item(key = "c-$category") { SheetRow(category, dot = fr.baptiste.bank.ui.theme.categoryColor(category)) { onOpen(SearchHit.Category(category)) } }
                     envelopes.filter { (it.group?.trim()?.takeIf { g -> g.isNotEmpty() } ?: fr.baptiste.bank.domain.model.DEFAULT_CATEGORY) == category }
-                        .forEach { envelope -> item(key = "e-${envelope.id}") { SheetRow("    " + envelope.name) { onOpen(SearchHit.EnvelopeHit(envelope)) } } }
+                        .forEach { envelope -> item(key = "e-${envelope.id}") { SheetRow(envelope.name, indent = 22.dp) { onOpen(SearchHit.EnvelopeHit(envelope)) } } }
                 }
                 return@LazyColumn
             }
@@ -403,7 +404,7 @@ fun SearchSheet(
             val foundEnvelopes = envelopes.filter { matches(it.name) }
             val rows = if (allMonths) allRows else monthOperations.filter { matches(it.label) || matches(it.bankLabel) }
             if (foundCategories.isNotEmpty()) item { SearchTitle("Catégories") }
-            foundCategories.forEach { item(key = "fc-$it") { SheetRow(it) { onOpen(SearchHit.Category(it)) } } }
+            foundCategories.forEach { item(key = "fc-$it") { SheetRow(it, dot = fr.baptiste.bank.ui.theme.categoryColor(it)) { onOpen(SearchHit.Category(it)) } } }
             if (foundEnvelopes.isNotEmpty()) item { SearchTitle("Enveloppes") }
             foundEnvelopes.forEach { e -> item(key = "fe-${e.id}") { SheetRow(e.name, e.group) { onOpen(SearchHit.EnvelopeHit(e)) } } }
             if (rows.isNotEmpty()) item { SearchTitle(if (allMonths) "Opérations, tous les mois" else "Opérations de $monthName") }

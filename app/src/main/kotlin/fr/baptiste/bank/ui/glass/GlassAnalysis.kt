@@ -1,5 +1,6 @@
 package fr.baptiste.bank.ui.glass
 
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -126,9 +127,19 @@ fun GlassAnalysisContent(
     pace: fr.baptiste.bank.domain.budget.MonthPace? = null,
     /** Option de chaque mois : le compter, ou non, dans les moyennes. */
     onSetMonthCounted: (YearMonth, Boolean) -> Unit = { _, _ -> },
+    /** Catégories imbriquées : la mère de chaque catégorie. */
+    categoryParents: Map<String, String> = emptyMap(),
+    /** Une catégorie à montrer dépliée (la recherche y mène). */
+    expandCategory: String? = null,
+    /** Actions des lignes glissées. */
+    rowActions: CategoryRowActions = CategoryRowActions(),
 ) {
     val period = if (showYear) AnalysisPeriod.YEAR else AnalysisPeriod.MONTH
-    var expanded by rememberSaveable { mutableStateOf<String?>(null) }
+    var expanded by rememberSaveable { mutableStateOf(listOf<String>()) }
+    // La recherche mène à une catégorie : elle et ses catégories mères se déplient.
+    LaunchedEffect(expandCategory) {
+        expandCategory?.let { name -> expanded = (expanded + fr.baptiste.bank.domain.model.ancestorsOf(name, categoryParents) + name).distinct() }
+    }
     var opened by remember { mutableStateOf<EnvelopeSpent?>(null) }
     var info by remember { mutableStateOf<MonthSpending?>(null) }
     var asking by remember { mutableStateOf<MonthSpending?>(null) }
@@ -167,7 +178,8 @@ fun GlassAnalysisContent(
                         onSetCounted = if (month < current) ({ counted -> onSetMonthCounted(month, counted) }) else null,
                         pace = pace?.takeIf { it.month == month && month == current },
                         expanded = expanded,
-                        onToggle = { name -> expanded = if (expanded == name) null else name },
+                        onToggle = { name -> expanded = if (name in expanded) expanded - name else expanded + name },
+                        rowActions = rowActions,
                         onOpenEnvelope = { opened = it },
                         onSort = onSort,
                         onInfo = { info = it },
@@ -282,8 +294,9 @@ private fun LazyListScope.monthAnalysis(
     onSetCounted: ((Boolean) -> Unit)? = null,
     /** Mois en cours seulement : on compare à la même date du mois précédent, pas au budget du mois entier. */
     pace: fr.baptiste.bank.domain.budget.MonthPace? = null,
-    expanded: String?,
+    expanded: List<String>,
     onToggle: (String) -> Unit,
+    rowActions: CategoryRowActions = CategoryRowActions(),
     onOpenEnvelope: (EnvelopeSpent) -> Unit,
     onSort: () -> Unit,
     onInfo: (MonthSpending) -> Unit,
@@ -344,16 +357,7 @@ private fun LazyListScope.monthAnalysis(
         GlassCard(contentPadding = 16.dp, verticalPadding = 4.dp) {
             report.categories.forEachIndexed { index, category ->
                 if (index > 0) RowDivider(0.dp)
-                CategoryRow(
-                    category = category,
-                    average = averages[category.name],
-                    scale = scale,
-                    expanded = expanded == category.name,
-                    onClick = { onToggle(category.name) },
-                )
-                if (expanded == category.name) {
-                    category.envelopes.forEach { line -> EnvelopeSpentRow(line) { onOpenEnvelope(line) } }
-                }
+                CategoryTreeRows(category, 0, scale, averages, expanded, onToggle, onOpenEnvelope, rowActions)
             }
         }
     }
@@ -415,6 +419,89 @@ private fun CountedLine(month: YearMonth, counted: Boolean, onChange: (Boolean) 
     }
 }
 
+/** Ce que proposent les lignes glissées de Dépenses › Catégories. */
+data class CategoryRowActions(
+    val onMoveEnvelope: (fr.baptiste.bank.domain.model.Envelope) -> Unit = {},
+    val onEditEnvelope: (fr.baptiste.bank.domain.model.Envelope) -> Unit = {},
+    val onMoveCategory: (String) -> Unit = {},
+    val onRenameCategory: (String) -> Unit = {},
+)
+
+/**
+ * Une catégorie et, dépliée, ses sous-catégories puis ses enveloppes, décalées d'un cran par
+ * niveau. Chaque ligne se glisse : « Déplacer » et « Renommer » pour une catégorie (pas pour
+ * « Autres »), « Déplacer » et « Modifier » pour une enveloppe.
+ */
+@Composable
+private fun CategoryTreeRows(
+    category: CategorySpent,
+    depth: Int,
+    scale: Long,
+    averages: Map<String, Money>,
+    expanded: List<String>,
+    onToggle: (String) -> Unit,
+    onOpenEnvelope: (EnvelopeSpent) -> Unit,
+    actions: CategoryRowActions,
+) {
+    val isOthers = fr.baptiste.bank.domain.bank.envelopeNameKey(category.name) ==
+        fr.baptiste.bank.domain.bank.envelopeNameKey(fr.baptiste.bank.domain.model.DEFAULT_CATEGORY)
+    val open = category.name in expanded
+    fr.baptiste.bank.ui.components.SwipeRow(
+        key = "c-${category.name}",
+        actions = if (isOthers) emptyList() else listOf(
+            fr.baptiste.bank.ui.components.SwipeAction("Renommer", fr.baptiste.bank.ui.components.SwipeColors.Neutral) { actions.onRenameCategory(category.name) },
+            fr.baptiste.bank.ui.components.SwipeAction("Déplacer", fr.baptiste.bank.ui.components.SwipeColors.Accent) { actions.onMoveCategory(category.name) },
+        ),
+    ) {
+        if (depth == 0) {
+            CategoryRow(category = category, average = averages[category.name], scale = scale, expanded = open, onClick = { onToggle(category.name) })
+        } else {
+            SubCategoryRow(category, depth, open) { onToggle(category.name) }
+        }
+    }
+    if (open) {
+        category.children.forEach { child -> CategoryTreeRows(child, depth + 1, scale, averages, expanded, onToggle, onOpenEnvelope, actions) }
+        category.envelopes.forEach { line ->
+            fr.baptiste.bank.ui.components.SwipeRow(
+                key = "e-${line.envelope.id}",
+                actions = listOf(
+                    fr.baptiste.bank.ui.components.SwipeAction("Modifier", fr.baptiste.bank.ui.components.SwipeColors.Neutral) { actions.onEditEnvelope(line.envelope) },
+                    fr.baptiste.bank.ui.components.SwipeAction("Déplacer", fr.baptiste.bank.ui.components.SwipeColors.Accent) { actions.onMoveEnvelope(line.envelope) },
+                ),
+            ) {
+                EnvelopeSpentRow(line, indent = 20.dp + 16.dp * depth) { onOpenEnvelope(line) }
+            }
+        }
+    }
+}
+
+/** Une sous-catégorie : décalée, son point, son nom, son total, un chevron si elle se déplie. */
+@Composable
+private fun SubCategoryRow(category: CategorySpent, depth: Int, expanded: Boolean, onClick: () -> Unit) {
+    val expandable = category.children.isNotEmpty() || category.envelopes.any { it.spent.isPositive }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .then(if (expandable) Modifier.clickable(onClick = onClick, role = Role.Button) else Modifier)
+            .padding(start = 16.dp * depth, top = 10.dp, bottom = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.padding(end = 10.dp).size(8.dp).clip(CircleShape).background(categoryColor(category.name)))
+        Text(category.name, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium), modifier = Modifier.weight(1f))
+        Text(category.spent.summary(), style = MaterialTheme.typography.bodyMedium)
+        if (expandable) {
+            androidx.compose.material3.Icon(
+                androidx.compose.ui.res.painterResource(fr.baptiste.bank.R.drawable.ic_chevron_right),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 4.dp).size(18.dp).graphicsLayer { rotationZ = if (expanded) 90f else 0f },
+            )
+        } else {
+            androidx.compose.foundation.layout.Spacer(Modifier.padding(start = 4.dp).size(18.dp))
+        }
+    }
+}
+
 /** « 65,19 € encore à trier » : le total du mois n'est pas complet. */
 @Composable
 private fun UnsortedLine(amount: Money, onSort: () -> Unit) {
@@ -433,7 +520,7 @@ private fun UnsortedLine(amount: Money, onSort: () -> Unit) {
 @Composable
 private fun CategoryRow(category: CategorySpent, scale: Long, expanded: Boolean, onClick: () -> Unit, average: Money? = null) {
     // Une catégorie sans dépense ce mois-ci n'a rien à déplier : ni chevron, ni toucher.
-    val expandable = category.envelopes.any { it.spent.isPositive }
+    val expandable = category.children.isNotEmpty() || category.envelopes.any { it.spent.isPositive }
     Column(
         Modifier
             .fillMaxWidth()
@@ -479,14 +566,14 @@ private fun CategoryRow(category: CategorySpent, scale: Long, expanded: Boolean,
 }
 
 @Composable
-private fun EnvelopeSpentRow(line: EnvelopeSpent, onClick: () -> Unit) {
+private fun EnvelopeSpentRow(line: EnvelopeSpent, indent: androidx.compose.ui.unit.Dp = 20.dp, onClick: () -> Unit) {
     // Dernier niveau : pas de flèche. On ne le touche que pour voir ses opérations, s'il en a.
     val hasOperations = line.spent.isPositive
     Row(
         Modifier
             .fillMaxWidth()
             .then(if (hasOperations) Modifier.clickable(onClick = onClick, role = Role.Button, onClickLabel = "Voir les opérations") else Modifier)
-            .padding(start = 20.dp, top = 8.dp, bottom = 8.dp),
+            .padding(start = indent, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {

@@ -1,5 +1,6 @@
 package fr.baptiste.bank.ui.glass
 
+import fr.baptiste.bank.domain.model.category
 import fr.baptiste.bank.ui.format.summary
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -118,6 +119,21 @@ fun GlassMainScreen(
     val firstOperationDate by viewModel.firstOperationDate.collectAsStateWithLifecycle()
     val salaryCandidates by viewModel.salaryCandidates.collectAsStateWithLifecycle()
     val salaryKeyConfirmed by viewModel.salary.collectAsStateWithLifecycle()
+    // Catégories imbriquées : glisser une ligne, « Déplacer » et « Renommer ».
+    val categoryNodes by viewModel.categories.collectAsStateWithLifecycle()
+    val categoryParents by viewModel.categoryParents.collectAsStateWithLifecycle()
+    var moveSubject by remember { mutableStateOf<fr.baptiste.bank.ui.components.MoveSubject?>(null) }
+    var renaming by remember { mutableStateOf<String?>(null) }
+    var expandCategory by remember { mutableStateOf<String?>(null) }
+    val moveEnvelope: (fr.baptiste.bank.domain.model.Envelope) -> Unit = { envelope ->
+        moveSubject = fr.baptiste.bank.ui.components.MoveSubject.EnvelopeSubject(envelope.id, envelope.name, envelope.category)
+    }
+    val rowActions = CategoryRowActions(
+        onMoveEnvelope = moveEnvelope,
+        onEditEnvelope = { controller.dialog = OpenDialog.EnvelopeEditor(it) },
+        onMoveCategory = { name -> moveSubject = fr.baptiste.bank.ui.components.MoveSubject.CategorySubject(name, fr.baptiste.bank.domain.model.ancestorsOf(name, categoryParents).firstOrNull()) },
+        onRenameCategory = { renaming = it },
+    )
     val monthTransfers by remember(selectedMonth) { viewModel.transfersToAccounts(selectedMonth) }
         .collectAsStateWithLifecycle(null)
     val aliases by viewModel.aliases.collectAsStateWithLifecycle()
@@ -287,6 +303,7 @@ fun GlassMainScreen(
                             },
                             onTryPlan = { controller.dialog = OpenDialog.TryPlan() },
                             onNewEnvelope = { controller.dialog = OpenDialog.EnvelopeEditor(null) },
+                            onMoveEnvelope = moveEnvelope,
                         )
                     }
                     // Épargne couvre tous les mois : elle reste sur le mois en cours.
@@ -351,6 +368,9 @@ fun GlassMainScreen(
                             },
                             onSort = { spendingView = SpendingTabView.LIST },
                             envelopeOperations = viewModel::envelopeMonthOperations,
+                            categoryParents = categoryParents,
+                            expandCategory = expandCategory,
+                            rowActions = rowActions,
                             onSetMonthCounted = { month, counted ->
                                 viewModel.setMonthCounted(month, counted)
                                 controller.notify("${month.label.replaceFirstChar { it.uppercase() }} : ${if (counted) "mois de référence" else "hors référence"}")
@@ -566,6 +586,47 @@ fun GlassMainScreen(
                 )
             }
         }
+        moveSubject?.let { subject ->
+            val known = categoryNodes.map { it.name } + (envelopes + archived).map { it.category }
+            GlassSurfaceColors(onBackground = false) {
+                fr.baptiste.bank.ui.components.MoveSheet(
+                    subject = subject,
+                    known = known,
+                    parents = categoryParents,
+                    onPick = { destination ->
+                        moveSubject = null
+                        when (subject) {
+                            is fr.baptiste.bank.ui.components.MoveSubject.EnvelopeSubject -> {
+                                val target = destination ?: fr.baptiste.bank.domain.model.DEFAULT_CATEGORY
+                                viewModel.moveEnvelope(subject.envelopeId, target) {
+                                    controller.notify("${subject.name} → $target", "Annuler") { viewModel.undoLast() }
+                                }
+                            }
+                            is fr.baptiste.bank.ui.components.MoveSubject.CategorySubject ->
+                                viewModel.moveCategory(subject.name, destination) { done ->
+                                    if (done) controller.notify("${subject.name} → ${destination ?: "catégorie principale"}", "Annuler") { viewModel.undoLast() }
+                                    else controller.notify("Impossible : une catégorie ne va pas dans ses sous-catégories.")
+                                }
+                        }
+                    },
+                    onDismiss = { moveSubject = null },
+                )
+            }
+        }
+        renaming?.let { name ->
+            GlassSurfaceColors(onBackground = false) {
+                fr.baptiste.bank.ui.components.RenameCategorySheet(
+                    name = name,
+                    onRename = { newName ->
+                        renaming = null
+                        viewModel.renameCategory(name, newName) { done ->
+                            if (done) controller.notify("$name renommée $newName", "Annuler") { viewModel.undoLast() }
+                        }
+                    },
+                    onDismiss = { renaming = null },
+                )
+            }
+        }
         if (searchOpen) {
             GlassSurfaceColors(onBackground = false) {
                 SearchSheet(
@@ -579,6 +640,8 @@ fun GlassMainScreen(
                             is SearchHit.Category -> {
                                 controller.tab = Tab.OPERATIONS
                                 spendingView = SpendingTabView.ANALYSIS
+                                // La catégorie touchée s'ouvre dépliée, ses catégories mères aussi.
+                                expandCategory = hit.name
                             }
                             is SearchHit.EnvelopeHit -> controller.dialog = OpenDialog.EnvelopeDetail(hit.envelope.id)
                             is SearchHit.Operation -> controller.dialog = OpenDialog.SortOperation(hit.row)

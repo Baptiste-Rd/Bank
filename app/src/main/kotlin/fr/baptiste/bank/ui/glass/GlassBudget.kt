@@ -121,6 +121,8 @@ fun GlassBudgetContent(
     trackingStart: YearMonth? = null,
     onTrackMonth: (YearMonth) -> Unit = {},
     onTryPlan: () -> Unit = {},
+    /** Glisser une enveloppe : la ranger dans une autre catégorie. */
+    onMoveEnvelope: (Envelope) -> Unit = {},
 ) {
     var showInfo by remember { mutableStateOf(false) }
     val isCurrentMonth = month == YearMonth.now()
@@ -159,6 +161,7 @@ fun GlassBudgetContent(
                         onSetBalance = onSetBalance,
                         monthTransfers = monthTransfers,
                         onTryPlan = if (isCurrentMonth) onTryPlan else null,
+                        onMoveEnvelope = onMoveEnvelope,
                     )
                     if (isCurrentMonth) {
                         item(key = "new-envelope") {
@@ -204,6 +207,7 @@ private fun LazyListScope.monthContent(
     onSetBalance: () -> Unit,
     monthTransfers: Money?,
     onTryPlan: (() -> Unit)? = null,
+    onMoveEnvelope: (Envelope) -> Unit = {},
 ) {
     val byFamily = dashboard.envelopes.groupBy { it.envelope.type.family }
 
@@ -267,11 +271,20 @@ private fun LazyListScope.monthContent(
         item(key = "group-$family") {
             // Des lignes plates, comme dans le prototype : nom, reste, barre, une ligne d'état.
             GlassRowsCard(familyLines) { line ->
-                EnvelopeRow(
-                    line,
-                    onClick = if (readOnly) null else ({ onOpen(line) }),
-                    accent = categoryColor(line.envelope.category),
-                )
+                // Glisser : ranger l'enveloppe dans une autre catégorie, ou la modifier.
+                fr.baptiste.bank.ui.components.SwipeRow(
+                    key = "b-${line.envelope.id}",
+                    actions = if (readOnly) emptyList() else listOf(
+                        fr.baptiste.bank.ui.components.SwipeAction("Modifier", fr.baptiste.bank.ui.components.SwipeColors.Neutral) { onEdit(line.envelope) },
+                        fr.baptiste.bank.ui.components.SwipeAction("Déplacer", fr.baptiste.bank.ui.components.SwipeColors.Accent) { onMoveEnvelope(line.envelope) },
+                    ),
+                ) {
+                    EnvelopeRow(
+                        line,
+                        onClick = if (readOnly) null else ({ onOpen(line) }),
+                        accent = categoryColor(line.envelope.category),
+                    )
+                }
             }
         }
     }
