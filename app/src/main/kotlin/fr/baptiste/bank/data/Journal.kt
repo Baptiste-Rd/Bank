@@ -175,7 +175,7 @@ data class JournalPayload(
         put("datesBefore", JSONArray(datesBefore.map { JSONObject().put("id", it.transactionId).put("date", it.date.toString()) }))
         put("aliasesBefore", JSONArray(aliasesBefore.map { JSONObject().put("id", it.transactionId).putNullable("alias", it.alias) }))
         put("aliasRowsCreated", JSONArray(aliasRowsCreated))
-        put("aliasRowsRemoved", JSONArray(aliasRowsRemoved.map { JSONObject().put("pattern", it.pattern).put("alias", it.alias) }))
+        put("aliasRowsRemoved", JSONArray(aliasRowsRemoved.map { JSONObject().put("id", it.id).put("pattern", it.pattern).put("alias", it.alias) }))
         put("monthCountsBefore", JSONArray(monthCountsBefore.map { JSONObject().put("month", it.month.toString()).putNullable("counted", it.counted) }))
         put("transfersCancelled", JSONArray(transfersCancelled))
         put("extraTouched", JSONArray(extraTouched))
@@ -200,7 +200,7 @@ data class JournalPayload(
                 datesBefore = json.objects("datesBefore").map { DateState(it.getLong("id"), LocalDate.parse(it.getString("date"))) },
                 aliasesBefore = json.objects("aliasesBefore").map { AliasState(it.getLong("id"), it.stringOrNull("alias")) },
                 aliasRowsCreated = json.longs("aliasRowsCreated"),
-                aliasRowsRemoved = json.objects("aliasRowsRemoved").map { LabelAliasEntity(pattern = it.getString("pattern"), alias = it.getString("alias")) },
+                aliasRowsRemoved = json.objects("aliasRowsRemoved").map { LabelAliasEntity(id = it.optLong("id", 0L), pattern = it.getString("pattern"), alias = it.getString("alias")) },
                 monthCountsBefore = json.objects("monthCountsBefore").map { MonthCountState(java.time.YearMonth.parse(it.getString("month")), if (it.isNull("counted")) null else it.getBoolean("counted")) },
                 transfersCancelled = json.longs("transfersCancelled"),
                 extraTouched = json.optJSONArray("extraTouched")?.let { array -> (0 until array.length()).map { array.getString(it) } }.orEmpty(),
@@ -255,12 +255,15 @@ private fun JSONObject.toImputation() = ImputationEntity(
 )
 
 private fun RuleEntity.toJson() = JSONObject()
+    .put("id", id)
     .put("matchType", matchType.name)
     .put("pattern", pattern)
     .put("envelopeId", envelopeId)
     .put("priority", priority)
 
 private fun JSONObject.toRule() = RuleEntity(
+    // L'identifiant d'origine : une règle remise garde le sien (une création annulée ensuite la retrouve).
+    id = optLong("id", 0L),
     matchType = RuleMatchType.valueOf(getString("matchType")),
     pattern = getString("pattern"),
     envelopeId = getLong("envelopeId"),

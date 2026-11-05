@@ -274,7 +274,8 @@ class BudgetRepository(
         payload.transfersCancelled.forEach { transferDao.restore(it) }
         payload.aliasesBefore.forEach { transactionDao.setAlias(it.transactionId, it.alias) }
         database.aliasDao().delete(payload.aliasRowsCreated)
-        payload.aliasRowsRemoved.forEach { database.aliasDao().insert(it.copy(id = 0)) }
+        // Remis avec leur identifiant d'origine (jamais réutilisé) : une création annulée ensuite les retrouve.
+        payload.aliasRowsRemoved.forEach { database.aliasDao().insert(it) }
         payload.monthCountsBefore.forEach { settings.restoreMonthCount(it.month, it.counted) }
         payload.manualCreated.forEach { id ->
             imputationDao.deleteForTransaction(id)
