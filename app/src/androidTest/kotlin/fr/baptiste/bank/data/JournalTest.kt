@@ -525,8 +525,9 @@ class JournalTest {
         val third = repository.saveEnvelope(envelope("C", 30))
         val result = repository.moveInTree(third, fr.baptiste.bank.domain.model.TreeDrop.Before(first))!!
         assertTrue(result.label.isNotEmpty())
-        val order = listOf(first, second, third).sortedBy { database.envelopeDao().byId(it)!!.position }
-        assertEquals(third, order.first())
+        assertEquals(0, database.envelopeDao().byId(third)!!.position)
+        assertEquals(1, database.envelopeDao().byId(first)!!.position)
+        assertEquals(2, database.envelopeDao().byId(second)!!.position)
     }
 
     @Test

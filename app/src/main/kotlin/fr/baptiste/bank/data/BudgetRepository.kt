@@ -149,7 +149,7 @@ class BudgetRepository(
         val before = fr.baptiste.bank.domain.budget.treeOf(all, groups, month, since)
         val changes = before.move(id, drop) ?: return@withTransaction null
         if (changes.isEmpty()) return@withTransaction fr.baptiste.bank.domain.budget.TreeMoveResult("", emptyList(), Money.ZERO)
-        // Le déplacée peut garder sa position et son parent : seules ses voisines changent alors.
+        // La déplacée peut garder sa position et son parent : seules ses voisines changent alors.
         val movedNode = changes.firstOrNull { it.id == id }
         val parentId = if (movedNode != null) movedNode.parentId else envelopeDao.byId(id)?.parentId
         val touched = (changes.map { it.id } + ancestorIds(id) + parentId?.let { listOf(it) + ancestorIds(it) }.orEmpty()).distinct()
