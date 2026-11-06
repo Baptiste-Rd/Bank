@@ -491,6 +491,53 @@ class JournalTest {
         assertNull(repository.moveInTree(parent, fr.baptiste.bank.domain.model.TreeDrop.Into(child)))
     }
 
+    private suspend fun share(id: Long) = repository.dashboard().first().envelopes.first { it.envelope.id == id }.monthlyShare
+
+    @Test
+    fun leavingAParentGivesItsBudgetBackWhateverThePath() = runBlocking {
+        val parent = repository.saveEnvelope(envelope("Transport", 300))
+        val child = repository.saveEnvelope(envelope("Voiture", 400))
+        repository.moveInTree(child, fr.baptiste.bank.domain.model.TreeDrop.Into(parent))
+        repository.moveEnvelope(child, "Autres")
+        assertEquals(Money.euros(300), share(parent))
+        repository.moveInTree(child, fr.baptiste.bank.domain.model.TreeDrop.Into(parent))
+        assertEquals(Money.ZERO, share(parent))
+        repository.deleteEnvelope(child)
+        assertEquals(Money.euros(300), share(parent))
+    }
+
+    @Test
+    fun aStoppedChildStaysCoveredThisMonthAndUndoPutsItBack() = runBlocking {
+        val parent = repository.saveEnvelope(envelope("Transport", 300))
+        val child = repository.saveEnvelope(envelope("Voiture", 400))
+        repository.moveInTree(child, fr.baptiste.bank.domain.model.TreeDrop.Into(parent))
+        repository.archiveEnvelope(child)
+        assertEquals(Money.ZERO, share(parent))
+        repository.undo(lastEntry().id)
+        assertEquals(Money.euros(400), share(child))
+        assertEquals(Money.ZERO, share(parent))
+    }
+
+    @Test
+    fun reorderingWithEveryPositionAtZeroStillMoves() = runBlocking {
+        val first = repository.saveEnvelope(envelope("A", 10))
+        val second = repository.saveEnvelope(envelope("B", 20))
+        val third = repository.saveEnvelope(envelope("C", 30))
+        val result = repository.moveInTree(third, fr.baptiste.bank.domain.model.TreeDrop.Before(first))!!
+        assertTrue(result.label.isNotEmpty())
+        val order = listOf(first, second, third).sortedBy { database.envelopeDao().byId(it)!!.position }
+        assertEquals(third, order.first())
+    }
+
+    @Test
+    fun aParentKeepsItsTypedAmountAndPeriodAmount() = runBlocking {
+        val parent = repository.saveEnvelope(envelope("Transport", 300))
+        val child = repository.saveEnvelope(envelope("Voiture", 400))
+        repository.moveInTree(child, fr.baptiste.bank.domain.model.TreeDrop.Into(parent))
+        assertEquals(listOf(30000L), database.allocationDao().forEnvelope(parent).map { it.amountCents })
+        assertEquals(listOf(30000L), database.allocationDao().forEnvelope(parent).map { it.coveredCents })
+    }
+
     /** Nom du groupe qui contient l'enveloppe [id]. */
     private suspend fun categoryOf(id: Long): String? =
         database.envelopeDao().byId(id)?.parentId?.let { database.envelopeDao().byId(it)?.name }

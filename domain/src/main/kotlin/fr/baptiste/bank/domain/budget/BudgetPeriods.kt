@@ -35,7 +35,7 @@ fun Envelope.missingPeriods(from: LocalDate, today: LocalDate, spentByKey: Map<S
             if (carryOver && !period.endInclusive.isBefore(today)) {
                 val previous = known.periods.lastOrNull { it.endInclusive.isBefore(period.start) }
                 if (previous != null) {
-                    val left = previous.amount - (spentByKey[previous.key] ?: Money.ZERO)
+                    val left = previous.amount - previous.covered - (spentByKey[previous.key] ?: Money.ZERO)
                     if (left.isPositive) amount += left
                 }
             }

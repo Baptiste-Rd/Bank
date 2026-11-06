@@ -140,7 +140,7 @@ fun GlassMainScreen(
     }
     val rowActions = CategoryRowActions(
         onMoveEnvelope = moveEnvelope,
-        onEditEnvelope = { edited -> controller.dialog = OpenDialog.EnvelopeEditor(envelopes.firstOrNull { it.id == edited.id } ?: edited) },
+        onEditEnvelope = { edited -> controller.dialog = OpenDialog.EnvelopeEditor((envelopes + archived).firstOrNull { it.id == edited.id } ?: edited) },
         onMoveCategory = { name -> moveSubject = fr.baptiste.bank.ui.components.MoveSubject.CategorySubject(name, fr.baptiste.bank.domain.model.ancestorsOf(name, categoryParents).firstOrNull()) },
         onRenameCategory = { renaming = it },
     )
@@ -246,8 +246,12 @@ fun GlassMainScreen(
                             dashboard = monthDashboard,
                             transfers = monthTransfers,
                             trackingStart = trackingStart,
-                            onEdit = { edited -> controller.dialog = OpenDialog.EnvelopeEditor(envelopes.firstOrNull { it.id == edited.id } ?: edited) },
+                            onEdit = { edited -> controller.dialog = OpenDialog.EnvelopeEditor((envelopes + archived).firstOrNull { it.id == edited.id } ?: edited) },
                             onOpenTab = { controller.tab = it },
+                            onTrackMonth = { month ->
+                                viewModel.setTrackingStart(month)
+                                controller.notify("Suivi depuis ${month.label}.")
+                            },
                         )
                     } else {
                         val pace by viewModel.monthPace.collectAsStateWithLifecycle()
@@ -304,7 +308,7 @@ fun GlassMainScreen(
                             onEditIncome = { controller.dialog = OpenDialog.Income },
                             onOpen = openEnvelope,
                             onCover = cover,
-                            onEdit = { edited -> controller.dialog = OpenDialog.EnvelopeEditor(envelopes.firstOrNull { it.id == edited.id } ?: edited) },
+                            onEdit = { edited -> controller.dialog = OpenDialog.EnvelopeEditor((envelopes + archived).firstOrNull { it.id == edited.id } ?: edited) },
                             onRestore = {
                                 viewModel.restoreEnvelope(it.id)
                                 controller.notify("${it.name} est de nouveau active.")
@@ -401,9 +405,7 @@ fun GlassMainScreen(
                             },
                             onSort = { spendingView = SpendingTabView.LIST },
                             envelopeOperations = viewModel::envelopeMonthOperations,
-                            categoryParents = categoryParents,
                             expandCategory = expandCategory,
-                            rowActions = rowActions,
                             board = monthDashboard,
                             groups = treeGroups,
                             onOpenLine = openEnvelope,

@@ -73,6 +73,21 @@ class TreeBudgetTest {
         assertEquals("Transport", rows[2].rootName)
     }
 
+    @Test
+    fun aProvisionStartedLateIsCoveredInTheSameProportionAsItsShare() {
+        val noel = envelope(1, "Noël", 1200, null, EnvelopeType.ANNUAL, Frequency.YEARLY).copy(fundingStart = month)
+        val child = envelope(2, "Cadeaux", 100, 1)
+        assertEquals(Money.euros(600), noel.monthlyBudget(month, since))
+        assertEquals(Money.euros(200), childrenAmounts(listOf(noel, child), emptyList(), month, since)[1])
+    }
+
+    @Test
+    fun whatAStoppedParentContainsStaysVisible() {
+        val stopped = envelope(1, "A", 300).copy(archived = true, retiredOn = LocalDate.of(2026, 11, 6))
+        val rows = budgetRows(listOf(stopped, envelope(2, "B", 100, 1)), emptyList(), month, since, setOf(1L, 2L))
+        assertEquals(listOf("B"), rows.map { it.name })
+    }
+
     private fun line(envelope: Envelope, share: Money = Money.ZERO) = EnvelopeLine(
         envelope, fr.baptiste.bank.domain.period.Frequency.MONTHLY.periodContaining(month.atDay(1), LocalDate.of(2026, 1, 1)),
         Money.ZERO, Money.ZERO, Money.ZERO, Money.ZERO, Money.ZERO,

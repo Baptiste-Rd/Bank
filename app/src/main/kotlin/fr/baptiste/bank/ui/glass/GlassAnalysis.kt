@@ -127,12 +127,8 @@ fun GlassAnalysisContent(
     pace: fr.baptiste.bank.domain.budget.MonthPace? = null,
     /** Option de chaque mois : le compter, ou non, dans les moyennes. */
     onSetMonthCounted: (YearMonth, Boolean) -> Unit = { _, _ -> },
-    /** Catégories imbriquées : la mère de chaque catégorie. */
-    categoryParents: Map<String, String> = emptyMap(),
     /** Une catégorie à montrer dépliée (la recherche y mène). */
     expandCategory: String? = null,
-    /** Actions des lignes glissées. */
-    rowActions: CategoryRowActions = CategoryRowActions(),
     /** Le tableau du mois consulté : reste et barre de chaque enveloppe. */
     board: fr.baptiste.bank.domain.budget.Dashboard? = null,
     groups: List<fr.baptiste.bank.domain.budget.GroupNode> = emptyList(),
@@ -179,10 +175,11 @@ fun GlassAnalysisContent(
                         board = board,
                         groups = groups,
                         // Le mois en cours ouvre la fiche ; un mois passé montre ses opérations, celles du mois consulté.
-                        onOpen = { envelope, spent ->
-                            val line = monthDashboardLine(board, envelope.id)
-                            if (month == current && line != null) onOpenLine(line) else opened = EnvelopeSpent(envelope, spent, line?.allocated ?: Money.ZERO)
+                        onOpen = { spent ->
+                            val line = monthDashboardLine(board, spent.envelope.id)
+                            if (month == current && line != null) onOpenLine(line) else opened = spent
                         },
+                        reveal = expandCategory,
                         onSort = onSort,
                         onInfo = { info = it },
                         review = review,
@@ -268,7 +265,7 @@ fun GlassAnalysisContent(
             title = "${line.envelope.name} · ${monthName(month)}",
             lines = operations.orEmpty().map { operation ->
                 InfoLine("${operation.date.format(day)} · ${operation.label}", Money(-operation.amountCents).formatted())
-            } + InfoLine("Total", line.spent.formatted()),
+            } + InfoLine("Total", (if (line.spent != Money.ZERO) line.spent else Money(-operations.orEmpty().sumOf { it.amountCents })).formatted()),
             note = when {
                 operations == null -> "Chargement…"
                 operations.isNullOrEmpty() -> "Aucune opération ce mois-ci."
@@ -298,7 +295,8 @@ private fun LazyListScope.monthAnalysis(
     pace: fr.baptiste.bank.domain.budget.MonthPace? = null,
     board: fr.baptiste.bank.domain.budget.Dashboard?,
     groups: List<fr.baptiste.bank.domain.budget.GroupNode>,
-    onOpen: (fr.baptiste.bank.domain.model.Envelope, Money) -> Unit,
+    onOpen: (EnvelopeSpent) -> Unit,
+    reveal: String?,
     onSort: () -> Unit,
     onInfo: (MonthSpending) -> Unit,
     averages: Map<String, Money> = emptyMap(),
@@ -356,10 +354,10 @@ private fun LazyListScope.monthAnalysis(
     val reported = report.categories.flatMap { it.envelopes + it.descendants.flatMap { child -> child.envelopes } }
     val monthSpent = reported.associate { it.envelope.id to it.spent }
     // Une dépense comptée doit se retrouver dans l'arbre, même si l'enveloppe n'est pas au tableau du mois.
-    val others = reported.filter { it.spent.isPositive }.map { it.envelope }
+    val others = reported.filter { it.spent != Money.ZERO }.map { it.envelope }
     sectionHeader("analysis-tree-label", "Enveloppes")
     if (board != null) {
-        item(key = "analysis-tree") { SpendingTree(board.envelopes, others, monthSpent, groups) { envelope -> onOpen(envelope, monthSpent[envelope.id] ?: Money.ZERO) } }
+        item(key = "analysis-tree") { SpendingTree(board.envelopes, others, monthSpent, groups, reveal) { envelope -> onOpen(reported.firstOrNull { it.envelope.id == envelope.id } ?: EnvelopeSpent(envelope, Money.ZERO, Money.ZERO)) } }
     }
     reviewSection(report, review, onAskReview, onClearReview)
 }

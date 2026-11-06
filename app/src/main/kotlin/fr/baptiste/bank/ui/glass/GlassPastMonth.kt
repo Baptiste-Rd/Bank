@@ -37,6 +37,7 @@ fun GlassPastMonthContent(
     trackingStart: YearMonth?,
     onEdit: (Envelope) -> Unit,
     onOpenTab: (Tab) -> Unit,
+    onTrackMonth: (YearMonth) -> Unit,
 ) {
     val name = month.month.getDisplayName(TextStyle.FULL_STANDALONE, Locale.FRANCE)
     LazyColumn(
@@ -47,7 +48,7 @@ fun GlassPastMonthContent(
     ) {
         item(key = "month-strip") { MonthStripBar() }
         if (trackingStart != null && month < trackingStart) {
-            item(key = "not-tracked") { NotTrackedCard(month, trackingStart) {} }
+            item(key = "not-tracked") { NotTrackedCard(month, trackingStart) { onTrackMonth(month) } }
             return@LazyColumn
         }
         item(key = "spent") {

@@ -338,11 +338,19 @@ internal fun SpendingTree(
     others: List<Envelope>,
     monthSpent: Map<Long, Money>,
     groups: List<GroupNode>,
+    /** Le nom d'une branche à montrer dépliée : la recherche y mène. */
+    reveal: String?,
     onOpen: (Envelope) -> Unit,
 ) {
     var filterIndex by rememberSaveable { mutableStateOf(0) }
     var closed by rememberSaveable { mutableStateOf(listOf<Long>()) }
     val filter = SpendFilter.entries[filterIndex]
+    LaunchedEffect(reveal, groups) {
+        val byId = groups.associateBy { it.id }
+        val found = groups.firstOrNull { it.name.equals(reveal, ignoreCase = true) } ?: return@LaunchedEffect
+        val path = generateSequence(found) { group -> group.parentId?.let(byId::get) }.take(groups.size).map { it.id }.toSet()
+        closed = closed - path
+    }
     val rows = remember(lines, others, monthSpent, groups, filter, closed) {
         val ids = lines.map { it.envelope.id } + others.map { it.id } + groups.map { it.id }
         spendingRows(lines, others, monthSpent, groups, filter, ids.toSet() - closed.toSet())

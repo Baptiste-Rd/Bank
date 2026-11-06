@@ -38,7 +38,11 @@ fun childrenAmounts(envelopes: List<Envelope>, groups: List<GroupNode>, month: Y
     val tree = treeOf(envelopes, groups, month, since)
     return envelopes.filter { it.countsIn(month) && tree.children(it.id).isNotEmpty() }.associate { parent ->
         val children = tree.children(parent.id).sumOfMoney { tree.covered(it.id) }
-        parent.id to children.convert(from = Frequency.MONTHLY, to = parent.frequency)
+        // Même proportion que la part du mois : une provision commencée tard réserve plus d'un douzième.
+        val total = parent.amountIn(parent.periodContaining(month.atEndOfMonth()))
+        val share = parent.monthlyBudget(month, since)
+        val covered = if (share.isPositive) Money(total.cents * children.cents / share.cents) else children.convert(from = Frequency.MONTHLY, to = parent.frequency)
+        parent.id to if (covered > total) total else covered
     }
 }
 
@@ -104,12 +108,17 @@ fun budgetRows(envelopes: List<Envelope>, groups: List<GroupNode>, month: YearMo
     val names = groups.associate { it.id to it.name } + envelopes.associate { it.id to it.name }
     val rows = mutableListOf<BudgetRow>()
     // Une enveloppe arrêtée compte encore ce mois-ci, mais elle n'est plus proposée : elle est dans « Arrêtées ».
-    fun shown(node: TreeNode) = byId[node.id]?.archived != true
+    fun shown(id: Long) = byId[id]?.archived != true
     fun walk(parent: Long?, depth: Int, root: String?) {
-        tree.children(parent).filter(::shown).forEach { node ->
+        tree.children(parent).forEach { node ->
+            // Ce que contient une enveloppe arrêtée reste actif : il remonte à sa place.
+            if (!shown(node.id)) {
+                walk(node.id, depth, root)
+                return@forEach
+            }
             val name = names.getValue(node.id)
             val rootName = root ?: name
-            rows += BudgetRow(node.id, name, depth, tree.children(node.id).any(::shown), tree.covered(node.id), byId[node.id], rootName)
+            rows += BudgetRow(node.id, name, depth, tree.descendants(node.id).any { shown(it.id) }, tree.covered(node.id), byId[node.id], rootName)
             if (node.id in open) walk(node.id, depth + 1, rootName)
         }
     }
