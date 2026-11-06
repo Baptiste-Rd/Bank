@@ -35,9 +35,6 @@ data class CategorySpent(
 ) {
     /** Cette catégorie et toutes ses sous-catégories, à plat. */
     val descendants: List<CategorySpent> get() = children.flatMap { listOf(it) + it.descendants }
-
-    /** Dépassement du budget (zéro si dans le budget). */
-    val over: Money get() = (spent - budget).let { if (it.isPositive) it else Money.ZERO }
 }
 
 data class MonthSpending(

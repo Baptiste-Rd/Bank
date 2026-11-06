@@ -382,6 +382,12 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
         viewModelScope.launch { repository.moveEnvelope(envelopeId, category); onDone() }
     }
 
+    val treeGroups: StateFlow<List<fr.baptiste.bank.domain.budget.GroupNode>> = repository.treeGroups.asState(emptyList())
+
+    fun moveInTree(id: Long, drop: fr.baptiste.bank.domain.model.TreeDrop, onDone: (fr.baptiste.bank.domain.budget.TreeMoveResult?) -> Unit = {}) {
+        viewModelScope.launch { onDone(repository.moveInTree(id, drop)) }
+    }
+
     fun moveCategory(name: String, parent: String?, onDone: (Boolean) -> Unit = {}) {
         viewModelScope.launch { onDone(repository.moveCategory(name, parent)) }
     }

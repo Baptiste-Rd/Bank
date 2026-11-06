@@ -72,7 +72,7 @@ class SpendingReportTest {
         // Une provision annuelle de 1 200 € compte 100 € par mois ; une archivée n'a plus de budget.
         val trips = report.categories.single { it.name == "Voyages" }
         assertEquals(Money.euros(100), trips.budget)
-        assertEquals(Money.euros(300), trips.over)
+        assertEquals(Money.euros(300), trips.spent - trips.budget)
         assertEquals(Money.ZERO, report.categories.single { it.name == "Loisirs" }.budget)
         // Divers n'a rien dépensé mais garde son budget.
         assertEquals(Money.euros(50), report.categories.single { it.name == "Autres" }.budget)

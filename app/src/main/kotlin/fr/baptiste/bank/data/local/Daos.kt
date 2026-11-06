@@ -188,6 +188,9 @@ interface EnvelopeDao {
     @Query("SELECT COUNT(*) FROM envelope WHERE parent_id = :parentId")
     suspend fun childCount(parentId: Long): Int
 
+    @Query("UPDATE envelope SET parent_id = :parentId, position = :position WHERE id = :id")
+    suspend fun setPlace(id: Long, parentId: Long?, position: Int)
+
     /** Tout ce que contient [from], enveloppes et groupes, passe dans [to]. */
     @Query("UPDATE envelope SET parent_id = :to WHERE parent_id = :from")
     suspend fun reparentChildren(from: Long, to: Long?)

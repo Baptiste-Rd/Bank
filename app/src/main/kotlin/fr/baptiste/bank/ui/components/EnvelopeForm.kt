@@ -116,7 +116,7 @@ fun EnvelopeDialog(
     val isExisting = initial != null && initial.id != 0L
     var name by rememberSaveable { mutableStateOf(initial?.name.orEmpty()) }
     var category by rememberSaveable {
-        mutableStateOf(initial?.group ?: suggestCategory(initial?.name.orEmpty()) ?: DEFAULT_CATEGORY)
+        mutableStateOf(initial?.group ?: DEFAULT_CATEGORY.takeIf { initial?.parentId != null } ?: suggestCategory(initial?.name.orEmpty()) ?: DEFAULT_CATEGORY)
     }
     var categoryChosen by rememberSaveable { mutableStateOf(initial?.group != null || isExisting) }
     var newCategory by rememberSaveable { mutableStateOf<String?>(null) }

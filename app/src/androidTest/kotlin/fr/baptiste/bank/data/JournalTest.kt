@@ -469,6 +469,28 @@ class JournalTest {
         assertTrue(repository.archivedEnvelopes.first().isEmpty())
     }
 
+    @Test
+    fun aParentCoversItsChildAndComesBackOnUndo() = runBlocking {
+        val parent = repository.saveEnvelope(envelope("Transport", 300))
+        val child = repository.saveEnvelope(envelope("Voiture", 400))
+        val result = repository.moveInTree(child, fr.baptiste.bank.domain.model.TreeDrop.Into(parent))!!
+        assertEquals(Money.euros(-300), result.planDelta)
+        assertEquals(30000L, database.envelopeDao().byId(parent)?.amountCents)
+        val board = repository.dashboard().first()
+        assertEquals(Money.ZERO, board.envelopes.first { it.envelope.id == parent }.monthlyShare)
+        assertEquals(Money.euros(400), board.envelopes.first { it.envelope.id == child }.monthlyShare)
+        repository.undo(lastEntry().id)
+        assertEquals(Money.euros(300), repository.dashboard().first().envelopes.first { it.envelope.id == parent }.monthlyShare)
+    }
+
+    @Test
+    fun anEnvelopeNeverGoesIntoWhatItContains() = runBlocking {
+        val parent = repository.saveEnvelope(envelope("A", 300))
+        val child = repository.saveEnvelope(envelope("B", 100))
+        repository.moveInTree(child, fr.baptiste.bank.domain.model.TreeDrop.Into(parent))
+        assertNull(repository.moveInTree(parent, fr.baptiste.bank.domain.model.TreeDrop.Into(child)))
+    }
+
     /** Nom du groupe qui contient l'enveloppe [id]. */
     private suspend fun categoryOf(id: Long): String? =
         database.envelopeDao().byId(id)?.parentId?.let { database.envelopeDao().byId(it)?.name }

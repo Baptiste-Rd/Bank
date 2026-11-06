@@ -133,15 +133,12 @@ fun GlassAnalysisContent(
     expandCategory: String? = null,
     /** Actions des lignes glissées. */
     rowActions: CategoryRowActions = CategoryRowActions(),
+    /** Le tableau du mois consulté : reste et barre de chaque enveloppe. */
+    board: fr.baptiste.bank.domain.budget.Dashboard? = null,
+    groups: List<fr.baptiste.bank.domain.budget.GroupNode> = emptyList(),
+    onOpenLine: (fr.baptiste.bank.domain.budget.EnvelopeLine) -> Unit = {},
 ) {
     val period = if (showYear) AnalysisPeriod.YEAR else AnalysisPeriod.MONTH
-    var expanded by rememberSaveable { mutableStateOf(listOf<String>()) }
-    // La recherche mène à une catégorie : elle et ses catégories mères se déplient.
-    // Les mères ne sont connues qu'une fois les catégories lues : on recommence quand elles arrivent.
-    LaunchedEffect(expandCategory, categoryParents) {
-        expandCategory?.let { name -> expanded = (expanded + fr.baptiste.bank.domain.model.ancestorsOf(name, categoryParents) + name).distinct() }
-    }
-    var opened by remember { mutableStateOf<EnvelopeSpent?>(null) }
     var info by remember { mutableStateOf<MonthSpending?>(null) }
     var asking by remember { mutableStateOf<MonthSpending?>(null) }
     val review by remember(month) { monthReview(month) }.collectAsState(initial = null)
@@ -178,10 +175,9 @@ fun GlassAnalysisContent(
                         // L'option ne concerne qu'un mois terminé : le mois en cours n'entre pas dans les moyennes.
                         onSetCounted = if (month < current) ({ counted -> onSetMonthCounted(month, counted) }) else null,
                         pace = pace?.takeIf { it.month == month && month == current },
-                        expanded = expanded,
-                        onToggle = { name -> expanded = if (name in expanded) expanded - name else expanded + name },
-                        rowActions = rowActions,
-                        onOpenEnvelope = { opened = it },
+                        board = board,
+                        groups = groups,
+                        onOpenLine = onOpenLine,
                         onSort = onSort,
                         onInfo = { info = it },
                         review = review,
@@ -259,24 +255,6 @@ fun GlassAnalysisContent(
         )
     }
 
-    opened?.let { line ->
-        val operations by remember(line.envelope.id, month) { envelopeOperations(line.envelope.id, month) }
-            .collectAsState(initial = null)
-        val day = DateTimeFormatter.ofPattern("d MMM", Locale.FRANCE)
-        InfoSheet(
-            title = "${line.envelope.name} · ${monthName(month)}",
-            lines = operations.orEmpty().map { operation ->
-                InfoLine("${operation.date.format(day)} · ${operation.label}", Money(-operation.amountCents).formatted())
-            } + InfoLine("Total", line.spent.formatted()),
-            note = when {
-                operations == null -> "Chargement…"
-                operations.isNullOrEmpty() -> "Aucune opération ce mois-ci."
-                line.budget.isPositive -> "Budget du mois : ${line.budget.formatted()}."
-                else -> null
-            },
-            onDismiss = { opened = null },
-        )
-    }
 }
 
 private fun monthName(month: YearMonth): String = month.month.getDisplayName(TextStyle.FULL_STANDALONE, Locale.FRANCE)
@@ -295,10 +273,9 @@ private fun LazyListScope.monthAnalysis(
     onSetCounted: ((Boolean) -> Unit)? = null,
     /** Mois en cours seulement : on compare à la même date du mois précédent, pas au budget du mois entier. */
     pace: fr.baptiste.bank.domain.budget.MonthPace? = null,
-    expanded: List<String>,
-    onToggle: (String) -> Unit,
-    rowActions: CategoryRowActions = CategoryRowActions(),
-    onOpenEnvelope: (EnvelopeSpent) -> Unit,
+    board: fr.baptiste.bank.domain.budget.Dashboard?,
+    groups: List<fr.baptiste.bank.domain.budget.GroupNode>,
+    onOpenLine: (fr.baptiste.bank.domain.budget.EnvelopeLine) -> Unit,
     onSort: () -> Unit,
     onInfo: (MonthSpending) -> Unit,
     averages: Map<String, Money> = emptyMap(),
@@ -352,15 +329,12 @@ private fun LazyListScope.monthAnalysis(
         }
         return
     }
-    sectionHeader("analysis-categories-label", "Par catégorie")
-    item(key = "analysis-categories") {
-        val scale = report.categories.maxOf { maxOf(it.spent.cents, it.budget.cents) }.coerceAtLeast(1L)
-        GlassCard(contentPadding = 16.dp, verticalPadding = 4.dp) {
-            report.categories.forEachIndexed { index, category ->
-                if (index > 0) RowDivider(0.dp)
-                CategoryTreeRows(category, 0, scale, averages, expanded, onToggle, onOpenEnvelope, rowActions)
-            }
-        }
+    // Le dépensé du mois de chaque enveloppe : ce que chaque branche additionne.
+    val monthSpent = report.categories.flatMap { it.envelopes + it.descendants.flatMap { child -> child.envelopes } }
+        .associate { it.envelope.id to it.spent }
+    sectionHeader("analysis-tree-label", "Enveloppes")
+    if (board != null) {
+        item(key = "analysis-tree") { SpendingTree(board.envelopes, monthSpent, groups, onOpenLine) }
     }
     reviewSection(report, review, onAskReview, onClearReview)
 }
@@ -433,77 +407,6 @@ data class CategoryRowActions(
  * niveau. Chaque ligne se glisse : « Déplacer » et « Renommer » pour une catégorie (pas pour
  * « Autres »), « Déplacer » et « Modifier » pour une enveloppe.
  */
-@Composable
-private fun CategoryTreeRows(
-    category: CategorySpent,
-    depth: Int,
-    scale: Long,
-    averages: Map<String, Money>,
-    expanded: List<String>,
-    onToggle: (String) -> Unit,
-    onOpenEnvelope: (EnvelopeSpent) -> Unit,
-    actions: CategoryRowActions,
-) {
-    val isOthers = fr.baptiste.bank.domain.bank.envelopeNameKey(category.name) ==
-        fr.baptiste.bank.domain.bank.envelopeNameKey(fr.baptiste.bank.domain.model.DEFAULT_CATEGORY)
-    val open = category.name in expanded
-    fr.baptiste.bank.ui.components.SwipeRow(
-        key = "c-${category.name}",
-        actions = if (isOthers) emptyList() else listOf(
-            fr.baptiste.bank.ui.components.SwipeAction("Renommer", fr.baptiste.bank.ui.components.SwipeColors.Neutral) { actions.onRenameCategory(category.name) },
-            fr.baptiste.bank.ui.components.SwipeAction("Déplacer", fr.baptiste.bank.ui.components.SwipeColors.Accent) { actions.onMoveCategory(category.name) },
-        ),
-    ) {
-        if (depth == 0) {
-            CategoryRow(category = category, average = averages[category.name], scale = scale, expanded = open, onClick = { onToggle(category.name) })
-        } else {
-            SubCategoryRow(category, depth, open) { onToggle(category.name) }
-        }
-    }
-    if (open) {
-        category.children.forEach { child -> CategoryTreeRows(child, depth + 1, scale, averages, expanded, onToggle, onOpenEnvelope, actions) }
-        category.envelopes.forEach { line ->
-            fr.baptiste.bank.ui.components.SwipeRow(
-                key = "e-${line.envelope.id}",
-                actions = listOf(
-                    fr.baptiste.bank.ui.components.SwipeAction("Modifier", fr.baptiste.bank.ui.components.SwipeColors.Neutral) { actions.onEditEnvelope(line.envelope) },
-                    fr.baptiste.bank.ui.components.SwipeAction("Déplacer", fr.baptiste.bank.ui.components.SwipeColors.Accent) { actions.onMoveEnvelope(line.envelope) },
-                ),
-            ) {
-                EnvelopeSpentRow(line, indent = 20.dp + 16.dp * depth) { onOpenEnvelope(line) }
-            }
-        }
-    }
-}
-
-/** Une sous-catégorie : décalée, son point, son nom, son total, un chevron si elle se déplie. */
-@Composable
-private fun SubCategoryRow(category: CategorySpent, depth: Int, expanded: Boolean, onClick: () -> Unit) {
-    // Dépliable dès qu'elle contient une enveloppe, même sans dépense ce mois-ci (une enveloppe qu'on vient d'y ranger).
-    val expandable = category.children.isNotEmpty() || category.envelopes.isNotEmpty()
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .then(if (expandable) Modifier.clickable(onClick = onClick, role = Role.Button) else Modifier)
-            .padding(start = 16.dp * depth, top = 10.dp, bottom = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(Modifier.padding(end = 10.dp).size(8.dp).clip(CircleShape).background(categoryColor(category.name)))
-        Text(category.name, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium), modifier = Modifier.weight(1f))
-        Text(category.spent.summary(), style = MaterialTheme.typography.bodyMedium)
-        if (expandable) {
-            androidx.compose.material3.Icon(
-                androidx.compose.ui.res.painterResource(fr.baptiste.bank.R.drawable.ic_chevron_right),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 4.dp).size(18.dp).graphicsLayer { rotationZ = if (expanded) 90f else 0f },
-            )
-        } else {
-            androidx.compose.foundation.layout.Spacer(Modifier.padding(start = 4.dp).size(18.dp))
-        }
-    }
-}
-
 /** « 65,19 € encore à trier » : le total du mois n'est pas complet. */
 @Composable
 private fun UnsortedLine(amount: Money, onSort: () -> Unit) {
@@ -515,85 +418,6 @@ private fun UnsortedLine(amount: Money, onSort: () -> Unit) {
             modifier = Modifier.weight(1f),
         )
         TextButton(onClick = onSort) { Text("Trier") }
-    }
-}
-
-/** Une catégorie : nom, dépensé sur budget, barre (le trait marque le budget). */
-@Composable
-private fun CategoryRow(category: CategorySpent, scale: Long, expanded: Boolean, onClick: () -> Unit, average: Money? = null) {
-    // Une catégorie sans dépense ce mois-ci n'a rien à déplier : ni chevron, ni toucher.
-    // Dépliable dès qu'elle contient une enveloppe, même sans dépense ce mois-ci (une enveloppe qu'on vient d'y ranger).
-    val expandable = category.children.isNotEmpty() || category.envelopes.isNotEmpty()
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .then(if (expandable) Modifier.clickable(onClick = onClick, role = Role.Button, onClickLabel = if (expanded) "Masquer les enveloppes" else "Voir les enveloppes") else Modifier)
-            .padding(vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.padding(end = 10.dp).size(10.dp).clip(CircleShape).background(categoryColor(category.name)))
-            Text(
-                category.name,
-                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            Text(category.spent.summary(), style = MaterialTheme.typography.titleMedium)
-            // Le chevron dit que la ligne se déplie (séance de test : les sous-catégories passaient inaperçues).
-            if (expandable) {
-                androidx.compose.material3.Icon(
-                    androidx.compose.ui.res.painterResource(fr.baptiste.bank.R.drawable.ic_chevron_right),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 4.dp).size(18.dp).graphicsLayer { rotationZ = if (expanded) 90f else 0f },
-                )
-            } else {
-                androidx.compose.foundation.layout.Spacer(Modifier.padding(start = 4.dp).size(18.dp))
-            }
-        }
-        SpendBar(category.spent, category.budget, scale, categoryColor(category.name))
-        // Une seule référence par ligne (le budget) ; un dépassement en puce (règle 4 du doc UX).
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                if (category.budget.isPositive) "sur ${category.budget.summary()}" else "hors budget du mois",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            if (category.over.isPositive) {
-                fr.baptiste.bank.ui.components.StatusChip("Dépassé ${fr.baptiste.bank.domain.money.Money.euros(Math.round(category.over.cents / 100.0).coerceAtLeast(1)).summary()}", fr.baptiste.bank.ui.components.StatusKind.OVER)
-            }
-        }
-    }
-}
-
-@Composable
-private fun EnvelopeSpentRow(line: EnvelopeSpent, indent: androidx.compose.ui.unit.Dp = 20.dp, onClick: () -> Unit) {
-    // Dernier niveau : pas de flèche. On ne le touche que pour voir ses opérations, s'il en a.
-    val hasOperations = line.spent.isPositive
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .then(if (hasOperations) Modifier.clickable(onClick = onClick, role = Role.Button, onClickLabel = "Voir les opérations") else Modifier)
-            .padding(start = indent, top = 8.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(line.envelope.name, style = MaterialTheme.typography.bodyMedium)
-            if (line.budget.isPositive) {
-                Text(
-                    "sur ${line.budget.summary()}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        Text(
-            line.spent.summary(),
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (line.budget.isPositive && line.spent > line.budget) BankTheme.status.over else MaterialTheme.colorScheme.onSurface,
-        )
     }
 }
 

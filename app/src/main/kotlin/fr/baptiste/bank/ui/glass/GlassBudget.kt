@@ -123,14 +123,21 @@ fun GlassBudgetContent(
     onTryPlan: () -> Unit = {},
     /** Glisser une enveloppe : la ranger dans une autre catégorie. */
     onMoveEnvelope: (Envelope) -> Unit = {},
+    /** L'arbre : les enveloppes actives, leurs montants saisis, et les groupes. */
+    envelopes: List<Envelope> = emptyList(),
+    groups: List<fr.baptiste.bank.domain.budget.GroupNode> = emptyList(),
+    onRenameGroup: (String) -> Unit = {},
+    onMoveGroup: (String) -> Unit = {},
+    onDrop: (Long, fr.baptiste.bank.domain.model.TreeDrop) -> Unit = { _, _ -> },
 ) {
+    val listState = rememberTabListState()
     var showInfo by remember { mutableStateOf(false) }
     val isCurrentMonth = month == YearMonth.now()
     val parts = dashboard?.let(::planParts).orEmpty()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        state = rememberTabListState(),
+        state = listState,
         contentPadding = glassContentPadding(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -139,35 +146,36 @@ fun GlassBudgetContent(
         // l'année dans Épargne (chaque information n'a qu'une maison).
         run {
             run {
-                item(key = "month-switch") { MonthStripBar() }
-                if (trackingStart != null && month < trackingStart) {
-                    item(key = "not-tracked") { NotTrackedCard(month, trackingStart) { onTrackMonth(month) } }
-                } else if (dashboard != null) {
+                if (dashboard != null) {
                     monthContent(
                         dashboard = dashboard,
                         parts = parts,
                         monthlyIncome = monthlyIncome,
                         archived = archived,
-                        readOnly = !isCurrentMonth,
+                        readOnly = false,
                         onShowInfo = { showInfo = true },
                         onEditIncome = onEditIncome,
                         onOpen = onOpen,
                         onCover = onCover,
                         onEdit = onEdit,
                         onRestore = onRestore,
-                        currentAccount = if (isCurrentMonth) currentAccount else null,
+                        currentAccount = currentAccount,
                         // Le compte courant vit dans Épargne › Mes comptes.
                         showAccountCard = false,
                         onSetBalance = onSetBalance,
                         monthTransfers = monthTransfers,
-                        onTryPlan = if (isCurrentMonth) onTryPlan else null,
+                        onTryPlan = onTryPlan,
                         onMoveEnvelope = onMoveEnvelope,
+                        envelopes = envelopes,
+                        groups = groups,
+                        listState = listState,
+                        onRenameGroup = onRenameGroup,
+                        onMoveGroup = onMoveGroup,
+                        onDrop = onDrop,
                     )
-                    if (isCurrentMonth) {
-                        item(key = "new-envelope") {
-                            Box(Modifier.fillMaxWidth().padding(top = 4.dp), Alignment.Center) {
-                                TextButton(onClick = onNewEnvelope) { Text("Nouvelle enveloppe") }
-                            }
+                    item(key = "new-envelope") {
+                        Box(Modifier.fillMaxWidth().padding(top = 4.dp), Alignment.Center) {
+                            TextButton(onClick = onNewEnvelope) { Text("Nouvelle enveloppe") }
                         }
                     }
                 }
@@ -208,14 +216,13 @@ private fun LazyListScope.monthContent(
     monthTransfers: Money?,
     onTryPlan: (() -> Unit)? = null,
     onMoveEnvelope: (Envelope) -> Unit = {},
+    envelopes: List<Envelope>,
+    groups: List<fr.baptiste.bank.domain.budget.GroupNode>,
+    listState: androidx.compose.foundation.lazy.LazyListState,
+    onRenameGroup: (String) -> Unit,
+    onMoveGroup: (String) -> Unit,
+    onDrop: (Long, fr.baptiste.bank.domain.model.TreeDrop) -> Unit,
 ) {
-    // Mois en cours : une enveloppe arrêtée ce mois-ci est dans « Arrêtées », pas deux fois. Un mois
-    // passé la garde dans sa famille : elle en faisait partie.
-    val byFamily = dashboard.envelopes.filter { readOnly || !it.stopped }.groupBy { it.envelope.type.family }
-
-    // Un mois terminé commence par son bilan : où est allé ce qui restait, d'où vient ce qui manquait.
-    if (readOnly && dashboard.savings.isFinal) item(key = "review") { MonthReview(dashboard, onEdit, monthTransfers) }
-
     item(key = "plan") {
         GlassCard(contentPadding = 16.dp) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -260,36 +267,19 @@ private fun LazyListScope.monthContent(
         item(key = "account") { CurrentAccountCard(currentAccount, onSetBalance) }
     }
 
-    EnvelopeFamily.entries.forEach { family ->
-        val familyLines = byFamily[family].orEmpty()
-        if (familyLines.isEmpty()) return@forEach
-        // Le total compte aussi une enveloppe arrêtée ce mois-ci : sa part reste réservée (comme dans « Plan du mois »).
-        val total = dashboard.envelopes.filter { it.envelope.type.family == family }.fold(Money.ZERO) { sum, line -> sum + line.monthlyShare }
-        // Au quotidien, le plan compte aussi ce qui est à répartir : l'en-tête dit « en enveloppes »
-        // pour ne pas afficher deux totaux différents sous le même nom.
-        sectionHeader(
-            "label-$family",
-            family.label,
-            trailing = if (family == EnvelopeFamily.DAILY) "${total.summary()} en enveloppes" else "${total.summary()} / mois",
-        )
-        item(key = "group-$family") {
-            // Des lignes plates, comme dans le prototype : nom, reste, barre, une ligne d'état.
-            GlassRowsCard(familyLines) { line ->
-                // Glisser : ranger l'enveloppe dans une autre catégorie, ou la modifier.
-                fr.baptiste.bank.ui.components.SwipeRow(
-                    key = "b-${line.envelope.id}",
-                    actions = if (readOnly) emptyList() else listOf(
-                        fr.baptiste.bank.ui.components.SwipeAction("Modifier", fr.baptiste.bank.ui.components.SwipeColors.Neutral) { onEdit(line.envelope) },
-                        fr.baptiste.bank.ui.components.SwipeAction("Déplacer", fr.baptiste.bank.ui.components.SwipeColors.Accent) { onMoveEnvelope(line.envelope) },
-                    ),
-                ) {
-                    EnvelopeRow(
-                        line,
-                        onClick = if (readOnly) null else ({ onOpen(line) }),
-                        accent = categoryColor(line.envelope.category),
-                    )
-                }
-            }
+    sectionHeader("tree-label", "Enveloppes", trailing = "Prévu chaque mois")
+    item(key = "tree") {
+        GlassCard(contentPadding = 16.dp, verticalPadding = 4.dp) {
+            BudgetTree(
+                envelopes = envelopes,
+                groups = groups,
+                listState = listState,
+                onEdit = onEdit,
+                onMoveEnvelope = onMoveEnvelope,
+                onRenameGroup = onRenameGroup,
+                onMoveGroup = onMoveGroup,
+                onDrop = onDrop,
+            )
         }
     }
 

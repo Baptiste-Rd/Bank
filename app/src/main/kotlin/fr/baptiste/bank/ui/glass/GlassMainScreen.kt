@@ -127,6 +127,7 @@ fun GlassMainScreen(
     // Catégories imbriquées : glisser une ligne, « Déplacer » et « Renommer ».
     val categoryNodes by viewModel.categories.collectAsStateWithLifecycle()
     val categoryParents by viewModel.categoryParents.collectAsStateWithLifecycle()
+    val treeGroups by viewModel.treeGroups.collectAsStateWithLifecycle()
     var moveSubject by remember { mutableStateOf<fr.baptiste.bank.ui.components.MoveSubject?>(null) }
     var renaming by remember { mutableStateOf<String?>(null) }
     var expandCategory by remember { mutableStateOf(initialExpand) }
@@ -164,7 +165,7 @@ fun GlassMainScreen(
         item(key = "month-strip") { MonthStripBar() }
         item(key = "spending-view") {
             SegmentedToggle(
-                listOf("Catégories", if (unsortedCount > 0 && selectedMonth == YearMonth.now()) "Opérations · $unsortedCount" else "Opérations"),
+                listOf("Enveloppes", if (unsortedCount > 0 && selectedMonth == YearMonth.now()) "Opérations · $unsortedCount" else "Opérations"),
                 if (spendingView == SpendingTabView.LIST) 1 else 0,
             ) { index -> spendingView = if (index == 1) SpendingTabView.LIST else SpendingTabView.ANALYSIS }
         }
@@ -286,15 +287,15 @@ fun GlassMainScreen(
                     }
                     Tab.BUDGET -> {
                         val yearOverview by viewModel.yearOverview.collectAsStateWithLifecycle()
+                        // Budget est le prévisionnel : toujours le plan du mois en cours.
                         GlassBudgetContent(
-                            dashboard = monthDashboard,
-                            // Le salaire du mois consulté, celui de son calcul (pas celui d'aujourd'hui).
-                            monthlyIncome = monthDashboard?.income,
+                            dashboard = dashboard,
+                            monthlyIncome = dashboard?.income,
                             archived = archived,
-                            month = selectedMonth,
-                            canNextMonth = selectedMonth < YearMonth.now(),
-                            onPreviousMonth = viewModel::previousMonth,
-                            onNextMonth = viewModel::nextMonth,
+                            month = YearMonth.now(),
+                            canNextMonth = false,
+                            onPreviousMonth = {},
+                            onNextMonth = {},
                             yearOverview = yearOverview,
                             year = selectedYear,
                             canNextYear = selectedYear < LocalDate.now().year,
@@ -320,6 +321,24 @@ fun GlassMainScreen(
                             onTryPlan = { controller.dialog = OpenDialog.TryPlan() },
                             onNewEnvelope = { controller.dialog = OpenDialog.EnvelopeEditor(null) },
                             onMoveEnvelope = moveEnvelope,
+                            envelopes = envelopes,
+                            groups = treeGroups,
+                            onRenameGroup = { renaming = it },
+                            onMoveGroup = rowActions.onMoveCategory,
+                            onDrop = { id, drop ->
+                                viewModel.moveInTree(id, drop) { result ->
+                                    if (result == null) {
+                                        controller.notify("Impossible : une enveloppe ne va pas dans ce qu'elle contient.")
+                                    } else {
+                                        val change = result.changes.lastOrNull()
+                                        val daysLeft = java.time.LocalDate.now().let { it.lengthOfMonth() - it.dayOfMonth + 1 }
+                                        val perDay = fr.baptiste.bank.domain.money.Money(-result.planDelta.cents / daysLeft)
+                                        val detail = change?.let { " · ${it.name} passe de ${it.before.summary()} à ${it.after.summary()}" }.orEmpty() +
+                                            if (result.planDelta != fr.baptiste.bank.domain.money.Money.ZERO) " · par jour ${if (perDay.isNegative) "" else "+"}${perDay.summary()}" else ""
+                                        controller.notify(result.label + detail, "Annuler") { viewModel.undoLast() }
+                                    }
+                                }
+                            },
                         )
                     }
                     // Épargne couvre tous les mois : elle reste sur le mois en cours.
@@ -387,6 +406,9 @@ fun GlassMainScreen(
                             categoryParents = categoryParents,
                             expandCategory = expandCategory,
                             rowActions = rowActions,
+                            board = monthDashboard,
+                            groups = treeGroups,
+                            onOpenLine = openEnvelope,
                             onSetMonthCounted = { month, counted ->
                                 viewModel.setMonthCounted(month, counted)
                                 controller.notify("${month.label.replaceFirstChar { it.uppercase() }} : ${if (counted) "mois de référence" else "hors référence"}")
