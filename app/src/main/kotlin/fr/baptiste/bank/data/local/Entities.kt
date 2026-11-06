@@ -94,7 +94,10 @@ data class EnvelopeEntity(
     @ColumnInfo(defaultValue = "1") val every: Int = 1,
     /** Début d'une des périodes pour une fréquence glissante ; NULL pour une période calendaire. */
     @ColumnInfo(name = "anchor_date") val anchorDate: LocalDate? = null,
-    /** Groupe d'affichage, sans budget propre (NULL : hors groupe). */
+    /**
+     * Vide depuis la v18 (remplacée par [parentId]) : la colonne reste, sa suppression obligerait à
+     * reconstruire la table. Lue seulement dans les entrées d'Historique d'avant la v18.
+     */
     @ColumnInfo(name = "group_name") val groupName: String? = null,
     /** Provision : mois (« 2026-10 ») à partir duquel elle met de côté ; NULL : part habituelle. */
     @ColumnInfo(name = "funding_start") val fundingStart: String? = null,
@@ -110,6 +113,12 @@ data class EnvelopeEntity(
     @ColumnInfo(defaultValue = "1") val repeats: Boolean = true,
     /** Jour du retrait (NULL : active, ou archivée avant que l'app ne le retienne). */
     @ColumnInfo(name = "retired_on") val retiredOn: LocalDate? = null,
+    /** Enveloppe qui la contient (NULL : en haut de l'arbre). */
+    @ColumnInfo(name = "parent_id") val parentId: Long? = null,
+    /** Rang parmi les enveloppes du même parent. */
+    @ColumnInfo(defaultValue = "0") val position: Int = 0,
+    /** Groupe : une enveloppe sans montant, qui ne sert qu'à en contenir d'autres. Jamais dans un calcul. */
+    @ColumnInfo(name = "is_group", defaultValue = "0") val isGroup: Boolean = false,
 )
 
 @Entity(
@@ -276,17 +285,4 @@ data class JournalEntity(
     val label: String,
     val payload: String,
     @ColumnInfo(defaultValue = "0") val undone: Boolean = false,
-)
-
-/**
- * Une catégorie et sa catégorie mère (null : principale). Les enveloppes désignent leur catégorie
- * par son nom (envelope.group_name) ; une catégorie existe ici dès qu'on y range quelque chose ou
- * qu'on la crée, même vide. « Autres » n'y figure pas : c'est l'absence de catégorie.
- */
-@Entity(tableName = "category", indices = [Index(value = ["name"], unique = true)])
-data class CategoryEntity(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val name: String,
-    @ColumnInfo(name = "parent_name") val parentName: String? = null,
-    @ColumnInfo(defaultValue = "0") val position: Int = 0,
 )

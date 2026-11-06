@@ -6,7 +6,7 @@ import fr.baptiste.bank.domain.bank.envelopeNameKey
  * Catégories : le nom des anciens groupes. Une enveloppe est ce que l'on budgète et où l'on range
  * une dépense (Courses, Bar, Parking) ; sa catégorie (Nourriture, Transports) sert aux statistiques
  * et réunit plusieurs enveloppes. Une enveloppe sans catégorie choisie est dans « Autres ».
- * Stockage : la colonne group_name, inchangée ; NULL vaut « Autres ».
+ * Stockage : le parent de l'enveloppe dans l'arbre (voir EnvelopeTree) ; aucun parent vaut « Autres ».
  */
 
 const val DEFAULT_CATEGORY = "Autres"

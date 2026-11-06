@@ -107,6 +107,10 @@ data class Envelope(
     val repeats: Boolean = true,
     /** Retirée ce jour : elle n'a plus de période ensuite, mais reste dans les mois qu'elle a couverts. */
     val retiredOn: LocalDate? = null,
+    /** Enveloppe qui la contient (voir EnvelopeTree) ; null : en haut de l'arbre. */
+    val parentId: Long? = null,
+    /** Rang parmi les enveloppes du même parent. */
+    val position: Int = 0,
     /**
      * Périodes enregistrées, de la plus ancienne à la plus récente : le passé figé. Une période
      * commencée garde ses bornes et son montant même si l'enveloppe change ensuite.

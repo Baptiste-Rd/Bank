@@ -21,9 +21,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         BalanceEntity::class,
         TransferRuleEntity::class,
         JournalEntity::class,
-        CategoryEntity::class,
     ],
-    version = 17,
+    version = 18,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -45,7 +44,7 @@ abstract class BankDatabase : RoomDatabase() {
         /** [name] permet au mode démo d'utiliser une base séparée, sans toucher aux vraies données. */
         fun create(context: Context, name: String = "bank.db"): BankDatabase =
             Room.databaseBuilder(context, BankDatabase::class.java, name)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18)
                 .build()
     }
 }
@@ -239,5 +238,39 @@ val MIGRATION_15_16 = object : Migration(15, 16) {
 val MIGRATION_16_17 = object : Migration(16, 17) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE envelope ADD COLUMN catch_up_from TEXT")
+    }
+}
+
+/**
+ * L'arbre des enveloppes : chaque catégorie devient un groupe (une ligne de envelope sans montant),
+ * les parents passent du nom à l'identifiant. « Autres » disparaît : ses enveloppes sont en haut.
+ * Les noms qui ne diffèrent que par la casse ne font qu'un groupe, comme ils ne faisaient qu'une
+ * catégorie à l'écran. group_name reste vide : le retirer obligerait à reconstruire la table.
+ */
+val MIGRATION_17_18 = object : Migration(17, 18) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE envelope ADD COLUMN parent_id INTEGER")
+        db.execSQL("ALTER TABLE envelope ADD COLUMN position INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE envelope ADD COLUMN is_group INTEGER NOT NULL DEFAULT 0")
+        db.execSQL(
+            "INSERT OR IGNORE INTO category (name) SELECT DISTINCT TRIM(group_name) FROM envelope " +
+                "WHERE group_name IS NOT NULL AND TRIM(group_name) <> ''",
+        )
+        db.execSQL(
+            "INSERT INTO envelope (name, type, scale, amount_cents, status, priority, carry_over, archived, every, repeats, position, is_group) " +
+                "SELECT TRIM(name), 'DAILY', 'MONTH', 0, 'FLEXIBLE', 0, 0, 0, 1, 1, MIN(position), 1 FROM category " +
+                "WHERE TRIM(name) <> '' AND LOWER(TRIM(name)) <> 'autres' GROUP BY TRIM(name) COLLATE NOCASE",
+        )
+        db.execSQL(
+            "UPDATE envelope SET parent_id = (SELECT g.id FROM envelope g WHERE g.is_group = 1 AND g.name = " +
+                "(SELECT TRIM(c.parent_name) FROM category c WHERE TRIM(c.name) = envelope.name COLLATE NOCASE AND c.parent_name IS NOT NULL LIMIT 1) " +
+                "COLLATE NOCASE LIMIT 1) WHERE is_group = 1",
+        )
+        db.execSQL(
+            "UPDATE envelope SET parent_id = (SELECT g.id FROM envelope g WHERE g.is_group = 1 " +
+                "AND g.name = TRIM(envelope.group_name) COLLATE NOCASE LIMIT 1), group_name = NULL " +
+                "WHERE is_group = 0 AND group_name IS NOT NULL",
+        )
+        db.execSQL("DROP TABLE category")
     }
 }

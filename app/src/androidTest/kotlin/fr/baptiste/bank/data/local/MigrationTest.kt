@@ -259,6 +259,56 @@ class MigrationTest {
         database.close()
     }
 
+    @Test
+    fun migrate17To18TurnsCategoriesIntoGroupsAndKeepsEveryEnvelope() {
+        val insert = "INSERT INTO envelope (id, name, type, scale, amount_cents, status, priority, carry_over, archived, every, repeats, group_name) VALUES "
+        createDatabase(version = 17) { db ->
+            db.execSQL("INSERT INTO category (name, parent_name, position) VALUES ('Nourriture', NULL, 2), ('Courses', 'Nourriture', 0), ('Vide', NULL, 1)")
+            db.execSQL(insert + "(1, 'Supermarché', 'DAILY', 'MONTH', 40000, 'FLEXIBLE', 0, 0, 0, 1, 1, 'Courses')")
+            // Casse et espaces différents : la même catégorie, comme à l'écran.
+            db.execSQL(insert + "(2, 'Bar', 'DAILY', 'MONTH', 6000, 'FLEXIBLE', 0, 0, 0, 1, 1, ' nourriture ')")
+            db.execSQL(insert + "(3, 'Divers', 'DAILY', 'MONTH', 5000, 'FLEXIBLE', 0, 0, 0, 1, 1, 'Autres')")
+            db.execSQL(insert + "(4, 'Sans', 'FIXED', 'MONTH', 1000, 'PROTECTED', 0, 0, 0, 1, 1, NULL)")
+            // Arrêtée, et un nom jamais enregistré comme catégorie.
+            db.execSQL(insert + "(5, 'Ancienne', 'ANNUAL', 'YEAR', 120000, 'FLEXIBLE', 0, 0, 1, 1, 1, 'Voyages')")
+        }
+        val database = open()
+        val db = database.openHelper.writableDatabase
+        fun parentName(id: Long): String? = db.query(
+            "SELECT p.name FROM envelope e LEFT JOIN envelope p ON p.id = e.parent_id WHERE e.id = $id",
+        ).use { cursor -> cursor.moveToFirst(); cursor.getString(0) }
+        assertEquals("Courses", parentName(1))
+        assertEquals("Nourriture", parentName(2))
+        assertEquals(null, parentName(3))
+        assertEquals(null, parentName(4))
+        assertEquals("Voyages", parentName(5))
+        // Les enveloppes gardent leur montant ; les groupes n'en ont pas et ne sortent pas des requêtes de calcul.
+        db.query("SELECT COUNT(*), SUM(amount_cents) FROM envelope WHERE is_group = 0").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(5, cursor.getInt(0))
+            assertEquals(172000L, cursor.getLong(1))
+        }
+        db.query("SELECT name, SUM(amount_cents) FROM envelope WHERE is_group = 1 GROUP BY name ORDER BY name").use { cursor ->
+            assertEquals(4, cursor.count)
+            cursor.moveToFirst()
+            assertEquals("Courses", cursor.getString(0))
+            assertEquals(0L, cursor.getLong(1))
+        }
+        db.query("SELECT p.name FROM envelope g INNER JOIN envelope p ON p.id = g.parent_id WHERE g.name = 'Courses' AND g.is_group = 1").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals("Nourriture", cursor.getString(0))
+        }
+        db.query("SELECT position FROM envelope WHERE name = 'Vide'").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(1, cursor.getInt(0))
+        }
+        db.query("SELECT COUNT(*) FROM envelope WHERE group_name IS NOT NULL").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(0, cursor.getInt(0))
+        }
+        database.close()
+    }
+
     /** Recrée une base de [version] à partir de son schéma exporté, puis y écrit [fill]. */
     private fun createDatabase(version: Int, fill: (SQLiteDatabase) -> Unit) {
         val assets = InstrumentationRegistry.getInstrumentation().context.assets
@@ -284,7 +334,7 @@ class MigrationTest {
     }
 
     private fun open(): BankDatabase = Room.databaseBuilder(context, BankDatabase::class.java, DB)
-        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
+        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18)
         .build()
 
     private companion object {

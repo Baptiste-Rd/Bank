@@ -154,7 +154,7 @@ data class SortedBankRow(
 
 @Dao
 interface EnvelopeDao {
-    @Query("SELECT * FROM envelope WHERE archived = 0 ORDER BY type, priority, name")
+    @Query("SELECT * FROM envelope WHERE archived = 0 AND is_group = 0 ORDER BY type, priority, name")
     fun observeActive(): Flow<List<EnvelopeEntity>>
 
     @Upsert
@@ -163,7 +163,7 @@ interface EnvelopeDao {
     @Query("UPDATE envelope SET archived = 1, retired_on = :on WHERE id = :id")
     suspend fun archive(id: Long, on: LocalDate)
 
-    @Query("SELECT * FROM envelope WHERE archived = 1 ORDER BY name")
+    @Query("SELECT * FROM envelope WHERE archived = 1 AND is_group = 0 ORDER BY name")
     fun observeArchived(): Flow<List<EnvelopeEntity>>
 
     @Query("UPDATE envelope SET archived = 0, retired_on = NULL WHERE id = :id")
@@ -178,19 +178,21 @@ interface EnvelopeDao {
     @Query("SELECT id FROM envelope")
     suspend fun allIds(): List<Long>
 
-    @Query("SELECT * FROM envelope WHERE group_name = :category COLLATE NOCASE")
-    suspend fun inCategory(category: String): List<EnvelopeEntity>
+    /** Les enveloppes rangées directement dans [parentId] (pas les groupes). */
+    @Query("SELECT * FROM envelope WHERE parent_id = :parentId AND is_group = 0")
+    suspend fun inGroup(parentId: Long): List<EnvelopeEntity>
 
-    @Query("UPDATE envelope SET group_name = :category WHERE id = :id")
-    suspend fun setCategory(id: Long, category: String?)
+    @Query("UPDATE envelope SET parent_id = :parentId WHERE id = :id")
+    suspend fun setParent(id: Long, parentId: Long?)
 
-    @Query("UPDATE envelope SET group_name = :newName WHERE group_name = :oldName COLLATE NOCASE")
-    suspend fun renameCategory(oldName: String, newName: String?)
+    /** Tout ce que contient [from], enveloppes et groupes, passe dans [to]. */
+    @Query("UPDATE envelope SET parent_id = :to WHERE parent_id = :from")
+    suspend fun reparentChildren(from: Long, to: Long?)
 
-    @Query("SELECT * FROM envelope WHERE archived = 0")
+    @Query("SELECT * FROM envelope WHERE archived = 0 AND is_group = 0")
     suspend fun active(): List<EnvelopeEntity>
 
-    @Query("SELECT * FROM envelope WHERE archived = 1")
+    @Query("SELECT * FROM envelope WHERE archived = 1 AND is_group = 0")
     suspend fun archived(): List<EnvelopeEntity>
 
     @Query("DELETE FROM envelope WHERE id = :id")
@@ -797,30 +799,24 @@ interface JournalDao {
     suspend fun trim()
 }
 
+/** Les groupes : les lignes de envelope marquées is_group. Les calculs ne les voient jamais. */
 @Dao
 interface CategoryDao {
-    @Query("SELECT * FROM category ORDER BY position, name")
-    fun observeAll(): Flow<List<CategoryEntity>>
+    @Query("SELECT * FROM envelope WHERE is_group = 1 ORDER BY position, name")
+    fun observeAll(): Flow<List<EnvelopeEntity>>
 
-    @Query("SELECT * FROM category ORDER BY position, name")
-    suspend fun all(): List<CategoryEntity>
+    @Query("SELECT * FROM envelope WHERE is_group = 1 ORDER BY position, name")
+    suspend fun all(): List<EnvelopeEntity>
 
-    @Query("SELECT * FROM category WHERE name = :name COLLATE NOCASE LIMIT 1")
-    suspend fun byName(name: String): CategoryEntity?
+    @Query("SELECT * FROM envelope WHERE is_group = 1 AND name = :name COLLATE NOCASE LIMIT 1")
+    suspend fun byName(name: String): EnvelopeEntity?
 
-    /** Une catégorie déjà connue (même nom) est gardée telle quelle. */
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insert(category: CategoryEntity): Long
+    @Insert
+    suspend fun insert(group: EnvelopeEntity): Long
 
-    @Query("UPDATE category SET parent_name = :parent WHERE name = :name COLLATE NOCASE")
-    suspend fun setParent(name: String, parent: String?)
+    @Query("UPDATE envelope SET name = :newName WHERE id = :id AND is_group = 1")
+    suspend fun rename(id: Long, newName: String)
 
-    @Query("UPDATE category SET name = :newName WHERE name = :oldName COLLATE NOCASE")
-    suspend fun rename(oldName: String, newName: String)
-
-    @Query("UPDATE category SET parent_name = :newName WHERE parent_name = :oldName COLLATE NOCASE")
-    suspend fun reparentChildren(oldName: String, newName: String?)
-
-    @Query("DELETE FROM category WHERE name = :name COLLATE NOCASE")
-    suspend fun delete(name: String)
+    @Query("DELETE FROM envelope WHERE id = :id AND is_group = 1")
+    suspend fun delete(id: Long)
 }

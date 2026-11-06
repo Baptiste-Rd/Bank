@@ -160,10 +160,10 @@ class JournalTest {
         val id = repository.saveEnvelope(envelope("Courses", 300))
         val periodsBefore = database.allocationDao().forEnvelope(id).map { it.periodKey to it.amountCents }
         repository.moveEnvelope(id, "Nourriture")
-        assertEquals("Nourriture", database.envelopeDao().byId(id)?.groupName)
+        assertEquals("Nourriture", categoryOf(id))
         assertTrue(database.categoryDao().byName("Nourriture") != null)
         repository.undo(lastEntry().id)
-        assertNull(database.envelopeDao().byId(id)?.groupName)
+        assertNull(categoryOf(id))
         assertNull(database.categoryDao().byName("Nourriture"))
         assertEquals(periodsBefore, database.allocationDao().forEnvelope(id).map { it.periodKey to it.amountCents })
     }
@@ -173,10 +173,10 @@ class JournalTest {
         val id = repository.saveEnvelope(envelope("Supermarché", 300))
         repository.moveEnvelope(id, "Courses")
         assertTrue(repository.moveCategory("Courses", "Nourriture"))
-        assertEquals("Nourriture", database.categoryDao().byName("Courses")?.parentName)
+        assertEquals("Nourriture", parentOf("Courses"))
         assertEquals(false, repository.moveCategory("Nourriture", "Courses"))
         repository.undo(lastEntry().id)
-        assertNull(database.categoryDao().byName("Courses")?.parentName)
+        assertNull(parentOf("Courses"))
     }
 
     @Test
@@ -184,9 +184,9 @@ class JournalTest {
         val id = repository.saveEnvelope(envelope("Supermarché", 300))
         repository.moveEnvelope(id, "Bouffe")
         assertTrue(repository.renameCategory("Bouffe", "Nourriture"))
-        assertEquals("Nourriture", database.envelopeDao().byId(id)?.groupName)
+        assertEquals("Nourriture", categoryOf(id))
         repository.undo(lastEntry().id)
-        assertEquals("Bouffe", database.envelopeDao().byId(id)?.groupName)
+        assertEquals("Bouffe", categoryOf(id))
         assertTrue(database.categoryDao().byName("Bouffe") != null)
         assertNull(database.categoryDao().byName("Nourriture"))
     }
@@ -209,7 +209,7 @@ class JournalTest {
         // La modification est bloquée par le déplacement, plus récent : « modifié depuis ».
         assertTrue(repository.journal.first().first { it.id == edit.id }.blocked)
         assertNull(repository.undo(edit.id))
-        assertEquals("Nourriture", database.envelopeDao().byId(id)?.groupName)
+        assertEquals("Nourriture", categoryOf(id))
         // Dans l'ordre inverse, les deux s'annulent.
         repository.undo(move.id)
         repository.undo(edit.id)
@@ -357,4 +357,27 @@ class JournalTest {
         assertNull(repository.undo(firstSort.id))
         assertTrue(repository.journal.first().first { it.id == firstSort.id }.blocked)
     }
+
+    @Test
+    fun anEntryFromBeforeTheTreeFindsItsCategoryByName() = runBlocking {
+        val id = repository.saveEnvelope(envelope("Courses", 300))
+        repository.moveEnvelope(id, "Nourriture")
+        val before = database.envelopeDao().byId(id)!!.copy(parentId = null, groupName = "Bouffe")
+        val entry = fr.baptiste.bank.data.local.JournalEntity(
+            at = System.currentTimeMillis() + 60_000,
+            label = "Ancien changement",
+            payload = JournalPayload(envelopesBefore = listOf(before)).encode(),
+        )
+        val entryId = database.journalDao().insert(entry)
+        repository.undo(entryId)
+        assertEquals("Bouffe", categoryOf(id))
+    }
+
+    /** Nom du groupe qui contient l'enveloppe [id]. */
+    private suspend fun categoryOf(id: Long): String? =
+        database.envelopeDao().byId(id)?.parentId?.let { database.envelopeDao().byId(it)?.name }
+
+    /** Nom de la mère de la catégorie [name]. */
+    private suspend fun parentOf(name: String): String? =
+        database.categoryDao().byName(name)?.parentId?.let { database.envelopeDao().byId(it)?.name }
 }

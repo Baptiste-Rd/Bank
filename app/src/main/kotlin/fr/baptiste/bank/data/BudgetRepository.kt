@@ -94,19 +94,42 @@ class BudgetRepository(
 
     /** Les catégories enregistrées et leur mère. */
     val categories: Flow<List<fr.baptiste.bank.domain.model.CategoryNode>> = categoryDao.observeAll().map { rows ->
-        rows.map { fr.baptiste.bank.domain.model.CategoryNode(it.name, it.parentName) }
+        val names = rows.associate { it.id to it.name }
+        rows.map { fr.baptiste.bank.domain.model.CategoryNode(it.name, it.parentId?.let(names::get)) }
     }
 
     /** La mère de chaque catégorie (voir parentsOf). */
     val categoryParents: Flow<Map<String, String>> = categories.map { fr.baptiste.bank.domain.model.parentsOf(it) }
 
+    private fun groupRow(name: String, parentId: Long? = null, id: Long = 0) = fr.baptiste.bank.data.local.EnvelopeEntity(
+        id = id,
+        name = name,
+        type = EnvelopeType.DAILY,
+        scale = fr.baptiste.bank.domain.period.Scale.MONTH,
+        amountCents = 0,
+        status = fr.baptiste.bank.domain.model.EnvelopeStatus.FLEXIBLE,
+        parentId = parentId,
+        isGroup = true,
+    )
+
     /** Crée la catégorie si elle n'existe pas encore ; vrai si elle vient d'être créée. « Autres » n'est jamais créée. */
     private suspend fun ensureCategory(name: String?): Boolean {
         val stored = name?.let { fr.baptiste.bank.domain.model.storedCategory(it) } ?: return false
         if (categoryDao.byName(stored) != null) return false
-        categoryDao.insert(fr.baptiste.bank.data.local.CategoryEntity(name = stored))
+        categoryDao.insert(groupRow(stored))
         return true
     }
+
+    /** Retire une catégorie ; ce qu'elle contenait monte d'un niveau. */
+    private suspend fun deleteCategory(name: String) {
+        val row = categoryDao.byName(name) ?: return
+        envelopeDao.reparentChildren(row.id, row.parentId)
+        categoryDao.delete(row.id)
+    }
+
+    /** Identifiant de la catégorie [name] ; null pour « Autres » ou une catégorie inconnue. */
+    private suspend fun categoryId(name: String?): Long? =
+        name?.let { fr.baptiste.bank.domain.model.storedCategory(it) }?.let { categoryDao.byName(it)?.id }
 
     /** Range une enveloppe dans [category] (créée au besoin, même encore vide) ; s'annule depuis l'historique. */
     suspend fun moveEnvelope(envelopeId: Long, category: String) = database.withTransaction {
@@ -114,7 +137,7 @@ class BudgetRepository(
         val name = before.envelopesBefore.firstOrNull()?.name ?: return@withTransaction
         val stored = fr.baptiste.bank.domain.model.storedCategory(category)
         val created = ensureCategory(category)
-        envelopeDao.setCategory(envelopeId, stored)
+        envelopeDao.setParent(envelopeId, categoryId(stored))
         record("$name rangée dans la catégorie ${stored ?: fr.baptiste.bank.domain.model.DEFAULT_CATEGORY}", before + JournalPayload(categoriesCreated = listOfNotNull(stored.takeIf { created })))
     }
 
@@ -123,16 +146,18 @@ class BudgetRepository(
      * dans elle-même, dans une de ses sous-catégories, ou pour « Autres ».
      */
     suspend fun moveCategory(name: String, parent: String?): Boolean = database.withTransaction {
-        val parents = fr.baptiste.bank.domain.model.parentsOf(categoryDao.all().map { fr.baptiste.bank.domain.model.CategoryNode(it.name, it.parentName) })
+        val rows = categoryDao.all()
+        val names = rows.associate { it.id to it.name }
+        val parents = fr.baptiste.bank.domain.model.parentsOf(rows.map { fr.baptiste.bank.domain.model.CategoryNode(it.name, it.parentId?.let(names::get)) })
         val stored = fr.baptiste.bank.domain.model.storedCategory(name) ?: return@withTransaction false
         val target = parent?.let { fr.baptiste.bank.domain.model.storedCategory(it) ?: return@withTransaction false }
         if (!fr.baptiste.bank.domain.model.canMoveCategory(stored, target, parents)) return@withTransaction false
         val before = categoryDao.byName(stored)
         val created = listOfNotNull(stored.takeIf { ensureCategory(it) }, target?.takeIf { ensureCategory(it) })
-        categoryDao.setParent(stored, target)
+        envelopeDao.setParent(categoryDao.byName(stored)!!.id, categoryId(target))
         record(
             if (target != null) "$stored rangée dans la catégorie $target" else "$stored devient une catégorie principale",
-            JournalPayload(categoriesBefore = listOfNotNull(before?.let { CategoryState(it.name, it.parentName) }), categoriesCreated = created),
+            JournalPayload(categoriesBefore = listOfNotNull(before?.let { CategoryState(it.name, it.parentId?.let(names::get), it.id) }), categoriesCreated = created),
         )
         true
     }
@@ -145,21 +170,24 @@ class BudgetRepository(
         val old = fr.baptiste.bank.domain.model.storedCategory(oldName) ?: return@withTransaction false
         val target = fr.baptiste.bank.domain.model.storedCategory(newName) ?: return@withTransaction false
         if (old.equals(target, ignoreCase = false)) return@withTransaction false
-        val affected = envelopeDao.inCategory(old).map { envelopeState(it.id) }
         val oldRow = categoryDao.byName(old)
-        val children = categoryDao.all().filter { it.parentName?.equals(old, ignoreCase = true) == true }
+        val affected = oldRow?.let { envelopeDao.inGroup(it.id) }.orEmpty().map { envelopeState(it.id) }
+        val rows = categoryDao.all()
+        val names = rows.associate { it.id to it.name }
+        val children = rows.filter { oldRow != null && it.parentId == oldRow.id }
         val existing = categoryDao.byName(target)?.takeIf { !it.name.equals(old, ignoreCase = true) }
-        envelopeDao.renameCategory(old, target)
-        categoryDao.reparentChildren(old, target)
         when {
-            existing != null -> categoryDao.delete(old)
-            oldRow != null -> categoryDao.rename(old, target)
-            else -> categoryDao.insert(fr.baptiste.bank.data.local.CategoryEntity(name = target))
+            existing != null -> if (oldRow != null) {
+                envelopeDao.reparentChildren(oldRow.id, existing.id)
+                categoryDao.delete(oldRow.id)
+            }
+            oldRow != null -> categoryDao.rename(oldRow.id, target)
+            else -> categoryDao.insert(groupRow(target))
         }
         record(
             "$old renommée $target",
             affected.fold(JournalPayload()) { all, part -> all + part } + JournalPayload(
-                categoriesBefore = listOfNotNull(oldRow?.let { CategoryState(it.name, it.parentName) }) + children.map { CategoryState(it.name, it.parentName) },
+                categoriesBefore = (listOfNotNull(oldRow) + children).map { CategoryState(it.name, it.parentId?.let(names::get), it.id) },
                 categoriesCreated = listOfNotNull(target.takeIf { existing == null }),
             ),
         )
@@ -286,14 +314,18 @@ class BudgetRepository(
         payload.rulesRemoved.filter { it.envelopeId in alive }.forEach { database.ruleDao().insert(it) }
         database.transferRuleDao().delete(payload.transferRulesCreated)
         // Catégories : celles créées par le changement partent, les autres retrouvent leur mère.
-        payload.categoriesCreated.forEach { categoryDao.delete(it) }
+        payload.categoriesCreated.forEach { deleteCategory(it) }
         payload.categoriesBefore.forEach { state ->
-            if (categoryDao.byName(state.name) == null) categoryDao.insert(fr.baptiste.bank.data.local.CategoryEntity(name = state.name, parentName = state.parent))
-            else categoryDao.setParent(state.name, state.parent)
+            if (categoryDao.byName(state.name) == null) categoryDao.insert(groupRow(state.name, id = state.id ?: 0))
         }
+        payload.categoriesBefore.forEach { state -> envelopeDao.setParent(categoryDao.byName(state.name)!!.id, categoryId(state.parent)) }
         // Une enveloppe supprimée définitivement depuis n'est pas recréée vide.
         payload.envelopesBefore.filter { it.id in alive }.forEach { before ->
-            envelopeDao.upsert(before)
+            // Une entrée d'avant la v18 désigne sa catégorie par son nom.
+            val legacy = before.groupName?.let { fr.baptiste.bank.domain.model.storedCategory(it) }
+            if (legacy != null) ensureCategory(legacy)
+            val parentId = if (before.groupName != null) categoryId(legacy) else before.parentId
+            envelopeDao.upsert(before.copy(parentId = parentId, groupName = null))
             database.allocationDao().deleteForEnvelope(before.id)
             database.allocationDao().insertAll(payload.allocationsBefore.filter { it.envelopeId == before.id })
         }
@@ -315,16 +347,16 @@ class BudgetRepository(
         entry.label
     }
 
-    val envelopes: Flow<List<Envelope>> = combine(envelopeDao.observeActive(), database.allocationDao().observeAll()) { entities, allocations ->
-        entities.withPeriods(allocations)
+    val envelopes: Flow<List<Envelope>> = combine(envelopeDao.observeActive(), database.allocationDao().observeAll(), categoryDao.observeAll()) { entities, allocations, groups ->
+        entities.withPeriods(allocations, groups)
     }
 
     /** Enveloppes actives, avec leurs périodes enregistrées (lecture ponctuelle). */
-    private suspend fun activeEnvelopes(): List<Envelope> = envelopeDao.active().withPeriods(database.allocationDao().all())
+    private suspend fun activeEnvelopes(): List<Envelope> = envelopeDao.active().withPeriods(database.allocationDao().all(), categoryDao.all())
 
     /** Toutes les enveloppes, archivées comprises, avec leurs périodes. */
     private suspend fun allEnvelopes(): List<Envelope> =
-        (envelopeDao.active() + envelopeDao.archived()).withPeriods(database.allocationDao().all())
+        (envelopeDao.active() + envelopeDao.archived()).withPeriods(database.allocationDao().all(), categoryDao.all())
 
     /** Virements reçus des quatre derniers mois et du mois en cours (salaire). */
     private fun recentInflows(today: LocalDate = LocalDate.now()): Flow<List<Inflow>> =
@@ -534,7 +566,7 @@ class BudgetRepository(
             }
         }
         ensureCategory(adjusted.group)
-        val rowId = envelopeDao.upsert(adjusted.toEntity())
+        val rowId = envelopeDao.upsert(adjusted.copy(parentId = categoryId(adjusted.group)).toEntity())
         // Upsert renvoie -1 pour une mise à jour : l'identifiant est alors celui qu'on avait.
         val id = if (envelope.id != 0L) envelope.id else rowId
         ensurePeriods(today)
@@ -642,8 +674,8 @@ class BudgetRepository(
     }
 
     /** Enveloppes archivées : elles gardent leurs dépenses et peuvent être restaurées. */
-    val archivedEnvelopes: Flow<List<Envelope>> = combine(envelopeDao.observeArchived(), database.allocationDao().observeAll()) { entities, allocations ->
-        entities.withPeriods(allocations)
+    val archivedEnvelopes: Flow<List<Envelope>> = combine(envelopeDao.observeArchived(), database.allocationDao().observeAll(), categoryDao.observeAll()) { entities, allocations, groups ->
+        entities.withPeriods(allocations, groups)
     }
 
     suspend fun restoreEnvelope(id: Long) {
@@ -1616,7 +1648,7 @@ private fun TransferEntity.toDomain() = Transfer(
     fromReserve = fromReserve,
 )
 
-private fun EnvelopeEntity.toDomain(allocations: List<AllocationEntity> = emptyList()) = Envelope(
+private fun EnvelopeEntity.toDomain(allocations: List<AllocationEntity> = emptyList(), groupNames: Map<Long, String> = emptyMap()) = Envelope(
     id = id,
     name = name,
     type = type,
@@ -1627,7 +1659,9 @@ private fun EnvelopeEntity.toDomain(allocations: List<AllocationEntity> = emptyL
     carryOver = carryOver,
     archived = archived,
     anchor = anchorDate,
-    group = groupName,
+    group = parentId?.let(groupNames::get),
+    parentId = parentId,
+    position = position,
     fundingStart = fundingStart?.let { runCatching { YearMonth.parse(it) }.getOrNull() },
     catchUpFrom = catchUpFrom?.let { runCatching { YearMonth.parse(it) }.getOrNull() },
     start = startDate,
@@ -1642,9 +1676,10 @@ private fun EnvelopeEntity.toDomain(allocations: List<AllocationEntity> = emptyL
 )
 
 /** Enveloppes avec leurs périodes enregistrées. */
-private fun List<EnvelopeEntity>.withPeriods(allocations: List<AllocationEntity>): List<Envelope> {
+private fun List<EnvelopeEntity>.withPeriods(allocations: List<AllocationEntity>, groups: List<EnvelopeEntity>): List<Envelope> {
     val byEnvelope = allocations.groupBy { it.envelopeId }
-    return map { it.toDomain(byEnvelope[it.id].orEmpty()) }
+    val groupNames = groups.associate { it.id to it.name }
+    return map { it.toDomain(byEnvelope[it.id].orEmpty(), groupNames) }
 }
 
 private fun Envelope.toEntity() = EnvelopeEntity(
@@ -1659,7 +1694,6 @@ private fun Envelope.toEntity() = EnvelopeEntity(
     archived = archived,
     every = frequency.every,
     anchorDate = anchor,
-    groupName = group?.trim()?.takeIf { it.isNotEmpty() },
     fundingStart = fundingStart?.toString(),
     catchUpFrom = catchUpFrom?.toString(),
     startDate = start,
@@ -1667,6 +1701,8 @@ private fun Envelope.toEntity() = EnvelopeEntity(
     firstReset = firstReset,
     repeats = repeats,
     retiredOn = retiredOn,
+    parentId = parentId,
+    position = position,
 )
 
 /** Ce qui est rangé dans une enveloppe : annoncé avant une suppression définitive. */
