@@ -2,6 +2,8 @@
 
 App Android de budget personnel (Kotlin, Compose, Room), interface « verre » bleu nuit.
 Référence UX : `docs/refonte-ux.md`. Toute interface s'y conforme.
+État, décisions et suite : `docs/suivi.md`, à lire en début de conversation et à mettre à jour à la
+fin de chaque lot. Tests du domaine sans Gradle : `./scripts/domain-tests.sh`.
 
 ## Déroulé d'un lot
 
