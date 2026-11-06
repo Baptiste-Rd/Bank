@@ -6,7 +6,7 @@ fin de chaque lot (et quand une décision est prise).
 
 ## Où en est l'app
 
-- `main` = build-202 (6 novembre 2026). Base de données v17 (schémas jusqu'à `17.json` dans
+- `main` = lot 8a (6 novembre 2026). Base de données v18 (schémas jusqu'à `18.json` dans
   `app/schemas/`).
 - Derniers lots livrés :
   - **7** : catégories imbriquées, actions en glissant, déplacer et renommer, Historique.
@@ -19,7 +19,11 @@ fin de chaque lot (et quand une décision est prise).
     dépliable dès qu'elle contient une enveloppe ; même arbre dans le formulaire et « Déplacer » ;
     encart du bilan du mois précédent du 1er au 7 ; rattrapage d'une provision qui garde la part
     des mois passés (`catch_up_from`).
-- Tests du domaine sans Gradle : `./scripts/domain-tests.sh` (212 au 6 novembre).
+  - **8a** : socle de l'arbre, sans changement visible. Chaque catégorie est un groupe (ligne de
+    `envelope`, `is_group = 1`), le parent passe par `parent_id` ; la table `category` a disparu,
+    `group_name` reste vide en base et garde le nom du parent dans l'Historique. `EnvelopeTree.kt`
+    (couverture, totaux de branche, déplacement) n'est pas encore branché aux calculs.
+- Tests du domaine sans Gradle : `./scripts/domain-tests.sh` (222 au 6 novembre).
 
 ## Lot 8 : décisions prises (prototype testé par l'utilisateur)
 
@@ -46,14 +50,28 @@ Prototype cliquable : https://claude.ai/artifact/PWNak2444qfV42vg1jPmXA (source 
 - L'utilisateur a d'abord créé une enveloppe « au quotidien » de 8 000 € par an pour épargner : le
   choix « C'est pour » doit rendre l'épargne évidente.
 
-Questions encore ouvertes pour le lot 8 :
-1. Garder la barre des mois dans Budget (proposition : non, la structure ne change pas d'un mois à
-   l'autre ; l'historique d'une enveloppe est dans sa fiche).
-2. Nom de l'onglet Budget (« Budget » ou « Enveloppes »).
-3. Ce qui reste des familles dans Budget : seulement la barre du plan, ou aussi un regroupement.
+Décisions du 6 novembre, qui complètent ou remplacent celles du prototype :
 
-Prochaine étape : présenter le plan du lot 8 et son plan de contrôle (déroulé de `CLAUDE.md`),
-puis la méthode, puis le développement.
+- **Catégorie = type de dépense** : le réglage « C'est pour » (le mot remplace « famille »).
+  L'arbre, lui, se fait entre enveloppes ; on peut ranger Nourriture dans Transport.
+- **Une enveloppe avec son propre montant peut en contenir d'autres.** Le parent couvre ses
+  enfants : budget = le plus grand du montant saisi et de la somme des enfants (A 300 € ⊃ B 200 €
+  ⊃ C 400 € : A et B valent 400 €, le plan 400 €). Le montant saisi n'est jamais réécrit, le parent
+  redescend seul. Un message d'information dit le changement et son effet sur le « par jour ». Les
+  rythmes différents se comparent au mois. Déposer : milieu de ligne = dedans, bords = avant, après.
+- **Budget** : l'onglet garde ce nom, plus de barre des mois (bilan, Année et compte courant vont
+  dans Résumé ; un budget passé se corrige depuis la fiche), pas de dépense, seulement le montant
+  du budget. La barre du plan reste, les catégories sont rappelées sur chaque ligne.
+- **Dépenses** : un seul arbre avec le filtre `Tout | Mensuel | Ponctuel | Épargne` (Mensuel réunit
+  le quotidien et les charges). Une branche affiche le dépensé du mois, recalculé à chaque niveau ;
+  reste et barre seulement sur les enveloppes.
+- **Épargne** : Précaution devient une enveloppe d'épargne, Total disparaît. Un écran unique
+  répartit les livrets entre les objectifs (placements exclus). Les achats prévus restent des
+  enveloppes « Rare ou ponctuel ».
+
+Prochaine étape : lot 8b (brancher `EnvelopeTree` aux calculs, Budget et Dépenses, appui long),
+puis 8c (objectifs d'épargne, `goal_cents`, `goal_by`, table `savings_placement`), puis 8d (doc UX,
+analyse, démo, Claude, skill).
 
 ## Restes connus
 
