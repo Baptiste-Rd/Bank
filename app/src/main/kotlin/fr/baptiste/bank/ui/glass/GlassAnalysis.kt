@@ -355,7 +355,6 @@ private fun LazyListScope.monthAnalysis(
     val monthSpent = reported.associate { it.envelope.id to it.spent }
     // Une dépense comptée doit se retrouver dans l'arbre, même si l'enveloppe n'est pas au tableau du mois.
     val others = reported.filter { it.spent != Money.ZERO }.map { it.envelope }
-    sectionHeader("analysis-tree-label", "Enveloppes")
     if (board != null) {
         item(key = "analysis-tree") { SpendingTree(board.envelopes, others, monthSpent, groups, reveal) { envelope -> onOpen(reported.firstOrNull { it.envelope.id == envelope.id } ?: EnvelopeSpent(envelope, Money.ZERO, Money.ZERO)) } }
     }

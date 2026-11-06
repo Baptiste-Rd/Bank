@@ -59,6 +59,8 @@ fun EnvelopeRow(
     onClick: (() -> Unit)? = null,
     onCover: (() -> Unit)? = null,
     accent: Color? = null,
+    /** Faux dans un arbre : le point est posé par la ligne, à sa place dans la hiérarchie. */
+    showDot: Boolean = true,
 ) {
     val status = BankTheme.status
     val overspent = line.remaining.isNegative
@@ -108,7 +110,7 @@ fun EnvelopeRow(
             .padding(vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        if (accent != null) CategoryAvatar(line.envelope.name, accent)
+        if (accent != null && showDot) CategoryAvatar(line.envelope.name, accent)
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -154,7 +156,8 @@ fun EnvelopeRow(
                         modifier = Modifier.weight(1f),
                     )
                 }
-                Text(display.caption, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                // Un dépassement se lit dans la puce : pas de « reste » sous un montant négatif.
+                if (!overspent) Text(display.caption, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

@@ -114,9 +114,8 @@ shot_budget() {
   sleep 1
   adb exec-out screencap -p > "$OUT/$name.png"
 }
-shot_budget glass-budget-mois-precedent --es tab BUDGET --ei monthsBack 1
 shot_budget glass-epargne-mois-precedent --es tab SAVINGS --ei monthsBack 1
-shot_budget glass-mois-non-renseigne --es tab BUDGET --ei monthsBack 7
+shot_budget glass-mois-non-renseigne --es tab OPERATIONS --ei monthsBack 7
 # Tri : fiche d'enveloppe avec ses dépenses, opérations (proposition, alias, outils), déclasser,
 # règles, nom en double, menu développeur du verre.
 shot_budget glass-fiche-enveloppe --es tab BUDGET --es dialog ENVELOPE
@@ -168,13 +167,13 @@ adb exec-out screencap -p > "$OUT/glass-epargne-comptes-suite.png"
 adb shell input swipe 540 1900 540 800 900
 sleep 2
 adb exec-out screencap -p > "$OUT/glass-budget-annee-suite.png"
-# Lot 7 : glisser une ligne de catégorie, le panneau « Déplacer », une sous-catégorie dépliée.
-# Coordonnées pour un Pixel 7 (1080 x 2400) : première ligne de catégorie vers y = 1290.
+# Lot 8 : glisser une ligne de Budget, le panneau « Déplacer ». Pixel 7 (1080 x 2400) : Nourriture vers y = 1236.
 shot_budget glass-categories --es tab OPERATIONS
-adb shell input swipe 900 1290 250 1290 300
+shot_budget glass-budget-arbre --es tab BUDGET
+adb shell input swipe 900 1236 250 1236 300
 sleep 2
 adb exec-out screencap -p > "$OUT/glass-glisser.png"
-adb shell input tap 886 1290
+adb shell input tap 886 1236
 sleep 3
 adb exec-out screencap -p > "$OUT/glass-deplacer.png"
 shot_budget glass-sous-categorie --es tab OPERATIONS --es expand Bars
@@ -186,3 +185,15 @@ shot_budget glass-texte-200-resume --es tab HOME
 shot_budget glass-texte-200-depenses --es tab OPERATIONS
 shot_budget glass-texte-200-epargne --es tab SAVINGS
 adb shell settings put system font_scale 1.0
+# Lot 8 : rester appuyé sur Courses, la poser dans Transports (en dernier : le déplacement change la démo).
+shot_budget glass-budget-appui --es tab BUDGET
+adb shell input motionevent DOWN 500 1365
+sleep 1
+adb shell input motionevent MOVE 500 1500
+adb shell input motionevent MOVE 500 1700
+adb shell input motionevent MOVE 500 1824
+sleep 1
+adb exec-out screencap -p > "$OUT/glass-soulever.png"
+adb shell input motionevent UP 500 1824
+sleep 2
+adb exec-out screencap -p > "$OUT/glass-poser.png"

@@ -81,6 +81,8 @@ enum class Tab(val title: String, @DrawableRes val icon: Int) {
 
 /** Les fenêtres ouvertes sont décrites par un état unique : une seule s'affiche à la fois. */
 sealed interface OpenDialog {
+    /** Une fenêtre sur une enveloppe connue par son nom (captures de la démo) : ouverte une fois chargée. */
+    data class NamedEnvelope(val name: String, val open: (Long) -> OpenDialog) : OpenDialog
     data object Expense : OpenDialog
     data object Income : OpenDialog
     data object Updates : OpenDialog
@@ -199,6 +201,10 @@ fun AppDialogs(
 
     when (val current = controller.dialog) {
         null -> Unit
+        is OpenDialog.NamedEnvelope -> {
+            val id = envelopes.firstOrNull { it.name == current.name }?.id
+            if (id != null) LaunchedEffect(current) { controller.dialog = current.open(id) }
+        }
         OpenDialog.Expense -> ExpenseSheet(
             envelopes = envelopes,
             onDismiss = ::close,

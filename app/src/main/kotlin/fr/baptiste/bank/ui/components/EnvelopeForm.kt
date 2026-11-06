@@ -69,7 +69,7 @@ import java.util.Locale
  * Le reste (départ, rythme d'une charge, protection) est rangé dans « Plus d'options ».
  */
 
-private const val NEW_CATEGORY = "Nouvelle catégorie…"
+private const val NEW_CATEGORY = "Nouveau groupe…"
 private val day = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.FRANCE)
 private fun LocalDate.text(): String = format(day)
 
@@ -389,7 +389,7 @@ fun EnvelopeDialog(
                 val depthOf = remember(treeRows) { treeRows.associate { (name, depth) -> fr.baptiste.bank.domain.bank.envelopeNameKey(name) to depth } }
                 val categoryOptions = remember(treeRows) { treeRows.map { it.first } + fr.baptiste.bank.domain.model.DEFAULT_CATEGORY + NEW_CATEGORY }
                 ChoiceField(
-                    label = "Catégorie",
+                    label = "Ranger dans",
                     selected = if (newCategory != null) NEW_CATEGORY else category,
                     options = categoryOptions,
                     // Une sous-catégorie est décalée sous sa mère, comme dans « Déplacer ».

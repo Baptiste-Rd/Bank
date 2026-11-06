@@ -82,7 +82,7 @@ fun MoveSheet(
         }
         LazyColumn(Modifier.navigationBarsPadding().imePadding().padding(bottom = 16.dp)) {
             if (isCategory) {
-                item(key = "root") { DestinationRow("Aucune (catégorie principale)", null, 0, current == null) { onPick(null) } }
+                item(key = "root") { DestinationRow("Aucune (en haut)", null, 0, current == null) { onPick(null) } }
             }
             items(rows, key = { it.first }) { (name, depth) ->
                 DestinationRow(name, categoryColor(name), depth, current?.let(::envelopeNameKey) == envelopeNameKey(name)) { onPick(name) }
@@ -97,7 +97,7 @@ fun MoveSheet(
                     OutlinedTextField(
                         value = newName,
                         onValueChange = { newName = it },
-                        label = { Text("Nouvelle catégorie") },
+                        label = { Text("Nouveau groupe") },
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                     )

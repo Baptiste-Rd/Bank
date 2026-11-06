@@ -56,15 +56,15 @@ class MainActivity : ComponentActivity() {
                 plannedPurchase("Vélo", Money.euros(600), YearMonth.now().plusMonths(5), LocalDate.now()),
             )
             // Fiche de la première enveloppe de la démo (Courses), avec ses dépenses.
-            "ENVELOPE" -> OpenDialog.EnvelopeDetail(1)
+            "ENVELOPE" -> OpenDialog.NamedEnvelope("Courses") { OpenDialog.EnvelopeDetail(it) }
             // Fiche d'une provision annuelle de la démo (Vacances), avec sa proposition de rattrapage.
-            "PROVISION" -> OpenDialog.EnvelopeDetail(9)
+            "PROVISION" -> OpenDialog.NamedEnvelope("Vacances") { OpenDialog.EnvelopeDetail(it) }
             // Simulateur, avec le projet de l'exemple : 2 000 € en 3 mois.
             "PLAN" -> OpenDialog.TryPlan("Voyage", Money.euros(2000))
             // Mettre de côté sur l'épargne de la démo : la réserve est proposée en premier.
-            "RESERVE" -> OpenDialog.Move(10, incoming = true)
+            "RESERVE" -> OpenDialog.NamedEnvelope("Épargne") { OpenDialog.Move(it, incoming = true) }
             // « Ajouter de l'argent » sur Sorties, en dépassement dans la démo : la source se choisit.
-            "COVER" -> OpenDialog.Cover(4)
+            "COVER" -> OpenDialog.NamedEnvelope("Sorties") { OpenDialog.Cover(it) }
             "UNSORT" -> OpenDialog.Unsort
             "DATES" -> OpenDialog.DateCheck
             // Contrôle avec Claude : accueil, puis un plan d'exemple à valider.

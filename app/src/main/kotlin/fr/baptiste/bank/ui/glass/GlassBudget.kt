@@ -269,7 +269,7 @@ private fun LazyListScope.monthContent(
         item(key = "account") { CurrentAccountCard(currentAccount, onSetBalance) }
     }
 
-    sectionHeader("tree-label", "Enveloppes", trailing = "Prévu chaque mois")
+    sectionHeader("tree-label", "Enveloppes")
     item(key = "tree") {
         GlassCard(contentPadding = 16.dp, verticalPadding = 4.dp) {
             BudgetTree(

@@ -69,7 +69,7 @@ import fr.baptiste.bank.ui.components.SwipeRow
 import fr.baptiste.bank.ui.envelopes.EnvelopeRow
 import fr.baptiste.bank.ui.envelopes.family
 import fr.baptiste.bank.ui.format.summary
-import fr.baptiste.bank.ui.format.unitName
+import fr.baptiste.bank.ui.format.label
 import fr.baptiste.bank.ui.theme.categoryColor
 
 /*
@@ -89,13 +89,6 @@ private fun zoneAt(bounds: Rect, y: Float): DropZone {
         position > 0.75f -> DropZone.AFTER
         else -> DropZone.INTO
     }
-}
-
-/** Le montant d'une enveloppe, comme on l'a réglé : « 1 800 € par an », « 30 € tous les 3 mois ». */
-private fun rhythmOf(envelope: Envelope): String {
-    val frequency = envelope.frequency
-    val unit = frequency.scale.unitName(frequency.every)
-    return if (frequency.every == 1) "par $unit" else "tous les ${frequency.every} $unit"
 }
 
 @Composable
@@ -188,8 +181,9 @@ internal fun BudgetTree(
     }
 
     Column(Modifier.fillMaxWidth()) {
-        rows.forEach { row ->
+        rows.forEachIndexed { index, row ->
             key(row.id) {
+                if (index > 0) RowDivider(0.dp)
                 val lifted = dragged == row.id
                 val hovered = target?.takeIf { it.id == row.id }?.zone
                 val accent = MaterialTheme.colorScheme.primary
@@ -308,10 +302,13 @@ private fun BudgetTreeRow(row: BudgetRow, open: Boolean, onToggle: () -> Unit, o
                 overflow = TextOverflow.Ellipsis,
             )
             if (envelope != null) {
+                // Le rythme d'un budget qui n'est pas mensuel, sinon son but.
                 Text(
-                    envelope.type.family.label,
+                    if (envelope.frequency == Frequency.MONTHLY) envelope.type.family.label else envelope.frequency.label,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
@@ -320,7 +317,7 @@ private fun BudgetTreeRow(row: BudgetRow, open: Boolean, onToggle: () -> Unit, o
         Column(horizontalAlignment = Alignment.End) {
             Text(if (monthly) row.covered.summary() else envelope!!.amount.summary(), style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.End)
             Text(
-                if (monthly) "par mois" else "${rhythmOf(envelope!!)} · ${row.covered.summary()}/mois",
+                if (monthly) "par mois" else "${row.covered.summary()}/mois",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -367,8 +364,11 @@ internal fun SpendingTree(
                     val toggle = { closed = if (row.id in closed) closed - row.id else closed + row.id }
                     val line = row.line
                     if (line != null && !row.hasChildren && line.envelope.type != EnvelopeType.SAVINGS) {
-                        Box(Modifier.padding(start = 16.dp * row.depth)) {
-                            EnvelopeRow(line, onClick = { onOpen(line.envelope) }, accent = categoryColor(row.rootName))
+                        // Le même retrait que Budget : le chevron vide, puis le point au niveau des frères.
+                        Row(Modifier.padding(start = 16.dp * row.depth)) {
+                            Spacer(Modifier.width(32.dp))
+                            Box(Modifier.padding(top = 18.dp)) { Dot(row.rootName) }
+                            EnvelopeRow(line, Modifier.weight(1f), onClick = { onOpen(line.envelope) }, accent = categoryColor(row.rootName), showDot = false)
                         }
                     } else {
                         SpendingBranchRow(
@@ -413,6 +413,5 @@ private fun SpendingBranchRow(row: SpendingRow, open: Boolean, savings: Boolean,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Spacer(Modifier.width(4.dp))
     }
 }
