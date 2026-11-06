@@ -81,23 +81,20 @@ fun MoveSheet(
             Spacer(Modifier.width(72.dp))
         }
         LazyColumn(Modifier.navigationBarsPadding().imePadding().padding(bottom = 16.dp)) {
-            if (isCategory) {
-                item(key = "root") { DestinationRow("Aucune (en haut)", null, 0, current == null) { onPick(null) } }
+            // « En haut » pour tous : une enveloppe y part par « Autres », qui n'est plus un groupe.
+            item(key = "root") {
+                val top = current == null || envelopeNameKey(current) == envelopeNameKey(DEFAULT_CATEGORY)
+                DestinationRow("En haut", null, 0, top) { onPick(if (isCategory) null else DEFAULT_CATEGORY) }
             }
             items(rows, key = { it.first }) { (name, depth) ->
                 DestinationRow(name, categoryColor(name), depth, current?.let(::envelopeNameKey) == envelopeNameKey(name)) { onPick(name) }
-            }
-            if (!isCategory) {
-                item(key = "others") {
-                    DestinationRow(DEFAULT_CATEGORY, categoryColor(DEFAULT_CATEGORY), 0, envelopeNameKey(current.orEmpty()) == envelopeNameKey(DEFAULT_CATEGORY)) { onPick(DEFAULT_CATEGORY) }
-                }
             }
             item(key = "new") {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = newName,
                         onValueChange = { newName = it },
-                        label = { Text("Nouveau groupe") },
+                        label = { Text("Nouvelle enveloppe") },
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                     )

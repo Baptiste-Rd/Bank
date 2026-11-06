@@ -69,7 +69,7 @@ import java.util.Locale
  * Le reste (départ, rythme d'une charge, protection) est rangé dans « Plus d'options ».
  */
 
-private const val NEW_CATEGORY = "Nouveau groupe…"
+private const val NEW_CATEGORY = "Nouvelle enveloppe…"
 private val day = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.FRANCE)
 private fun LocalDate.text(): String = format(day)
 

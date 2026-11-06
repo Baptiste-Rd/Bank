@@ -71,12 +71,23 @@ import fr.baptiste.bank.ui.envelopes.EnvelopeRow
 import fr.baptiste.bank.ui.envelopes.family
 import fr.baptiste.bank.ui.format.summary
 import fr.baptiste.bank.ui.format.label
+import fr.baptiste.bank.ui.format.unitName
 import fr.baptiste.bank.ui.theme.categoryColor
 
 /*
  * L'arbre des enveloppes : le même dans les deux onglets. Budget montre ce qui est prévu et se
  * réorganise (rester appuyé, glisser, poser) ; Dépenses montre le dépensé du mois de chaque branche.
  */
+
+/** La ligne soulevée : le bleu opaque des cartes fortes, pour rester lisible au-dessus des autres. */
+private val LiftedRowColor = androidx.compose.ui.graphics.Color(0xFF12265A)
+
+/** Le rythme, court : « par an », « 6 sem. », « 3 mois ». */
+private fun Frequency.shortLabel(): String = when {
+    every == 1 -> label
+    scale == fr.baptiste.bank.domain.period.Scale.WEEK -> "$every sem."
+    else -> "$every ${scale.unitName(every)}"
+}
 
 private enum class DropZone { BEFORE, INTO, AFTER }
 
@@ -239,7 +250,7 @@ internal fun BudgetTree(
                                 shadowElevation = 16.dp.toPx()
                             }
                         }
-                        .then(if (lifted) Modifier.background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp)) else Modifier)
+                        .then(if (lifted) Modifier.background(LiftedRowColor, RoundedCornerShape(12.dp)) else Modifier)
                         .drawBehind {
                             val stroke = 2.dp.toPx()
                             when (hovered) {
@@ -304,9 +315,9 @@ private fun BudgetTreeRow(row: BudgetRow, open: Boolean, onToggle: () -> Unit, o
                 overflow = TextOverflow.Ellipsis,
             )
             if (envelope != null) {
-                // Le rythme d'un budget qui n'est pas mensuel, sinon son but.
+                // Son but, puis son rythme s'il n'est pas mensuel.
                 Text(
-                    if (envelope.frequency == Frequency.MONTHLY) envelope.type.family.label else envelope.frequency.label,
+                    envelope.type.family.label + if (envelope.frequency == Frequency.MONTHLY) "" else " · ${envelope.frequency.shortLabel()}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,

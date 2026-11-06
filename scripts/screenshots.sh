@@ -195,5 +195,9 @@ adb shell input motionevent MOVE 500 1824
 sleep 1
 adb exec-out screencap -p > "$OUT/glass-soulever.png"
 adb shell input motionevent UP 500 1824
-sleep 2
+sleep 1
 adb exec-out screencap -p > "$OUT/glass-poser.png"
+sleep 2
+adb exec-out screencap -p > "$OUT/glass-poser-suite.png"
+sleep 2
+adb exec-out screencap -p > "$OUT/glass-poser-message.png"
