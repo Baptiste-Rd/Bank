@@ -64,8 +64,7 @@ fun GlassPastMonthContent(
         }
         item(key = "details") {
             GlassCard(contentPadding = 16.dp, verticalPadding = 4.dp) {
-                DetailRow("Enveloppes du mois") { onOpenTab(Tab.BUDGET) }
-                DetailRow("Dépenses par catégorie") { onOpenTab(Tab.OPERATIONS) }
+                DetailRow("Dépenses du mois") { onOpenTab(Tab.OPERATIONS) }
             }
         }
     }

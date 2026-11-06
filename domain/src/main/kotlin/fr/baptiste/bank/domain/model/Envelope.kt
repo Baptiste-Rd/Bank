@@ -190,6 +190,8 @@ data class BudgetPeriod(
     val start: LocalDate,
     val endInclusive: LocalDate,
     val amount: Money,
+    /** Ce que ses enfants couvrent sur cette période : le plan ne réserve que le reste de [amount]. */
+    val covered: Money = Money.ZERO,
 ) {
     /** La période, avec sa clé d'origine (mois, année, glissante, ou bornes fixes). */
     fun toPeriod(scale: Scale): Period =

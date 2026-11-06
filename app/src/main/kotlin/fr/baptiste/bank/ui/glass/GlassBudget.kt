@@ -172,6 +172,7 @@ fun GlassBudgetContent(
                         onRenameGroup = onRenameGroup,
                         onMoveGroup = onMoveGroup,
                         onDrop = onDrop,
+                        trackingStart = trackingStart,
                     )
                     item(key = "new-envelope") {
                         Box(Modifier.fillMaxWidth().padding(top = 4.dp), Alignment.Center) {
@@ -222,6 +223,7 @@ private fun LazyListScope.monthContent(
     onRenameGroup: (String) -> Unit,
     onMoveGroup: (String) -> Unit,
     onDrop: (Long, fr.baptiste.bank.domain.model.TreeDrop) -> Unit,
+    trackingStart: YearMonth?,
 ) {
     item(key = "plan") {
         GlassCard(contentPadding = 16.dp) {
@@ -271,8 +273,9 @@ private fun LazyListScope.monthContent(
     item(key = "tree") {
         GlassCard(contentPadding = 16.dp, verticalPadding = 4.dp) {
             BudgetTree(
-                envelopes = envelopes,
+                envelopes = envelopes + archived,
                 groups = groups,
+                since = trackingStart,
                 listState = listState,
                 onEdit = onEdit,
                 onMoveEnvelope = onMoveEnvelope,

@@ -561,7 +561,8 @@ fun AppDialogs(
                     } else {
                         null
                     },
-                    onEdit = { controller.dialog = OpenDialog.EnvelopeEditor(line.envelope) },
+                    // Le formulaire part du montant saisi, pas de la part propre vue par les calculs.
+                    onEdit = { controller.dialog = OpenDialog.EnvelopeEditor(viewModel.envelopes.value.firstOrNull { it.id == line.envelope.id } ?: line.envelope) },
                     onCatchUp = { from ->
                         viewModel.startFunding(line.envelope.id, from)
                         val share = line.catchUp?.monthlyShare?.summary()

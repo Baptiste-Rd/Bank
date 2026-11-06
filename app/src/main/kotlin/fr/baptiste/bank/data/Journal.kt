@@ -274,6 +274,7 @@ private fun AllocationEntity.toJson() = JSONObject()
     .put("envelopeId", envelopeId)
     .put("periodKey", periodKey)
     .put("amountCents", amountCents)
+    .put("coveredCents", coveredCents)
     .putNullable("startDate", startDate?.toString())
     .putNullable("endDate", endDate?.toString())
 
@@ -281,6 +282,7 @@ private fun JSONObject.toAllocation() = AllocationEntity(
     envelopeId = getLong("envelopeId"),
     periodKey = getString("periodKey"),
     amountCents = getLong("amountCents"),
+    coveredCents = optLong("coveredCents"),
     startDate = dateOrNull("startDate"),
     endDate = dateOrNull("endDate"),
 )

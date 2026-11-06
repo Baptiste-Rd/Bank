@@ -116,36 +116,45 @@ class BudgetRepository(
     }
 
     /**
-     * Aligne la période en cours sur l'arbre : un parent garde sa part propre, et une enveloppe de
-     * [released] qui ne contient plus rien retrouve son montant. Le passé reste figé.
+     * Le seul point qui recalcule la couverture : après toute écriture sur l'arbre, la période en
+     * cours de chaque enveloppe retient ce que ses enfants couvrent. Le passé reste figé.
      */
-    private suspend fun syncCoverage(released: Collection<Long> = emptyList(), today: LocalDate = LocalDate.now()) {
-        val active = activeEnvelopes()
-        val own = fr.baptiste.bank.domain.budget.ownAmounts(active, groupNodes())
-        active.filter { it.id in own || it.id in released }.forEach { envelope ->
-            val target = own[envelope.id] ?: envelope.amount
-            envelope.currentPeriodWithAmount(today, target)?.let { database.allocationDao().setAmount(envelope.id, it.key, it.amount.cents) }
+    private suspend fun syncCoverage(today: LocalDate = LocalDate.now()) {
+        val all = allEnvelopes()
+        val children = fr.baptiste.bank.domain.budget.childrenAmounts(all, groupNodes(), YearMonth.from(today), trackingStart(today).first())
+        all.filter { !it.archived }.forEach { envelope ->
+            val period = envelope.periods.firstOrNull { today in it.start..it.endInclusive } ?: return@forEach
+            val target = children[envelope.id] ?: Money.ZERO
+            if (period.covered != target) database.allocationDao().setCovered(envelope.id, period.key, target.cents)
         }
     }
 
     /**
-     * Déplace une enveloppe ou un groupe dans l'arbre. Renvoie ce que cela change, null si c'est
-     * impossible (dans elle-même, dans ce qu'elle contient). S'annule depuis l'Historique.
+     * Déplace une enveloppe ou un groupe dans l'arbre. Renvoie ce que cela change (un libellé vide si
+     * rien ne bouge), null si c'est impossible : dans elle-même, dans ce qu'elle contient.
      */
-    suspend fun moveInTree(id: Long, drop: fr.baptiste.bank.domain.model.TreeDrop): fr.baptiste.bank.domain.budget.TreeMoveResult? = database.withTransaction {
-        val active = activeEnvelopes()
+    suspend fun moveInTree(id: Long, drop: fr.baptiste.bank.domain.model.TreeDrop): fr.baptiste.bank.domain.budget.TreeMoveResult? {
+        val before = dashboard().first().dailyAllowance.allowance
+        val result = placeInTree(id, drop) ?: return null
+        val after = dashboard().first().dailyAllowance.allowance
+        return result.copy(perDayDelta = after - before)
+    }
+
+    private suspend fun placeInTree(id: Long, drop: fr.baptiste.bank.domain.model.TreeDrop) = database.withTransaction {
+        val today = LocalDate.now()
+        val month = YearMonth.from(today)
+        val since = trackingStart(today).first()
+        val all = allEnvelopes()
         val groups = groupNodes()
-        val before = fr.baptiste.bank.domain.budget.treeOf(active, groups)
+        val before = fr.baptiste.bank.domain.budget.treeOf(all, groups, month, since)
         val changes = before.move(id, drop) ?: return@withTransaction null
-        val leaving = ancestorIds(id)
-        val moved = changes.first { it.id == id }
-        val arriving = moved.parentId?.let { listOf(it) + ancestorIds(it) }.orEmpty()
-        val touched = (changes.map { it.id } + leaving + arriving).distinct()
-        val state = touched.map { envelopeState(it) }.fold(JournalPayload()) { all, part -> all + part }
+        val moved = changes.firstOrNull { it.id == id } ?: return@withTransaction fr.baptiste.bank.domain.budget.TreeMoveResult("", emptyList(), Money.ZERO)
+        val touched = (changes.map { it.id } + ancestorIds(id) + moved.parentId?.let { listOf(it) + ancestorIds(it) }.orEmpty()).distinct()
+        val state = touched.map { envelopeState(it) }.fold(JournalPayload()) { sum, part -> sum + part }
         changes.forEach { envelopeDao.setPlace(it.id, it.parentId, it.position) }
-        syncCoverage(leaving)
-        val after = fr.baptiste.bank.domain.budget.treeOf(activeEnvelopes(), groupNodes())
-        val names = groups.associate { it.id to it.name } + active.associate { it.id to it.name }
+        syncCoverage(today)
+        val after = fr.baptiste.bank.domain.budget.treeOf(allEnvelopes(), groupNodes(), month, since)
+        val names = groups.associate { it.id to it.name } + all.associate { it.id to it.name }
         val name = names[id].orEmpty()
         val label = moved.parentId?.let { "$name rangée dans ${names[it].orEmpty()}" } ?: "$name rangée en haut"
         record(label, state)
@@ -188,6 +197,7 @@ class BudgetRepository(
         val stored = fr.baptiste.bank.domain.model.storedCategory(category)
         val created = ensureCategory(category)
         envelopeDao.setParent(envelopeId, categoryId(stored))
+        syncCoverage()
         record("$name rangée dans la catégorie ${stored ?: fr.baptiste.bank.domain.model.DEFAULT_CATEGORY}", before + JournalPayload(categoriesCreated = listOfNotNull(stored.takeIf { created })))
     }
 
@@ -205,6 +215,7 @@ class BudgetRepository(
         val before = categoryDao.byName(stored)
         val created = listOfNotNull(stored.takeIf { ensureCategory(it) }, target?.takeIf { ensureCategory(it) })
         envelopeDao.setParent(categoryDao.byName(stored)!!.id, categoryId(target))
+        syncCoverage()
         record(
             if (target != null) "$stored rangée dans la catégorie $target" else "$stored devient une catégorie principale",
             JournalPayload(categoriesBefore = listOfNotNull(before?.let { CategoryState(it.name, it.parentId?.let(names::get), it.id, it.position) }), categoriesCreated = created),
@@ -411,7 +422,7 @@ class BudgetRepository(
             state.imputations.filter { it.envelopeId in existing }.forEach { imputationDao.insert(it.copy(id = 0)) }
         }
         payload.envelopesCreated.forEach { deleteEnvelope(it) }
-        syncCoverage(payload.envelopesBefore.map { it.id })
+        syncCoverage()
         // Après les enveloppes : une catégorie créée par ce changement part si elle est redevenue vide.
         val restored = payload.categoriesBefore.map { it.name.lowercase() }.toSet()
         val created = payload.categoriesCreated.filter { it.lowercase() !in restored }
@@ -430,8 +441,8 @@ class BudgetRepository(
 
     /** Actives et arrêtées, telles que les calculs les voient : un parent réduit à sa part propre. */
     private val budgetEnvelopes: Flow<List<Envelope>> by lazy {
-        combine(envelopes, archivedEnvelopes, treeGroups) { active, archived, groups ->
-            withOwn(active + archived, groups)
+        combine(envelopes, archivedEnvelopes, treeGroups, trackingStart()) { active, archived, groups, start ->
+            withOwn(active + archived, groups, start)
         }
     }
 
@@ -481,7 +492,7 @@ class BudgetRepository(
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun budgetData(dates: List<LocalDate>): Flow<fr.baptiste.bank.domain.budget.BudgetData> {
         val allocations = database.allocationDao().observeAll()
-            .map { rows -> rows.associate { (it.envelopeId to it.periodKey) to Money(it.amountCents) } }
+            .map { rows -> rows.associate { (it.envelopeId to it.periodKey) to Money((it.amountCents - it.coveredCents).coerceAtLeast(0)) } }
         // Les enveloppes retirées comptent dans les mois qu'elles ont couverts ; le calcul choisit
         // lesquelles figurent à chaque date.
         val known = budgetEnvelopes.map { all -> all.filter { !it.archived || it.retiredOn != null } }
@@ -656,7 +667,7 @@ class BudgetRepository(
         // Upsert renvoie -1 pour une mise à jour : l'identifiant est alors celui qu'on avait.
         val id = if (envelope.id != 0L) envelope.id else rowId
         ensurePeriods(today)
-        syncCoverage(ancestorIds(id), today)
+        syncCoverage(today)
         return id
     }
 
@@ -669,7 +680,9 @@ class BudgetRepository(
         val spent = imputationDao.spentByPeriod()
             .groupBy { it.envelopeId }
             .mapValues { (_, rows) -> rows.associate { it.periodKey to Money(it.amountCents) } }
-        val rows = withOwn(allEnvelopes(), groupNodes())
+        val all = allEnvelopes()
+        val children = fr.baptiste.bank.domain.budget.childrenAmounts(all, groupNodes(), YearMonth.from(today), YearMonth.from(from))
+        val rows = all
             .filter { !it.archived || it.retiredOn != null }
             .flatMap { envelope ->
                 envelope.missingPeriods(from, today, spent[envelope.id].orEmpty()).map {
@@ -679,6 +692,7 @@ class BudgetRepository(
                         amountCents = it.amount.cents,
                         startDate = it.start,
                         endDate = it.endInclusive,
+                        coveredCents = children[envelope.id]?.cents ?: 0,
                     )
                 }
             }
@@ -709,7 +723,10 @@ class BudgetRepository(
         imputationDao.deleteForEnvelope(id)
         database.ruleDao().deleteForEnvelope(id)
         transferDao.deleteForEnvelope(id)
+        // Ce qu'elle contenait monte d'un niveau.
+        envelopeDao.reparentChildren(id, envelopeDao.byId(id)?.parentId)
         envelopeDao.delete(id)
+        syncCoverage()
     }
 
     /** Une période enregistrée d'une enveloppe et ce qui y a été dépensé (historique de sa fiche). */
@@ -757,7 +774,7 @@ class BudgetRepository(
         ensurePeriods()
         val before = envelopeState(id)
         envelopeDao.archive(id, LocalDate.now())
-        syncCoverage(ancestorIds(id))
+        syncCoverage()
         record("${before.envelopesBefore.firstOrNull()?.name.orEmpty()} arrêtée", before)
     }
 
@@ -770,7 +787,7 @@ class BudgetRepository(
         val before = envelopeState(id)
         envelopeDao.restore(id)
         ensurePeriods()
-        syncCoverage(ancestorIds(id))
+        syncCoverage()
         record("${before.envelopesBefore.firstOrNull()?.name.orEmpty()} de nouveau active", before)
     }
 
@@ -1741,8 +1758,8 @@ private fun TransferEntity.toDomain() = Transfer(
 private fun EnvelopeEntity.toGroupNode() = fr.baptiste.bank.domain.budget.GroupNode(id, name, parentId, position)
 
 /** Voir withOwnAmounts. */
-private fun withOwn(envelopes: List<Envelope>, groups: List<fr.baptiste.bank.domain.budget.GroupNode>): List<Envelope> =
-    envelopes.withOwnAmounts(groups)
+private fun withOwn(envelopes: List<Envelope>, groups: List<fr.baptiste.bank.domain.budget.GroupNode>, since: YearMonth): List<Envelope> =
+    envelopes.withOwnAmounts(groups, YearMonth.now(), since)
 
 private fun EnvelopeEntity.toDomain(allocations: List<AllocationEntity> = emptyList(), groupNames: Map<Long, String> = emptyMap()) = Envelope(
     id = id,
@@ -1767,7 +1784,7 @@ private fun EnvelopeEntity.toDomain(allocations: List<AllocationEntity> = emptyL
     retiredOn = retiredOn,
     periods = allocations
         .filter { it.envelopeId == id && it.startDate != null && it.endDate != null }
-        .map { BudgetPeriod(it.periodKey, it.startDate!!, it.endDate!!, Money(it.amountCents)) }
+        .map { BudgetPeriod(it.periodKey, it.startDate!!, it.endDate!!, Money(it.amountCents), Money(it.coveredCents)) }
         .sortedBy { it.start },
 )
 

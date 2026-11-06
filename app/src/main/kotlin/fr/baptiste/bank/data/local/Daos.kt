@@ -220,6 +220,9 @@ interface AllocationDao {
     @Query("UPDATE allocation SET amount_cents = :amountCents WHERE envelope_id = :envelopeId AND period_key = :periodKey")
     suspend fun setAmount(envelopeId: Long, periodKey: String, amountCents: Long)
 
+    @Query("UPDATE allocation SET covered_cents = :coveredCents WHERE envelope_id = :envelopeId AND period_key = :periodKey")
+    suspend fun setCovered(envelopeId: Long, periodKey: String, coveredCents: Long)
+
     @Query("UPDATE allocation SET end_date = :end WHERE envelope_id = :envelopeId AND period_key = :periodKey")
     suspend fun setEnd(envelopeId: Long, periodKey: String, end: LocalDate)
 

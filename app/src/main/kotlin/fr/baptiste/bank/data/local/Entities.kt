@@ -142,6 +142,8 @@ data class AllocationEntity(
     /** Bornes de la période, figées quand elle commence (NULL : allocation d'avant la version 13). */
     @ColumnInfo(name = "start_date") val startDate: LocalDate? = null,
     @ColumnInfo(name = "end_date") val endDate: LocalDate? = null,
+    /** Ce que les enfants couvrent sur cette période (voir childrenAmounts) ; figé avec elle. */
+    @ColumnInfo(name = "covered_cents", defaultValue = "0") val coveredCents: Long = 0,
 )
 
 @Entity(

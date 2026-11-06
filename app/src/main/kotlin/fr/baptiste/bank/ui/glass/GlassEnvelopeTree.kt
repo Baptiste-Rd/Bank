@@ -132,8 +132,10 @@ private fun Dot(rootName: String) {
  */
 @Composable
 internal fun BudgetTree(
+    /** Actives et arrêtées, montants saisis : une enveloppe arrêtée ce mois-ci compte encore. */
     envelopes: List<Envelope>,
     groups: List<GroupNode>,
+    since: java.time.YearMonth?,
     listState: LazyListState,
     onEdit: (Envelope) -> Unit,
     onMoveEnvelope: (Envelope) -> Unit,
@@ -142,8 +144,9 @@ internal fun BudgetTree(
     onDrop: (Long, TreeDrop) -> Unit,
 ) {
     var closed by rememberSaveable { mutableStateOf(listOf<Long>()) }
-    val rows = remember(envelopes, groups, closed) {
-        budgetRows(envelopes, groups, (envelopes.map { it.id } + groups.map { it.id }).toSet() - closed.toSet())
+    val month = java.time.YearMonth.now()
+    val rows = remember(envelopes, groups, closed, month, since) {
+        budgetRows(envelopes, groups, month, since, (envelopes.map { it.id } + groups.map { it.id }).toSet() - closed.toSet())
     }
     // Le geste dure plus longtemps que la composition qui l'a lancé : il lit toujours les dernières valeurs.
     val currentRows by rememberUpdatedState(rows)
@@ -195,24 +198,6 @@ internal fun BudgetTree(
                         .fillMaxWidth()
                         .zIndex(if (lifted) 1f else 0f)
                         .onGloballyPositioned { bounds[row.id] = it.boundsInRoot() }
-                        .graphicsLayer {
-                            if (lifted) {
-                                translationY = finger + scrolled
-                                scaleX = 1.03f
-                                scaleY = 1.03f
-                                alpha = 0.92f
-                                shadowElevation = 16.dp.toPx()
-                            }
-                        }
-                        .drawBehind {
-                            val stroke = 2.dp.toPx()
-                            when (hovered) {
-                                DropZone.BEFORE -> drawLine(accent, Offset(0f, 0f), Offset(size.width, 0f), stroke)
-                                DropZone.AFTER -> drawLine(accent, Offset(0f, size.height), Offset(size.width, size.height), stroke)
-                                DropZone.INTO -> drawRect(accent.copy(alpha = 0.14f))
-                                null -> Unit
-                            }
-                        }
                         .pointerInput(row.id) {
                             detectDragGesturesAfterLongPress(
                                 onDragStart = { offset ->
@@ -250,6 +235,24 @@ internal fun BudgetTree(
                                 },
                             )
                         },
+                        .graphicsLayer {
+                            if (lifted) {
+                                translationY = finger + scrolled
+                                scaleX = 1.03f
+                                scaleY = 1.03f
+                                alpha = 0.92f
+                                shadowElevation = 16.dp.toPx()
+                            }
+                        }
+                        .drawBehind {
+                            val stroke = 2.dp.toPx()
+                            when (hovered) {
+                                DropZone.BEFORE -> drawLine(accent, Offset(0f, 0f), Offset(size.width, 0f), stroke)
+                                DropZone.AFTER -> drawLine(accent, Offset(0f, size.height), Offset(size.width, size.height), stroke)
+                                DropZone.INTO -> drawRect(accent.copy(alpha = 0.14f))
+                                null -> Unit
+                            }
+                        }
                 ) {
                     val envelope = row.envelope
                     SwipeRow(
@@ -332,15 +335,17 @@ private fun BudgetTreeRow(row: BudgetRow, open: Boolean, onToggle: () -> Unit, o
 @Composable
 internal fun SpendingTree(
     lines: List<EnvelopeLine>,
+    others: List<Envelope>,
     monthSpent: Map<Long, Money>,
     groups: List<GroupNode>,
-    onOpen: (EnvelopeLine) -> Unit,
+    onOpen: (Envelope) -> Unit,
 ) {
     var filterIndex by rememberSaveable { mutableStateOf(0) }
     var closed by rememberSaveable { mutableStateOf(listOf<Long>()) }
     val filter = SpendFilter.entries[filterIndex]
-    val rows = remember(lines, monthSpent, groups, filter, closed) {
-        spendingRows(lines, monthSpent, groups, filter, (lines.map { it.envelope.id } + groups.map { it.id }).toSet() - closed.toSet())
+    val rows = remember(lines, others, monthSpent, groups, filter, closed) {
+        val ids = lines.map { it.envelope.id } + others.map { it.id } + groups.map { it.id }
+        spendingRows(lines, others, monthSpent, groups, filter, ids.toSet() - closed.toSet())
     }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SegmentedToggle(SpendFilter.entries.map { it.label }, filterIndex) { filterIndex = it }
@@ -355,14 +360,15 @@ internal fun SpendingTree(
                     val line = row.line
                     if (line != null && !row.hasChildren && line.envelope.type != EnvelopeType.SAVINGS) {
                         Box(Modifier.padding(start = 16.dp * row.depth)) {
-                            EnvelopeRow(line, onClick = { onOpen(line) }, accent = categoryColor(row.rootName))
+                            EnvelopeRow(line, onClick = { onOpen(line.envelope) }, accent = categoryColor(row.rootName))
                         }
                     } else {
                         SpendingBranchRow(
                             row = row,
                             open = row.id !in closed,
                             onToggle = toggle,
-                            onClick = if (line != null) ({ onOpen(line) }) else toggle,
+                            savings = filter == SpendFilter.SAVINGS || row.envelope?.type == EnvelopeType.SAVINGS && !row.hasChildren,
+                            onClick = row.envelope?.let { envelope -> { onOpen(envelope) } } ?: toggle,
                         )
                     }
                 }
@@ -372,7 +378,7 @@ internal fun SpendingTree(
 }
 
 @Composable
-private fun SpendingBranchRow(row: SpendingRow, open: Boolean, onToggle: () -> Unit, onClick: () -> Unit) {
+private fun SpendingBranchRow(row: SpendingRow, open: Boolean, savings: Boolean, onToggle: () -> Unit, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -389,11 +395,12 @@ private fun SpendingBranchRow(row: SpendingRow, open: Boolean, onToggle: () -> U
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        val share = row.line?.takeIf { it.envelope.type == EnvelopeType.SAVINGS }?.monthlyShare
+        // Hors du filtre Épargne, une épargne seule montre aussi sa part du mois, pas un dépensé à 0 €.
+        val amount = if (savings) row.line?.takeIf { !row.hasChildren }?.monthlyShare ?: row.spent else row.spent
         Column(horizontalAlignment = Alignment.End) {
-            Text((share ?: row.spent).summary(), style = MaterialTheme.typography.titleMedium)
+            Text(amount.summary(), style = MaterialTheme.typography.titleMedium)
             Text(
-                if (share != null) "mis de côté" else "dépensé",
+                if (savings) "mis de côté" else "dépensé",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

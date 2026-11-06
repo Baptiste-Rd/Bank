@@ -22,7 +22,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TransferRuleEntity::class,
         JournalEntity::class,
     ],
-    version = 18,
+    version = 19,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -44,7 +44,7 @@ abstract class BankDatabase : RoomDatabase() {
         /** [name] permet au mode démo d'utiliser une base séparée, sans toucher aux vraies données. */
         fun create(context: Context, name: String = "bank.db"): BankDatabase =
             Room.databaseBuilder(context, BankDatabase::class.java, name)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19)
                 .build()
     }
 }
@@ -281,5 +281,12 @@ val MIGRATION_17_18 = object : Migration(17, 18) {
                 ") SELECT start FROM walk WHERE start = current)",
         )
         db.execSQL("DROP TABLE category")
+    }
+}
+
+/** La couverture des enfants, à part du montant de la période : rien de ce qui est saisi n'est réécrit. */
+val MIGRATION_18_19 = object : Migration(18, 19) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE allocation ADD COLUMN covered_cents INTEGER NOT NULL DEFAULT 0")
     }
 }

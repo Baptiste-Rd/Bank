@@ -140,7 +140,7 @@ fun GlassMainScreen(
     }
     val rowActions = CategoryRowActions(
         onMoveEnvelope = moveEnvelope,
-        onEditEnvelope = { controller.dialog = OpenDialog.EnvelopeEditor(it) },
+        onEditEnvelope = { edited -> controller.dialog = OpenDialog.EnvelopeEditor(envelopes.firstOrNull { it.id == edited.id } ?: edited) },
         onMoveCategory = { name -> moveSubject = fr.baptiste.bank.ui.components.MoveSubject.CategorySubject(name, fr.baptiste.bank.domain.model.ancestorsOf(name, categoryParents).firstOrNull()) },
         onRenameCategory = { renaming = it },
     )
@@ -214,8 +214,8 @@ fun GlassMainScreen(
         // Avec le menu développeur ouvert, l'app occupe le haut de l'écran et suit les réglages en direct.
         Box(Modifier.fillMaxWidth().weight(1f)) {
             // Couche enregistrée pour les éléments flottants : le fond liquide et le contenu.
-            // Glisser horizontalement change de mois (Résumé, Budget, Dépenses).
-            val swipeMonths = controller.tab != Tab.SAVINGS
+            // Glisser horizontalement change de mois (Résumé, Dépenses).
+            val swipeMonths = controller.tab != Tab.SAVINGS && controller.tab != Tab.BUDGET
             Box(
                 Modifier
                     .fillMaxSize()
@@ -246,7 +246,7 @@ fun GlassMainScreen(
                             dashboard = monthDashboard,
                             transfers = monthTransfers,
                             trackingStart = trackingStart,
-                            onEdit = { controller.dialog = OpenDialog.EnvelopeEditor(it) },
+                            onEdit = { edited -> controller.dialog = OpenDialog.EnvelopeEditor(envelopes.firstOrNull { it.id == edited.id } ?: edited) },
                             onOpenTab = { controller.tab = it },
                         )
                     } else {
@@ -304,7 +304,7 @@ fun GlassMainScreen(
                             onEditIncome = { controller.dialog = OpenDialog.Income },
                             onOpen = openEnvelope,
                             onCover = cover,
-                            onEdit = { controller.dialog = OpenDialog.EnvelopeEditor(it) },
+                            onEdit = { edited -> controller.dialog = OpenDialog.EnvelopeEditor(envelopes.firstOrNull { it.id == edited.id } ?: edited) },
                             onRestore = {
                                 viewModel.restoreEnvelope(it.id)
                                 controller.notify("${it.name} est de nouveau active.")
@@ -329,12 +329,10 @@ fun GlassMainScreen(
                                 viewModel.moveInTree(id, drop) { result ->
                                     if (result == null) {
                                         controller.notify("Impossible : une enveloppe ne va pas dans ce qu'elle contient.")
-                                    } else {
-                                        val change = result.changes.lastOrNull()
-                                        val daysLeft = java.time.LocalDate.now().let { it.lengthOfMonth() - it.dayOfMonth + 1 }
-                                        val perDay = fr.baptiste.bank.domain.money.Money(-result.planDelta.cents / daysLeft)
-                                        val detail = change?.let { " · ${it.name} passe de ${it.before.summary()} à ${it.after.summary()}" }.orEmpty() +
-                                            if (result.planDelta != fr.baptiste.bank.domain.money.Money.ZERO) " · par jour ${if (perDay.isNegative) "" else "+"}${perDay.summary()}" else ""
+                                    } else if (result.label.isNotEmpty()) {
+                                        val moved = result.changes.joinToString("") { " · ${it.name} passe de ${it.before.summary()} à ${it.after.summary()}" }
+                                        val perDay = result.perDayDelta
+                                        val detail = moved + if (perDay != fr.baptiste.bank.domain.money.Money.ZERO) " · par jour ${if (perDay.isNegative) "" else "+"}${perDay.summary()}" else ""
                                         controller.notify(result.label + detail, "Annuler") { viewModel.undoLast() }
                                     }
                                 }

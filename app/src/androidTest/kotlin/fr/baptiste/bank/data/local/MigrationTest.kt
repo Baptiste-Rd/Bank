@@ -315,6 +315,20 @@ class MigrationTest {
         database.close()
     }
 
+    @Test
+    fun migrate18To19KeepsPeriodAmountsWithNothingCovered() {
+        createDatabase(version = 18) { db ->
+            db.execSQL("INSERT INTO allocation (envelope_id, period_key, amount_cents) VALUES (1, '2026-11', 30000)")
+        }
+        val database = open()
+        database.openHelper.writableDatabase.query("SELECT amount_cents, covered_cents FROM allocation").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(30000L, cursor.getLong(0))
+            assertEquals(0L, cursor.getLong(1))
+        }
+        database.close()
+    }
+
     /** Recrée une base de [version] à partir de son schéma exporté, puis y écrit [fill]. */
     private fun createDatabase(version: Int, fill: (SQLiteDatabase) -> Unit) {
         val assets = InstrumentationRegistry.getInstrumentation().context.assets
@@ -340,7 +354,7 @@ class MigrationTest {
     }
 
     private fun open(): BankDatabase = Room.databaseBuilder(context, BankDatabase::class.java, DB)
-        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18)
+        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19)
         .build()
 
     private companion object {
