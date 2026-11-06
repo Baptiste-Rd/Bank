@@ -272,6 +272,14 @@ val MIGRATION_17_18 = object : Migration(17, 18) {
                 "AND g.name = TRIM(envelope.group_name) COLLATE NOCASE LIMIT 1), group_name = NULL " +
                 "WHERE is_group = 0 AND group_name IS NOT NULL",
         )
+        // Une ancienne fusion a pu laisser une catégorie dans sa propre descendance : elle revient en haut.
+        db.execSQL(
+            "UPDATE envelope SET parent_id = NULL WHERE is_group = 1 AND id IN (" +
+                "WITH RECURSIVE walk(start, current) AS (" +
+                "SELECT id, parent_id FROM envelope WHERE is_group = 1 AND parent_id IS NOT NULL " +
+                "UNION SELECT w.start, e.parent_id FROM walk w INNER JOIN envelope e ON e.id = w.current WHERE e.parent_id IS NOT NULL" +
+                ") SELECT start FROM walk WHERE start = current)",
+        )
         db.execSQL("DROP TABLE category")
     }
 }

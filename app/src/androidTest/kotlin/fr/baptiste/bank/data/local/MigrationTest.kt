@@ -264,6 +264,8 @@ class MigrationTest {
         val insert = "INSERT INTO envelope (id, name, type, scale, amount_cents, status, priority, carry_over, archived, every, repeats, group_name) VALUES "
         createDatabase(version = 17) { db ->
             db.execSQL("INSERT INTO category (name, parent_name, position) VALUES ('Nourriture', NULL, 2), ('Courses', 'Nourriture', 0), ('Vide', NULL, 1)")
+            // Laissées par une ancienne fusion : sa propre mère, et une boucle à deux.
+            db.execSQL("INSERT INTO category (name, parent_name) VALUES ('Moi', 'moi'), ('Ping', 'Pong'), ('Pong', 'Ping')")
             db.execSQL(insert + "(1, 'Supermarché', 'DAILY', 'MONTH', 40000, 'FLEXIBLE', 0, 0, 0, 1, 1, 'Courses')")
             // Casse et espaces différents : la même catégorie, comme à l'écran.
             db.execSQL(insert + "(2, 'Bar', 'DAILY', 'MONTH', 6000, 'FLEXIBLE', 0, 0, 0, 1, 1, ' nourriture ')")
@@ -289,7 +291,7 @@ class MigrationTest {
             assertEquals(172000L, cursor.getLong(1))
         }
         db.query("SELECT name, SUM(amount_cents) FROM envelope WHERE is_group = 1 GROUP BY name ORDER BY name").use { cursor ->
-            assertEquals(4, cursor.count)
+            assertEquals(7, cursor.count)
             cursor.moveToFirst()
             assertEquals("Courses", cursor.getString(0))
             assertEquals(0L, cursor.getLong(1))
@@ -301,6 +303,10 @@ class MigrationTest {
         db.query("SELECT position FROM envelope WHERE name = 'Vide'").use { cursor ->
             cursor.moveToFirst()
             assertEquals(1, cursor.getInt(0))
+        }
+        db.query("SELECT COUNT(*) FROM envelope WHERE name IN ('Moi', 'Ping', 'Pong') AND parent_id IS NOT NULL").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(0, cursor.getInt(0))
         }
         db.query("SELECT COUNT(*) FROM envelope WHERE group_name IS NOT NULL").use { cursor ->
             cursor.moveToFirst()

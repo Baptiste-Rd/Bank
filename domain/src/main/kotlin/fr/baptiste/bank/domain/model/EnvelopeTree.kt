@@ -39,9 +39,20 @@ sealed interface TreeDrop {
 class EnvelopeTree(nodes: Collection<TreeNode>) {
     private val byId = nodes.associateBy { it.id }
     private val byParent = nodes
-        // Un parent inconnu (arrêté, supprimé) : l'enveloppe remonte en haut de l'arbre.
-        .groupBy { node -> node.parentId?.takeIf { it in byId } }
+        .groupBy(::safeParent)
         .mapValues { (_, list) -> list.sortedWith(compareBy({ it.position }, { it.id })) }
+
+    /** Son parent ; null s'il est inconnu (arrêté, supprimé) ou si l'enveloppe est dans une boucle : elle reste comptée, en haut. */
+    private fun safeParent(node: TreeNode): Long? {
+        val parentId = node.parentId?.takeIf { it in byId } ?: return null
+        val seen = mutableSetOf<Long>()
+        var current: Long? = parentId
+        while (current != null && seen.add(current)) {
+            if (current == node.id) return null
+            current = byId[current]?.parentId
+        }
+        return parentId
+    }
 
     /** Les enfants directs de [parentId], dans leur ordre ; null : le haut de l'arbre. */
     fun children(parentId: Long?): List<TreeNode> = byParent[parentId].orEmpty()
@@ -63,14 +74,9 @@ class EnvelopeTree(nodes: Collection<TreeNode>) {
     }
 
     /** Budget de [id] : son montant saisi, ou la somme de ses enfants si elle est plus grande. */
-    fun covered(id: Long): Money = covered(id, mutableSetOf())
-
-    private fun covered(id: Long, path: MutableSet<Long>): Money {
+    fun covered(id: Long): Money {
         val node = byId[id] ?: return Money.ZERO
-        if (!path.add(id)) return Money.ZERO
-        val fromChildren = children(id).sumOfMoney { covered(it.id, path) }
-        path.remove(id)
-        return maxOf(node.amount, fromChildren)
+        return maxOf(node.amount, children(id).sumOfMoney { covered(it.id) })
     }
 
     /** Ce que [id] ajoute au plan en plus de ses enfants. La somme sur tout l'arbre vaut le plan. */
@@ -96,8 +102,8 @@ class EnvelopeTree(nodes: Collection<TreeNode>) {
         if (drop.siblingId == id) return null
         val parentId = when (drop) {
             is TreeDrop.Into -> drop.parentId
-            is TreeDrop.Before -> (byId[drop.siblingId] ?: return null).parentId?.takeIf { it in byId }
-            is TreeDrop.After -> (byId[drop.siblingId] ?: return null).parentId?.takeIf { it in byId }
+            is TreeDrop.Before -> if (drop.siblingId !in byId) return null else byParent.entries.firstOrNull { (_, list) -> list.any { it.id == drop.siblingId } }?.key
+            is TreeDrop.After -> if (drop.siblingId !in byId) return null else byParent.entries.firstOrNull { (_, list) -> list.any { it.id == drop.siblingId } }?.key
         }
         if (!canMoveInto(id, parentId)) return null
         val siblings = children(parentId).filter { it.id != id }.toMutableList()

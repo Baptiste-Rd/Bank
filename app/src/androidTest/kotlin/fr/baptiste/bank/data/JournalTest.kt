@@ -373,6 +373,78 @@ class JournalTest {
         assertEquals("Bouffe", categoryOf(id))
     }
 
+    @Test
+    fun undoingACreatedCategoryKeepsWhatWasPutThereSince() = runBlocking {
+        val first = repository.saveEnvelope(envelope("Courses", 300))
+        val second = repository.saveEnvelope(envelope("Bar", 60))
+        repository.moveEnvelope(first, "Bouffe")
+        val created = lastEntry()
+        repository.moveEnvelope(second, "Bouffe")
+        repository.undo(created.id)
+        assertNull(categoryOf(first))
+        assertEquals("Bouffe", categoryOf(second))
+    }
+
+    @Test
+    fun undoingARenameKeepsWhatWasPutThereSince() = runBlocking {
+        val first = repository.saveEnvelope(envelope("Courses", 300))
+        val second = repository.saveEnvelope(envelope("Bar", 60))
+        repository.moveEnvelope(first, "Bouffe")
+        repository.renameCategory("Bouffe", "Repas")
+        val rename = lastEntry()
+        repository.moveEnvelope(second, "Repas")
+        repository.undo(rename.id)
+        assertEquals("Bouffe", categoryOf(first))
+        assertEquals("Bouffe", categoryOf(second))
+    }
+
+    @Test
+    fun undoingAMergeRestoresTheCategoryItsEnvelopesAndChildren() = runBlocking {
+        val inside = repository.saveEnvelope(envelope("Courses", 300))
+        val stopped = repository.saveEnvelope(envelope("Ancienne", 30))
+        repository.moveEnvelope(inside, "Bouffe")
+        repository.moveEnvelope(stopped, "Bouffe")
+        repository.moveCategory("Fruits", "Bouffe")
+        repository.moveCategory("Repas", null)
+        assertTrue(repository.renameCategory("Bouffe", "Repas"))
+        assertEquals("Repas", categoryOf(inside))
+        assertEquals("Repas", parentOf("Fruits"))
+        repository.undo(lastEntry().id)
+        assertEquals("Bouffe", categoryOf(inside))
+        assertEquals("Bouffe", categoryOf(stopped))
+        assertEquals("Bouffe", parentOf("Fruits"))
+    }
+
+    @Test
+    fun aParentThatDisappearedIsFoundAgainByName() = runBlocking {
+        val id = repository.saveEnvelope(envelope("Courses", 300))
+        repository.moveEnvelope(id, "Bouffe")
+        repository.moveEnvelope(id, "Autres")
+        val leaving = lastEntry()
+        repository.moveCategory("Repas", null)
+        assertTrue(repository.renameCategory("Bouffe", "Repas"))
+        repository.undo(leaving.id)
+        assertEquals("Bouffe", categoryOf(id))
+    }
+
+    @Test
+    fun mergingIntoItsOwnChildMakesNoLoop() = runBlocking {
+        repository.moveCategory("Fruits", "Nourriture")
+        assertTrue(repository.renameCategory("Nourriture", "Fruits"))
+        assertNull(parentOf("Fruits"))
+        repository.undo(lastEntry().id)
+        assertEquals("Nourriture", parentOf("Fruits"))
+    }
+
+    @Test
+    fun groupsStayOutOfTheEnvelopeLists() = runBlocking {
+        val id = repository.saveEnvelope(envelope("Courses", 300))
+        repository.moveEnvelope(id, "Nourriture")
+        assertEquals(listOf("Courses"), repository.envelopes.first().map { it.name })
+        assertEquals("Nourriture", repository.envelopes.first().single().group)
+        assertTrue(repository.archivedEnvelopes.first().isEmpty())
+    }
+
     /** Nom du groupe qui contient l'enveloppe [id]. */
     private suspend fun categoryOf(id: Long): String? =
         database.envelopeDao().byId(id)?.parentId?.let { database.envelopeDao().byId(it)?.name }

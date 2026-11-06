@@ -120,11 +120,10 @@ class BudgetRepository(
         return true
     }
 
-    /** Retire une catégorie ; ce qu'elle contenait monte d'un niveau. */
-    private suspend fun deleteCategory(name: String) {
+    /** Retire une catégorie restée vide : une annulation ne déplace jamais ce qui y a été rangé depuis. */
+    private suspend fun deleteCategoryIfEmpty(name: String) {
         val row = categoryDao.byName(name) ?: return
-        envelopeDao.reparentChildren(row.id, row.parentId)
-        categoryDao.delete(row.id)
+        if (envelopeDao.childCount(row.id) == 0) categoryDao.delete(row.id)
     }
 
     /** Identifiant de la catégorie [name] ; null pour « Autres » ou une catégorie inconnue. */
@@ -157,7 +156,7 @@ class BudgetRepository(
         envelopeDao.setParent(categoryDao.byName(stored)!!.id, categoryId(target))
         record(
             if (target != null) "$stored rangée dans la catégorie $target" else "$stored devient une catégorie principale",
-            JournalPayload(categoriesBefore = listOfNotNull(before?.let { CategoryState(it.name, it.parentId?.let(names::get), it.id) }), categoriesCreated = created),
+            JournalPayload(categoriesBefore = listOfNotNull(before?.let { CategoryState(it.name, it.parentId?.let(names::get), it.id, it.position) }), categoriesCreated = created),
         )
         true
     }
@@ -176,9 +175,14 @@ class BudgetRepository(
         val names = rows.associate { it.id to it.name }
         val children = rows.filter { oldRow != null && it.parentId == oldRow.id }
         val existing = categoryDao.byName(target)?.takeIf { !it.name.equals(old, ignoreCase = true) }
+        // Fusion vers une de ses propres sous-catégories : la cible remonte d'abord, sinon elle deviendrait sa propre mère.
+        val byId = rows.associateBy { it.id }
+        val targetInside = existing != null && oldRow != null &&
+            generateSequence(existing.parentId) { byId[it]?.parentId }.take(rows.size).any { it == oldRow.id }
         when {
             existing != null -> if (oldRow != null) {
-                envelopeDao.reparentChildren(oldRow.id, existing.id)
+                if (targetInside) envelopeDao.setParent(existing!!.id, oldRow.parentId)
+                envelopeDao.reparentChildren(oldRow.id, existing!!.id)
                 categoryDao.delete(oldRow.id)
             }
             oldRow != null -> categoryDao.rename(oldRow.id, target)
@@ -187,7 +191,8 @@ class BudgetRepository(
         record(
             "$old renommée $target",
             affected.fold(JournalPayload()) { all, part -> all + part } + JournalPayload(
-                categoriesBefore = (listOfNotNull(oldRow) + children).map { CategoryState(it.name, it.parentId?.let(names::get), it.id) },
+                categoriesBefore = (listOfNotNull(oldRow, existing.takeIf { targetInside }) + children).distinctBy { it.id }
+                    .map { CategoryState(it.name, it.parentId?.let(names::get), it.id, it.position) },
                 categoriesCreated = listOfNotNull(target.takeIf { existing == null }),
             ),
         )
@@ -234,7 +239,9 @@ class BudgetRepository(
 
     private suspend fun envelopeState(id: Long): JournalPayload {
         val before = envelopeDao.byId(id) ?: return JournalPayload()
-        return JournalPayload(envelopesBefore = listOf(before), allocationsBefore = database.allocationDao().forEnvelope(id).map { it.copy(id = 0) })
+        // Le nom du parent accompagne son identifiant : une annulation le retrouve s'il a disparu.
+        val parentName = before.parentId?.let { envelopeDao.byId(it)?.name }
+        return JournalPayload(envelopesBefore = listOf(before.copy(groupName = parentName)), allocationsBefore = database.allocationDao().forEnvelope(id).map { it.copy(id = 0) })
     }
 
     private suspend fun record(label: String, payload: JournalPayload) {
@@ -313,18 +320,23 @@ class BudgetRepository(
         database.ruleDao().delete(payload.rulesCreated)
         payload.rulesRemoved.filter { it.envelopeId in alive }.forEach { database.ruleDao().insert(it) }
         database.transferRuleDao().delete(payload.transferRulesCreated)
-        // Catégories : celles créées par le changement partent, les autres retrouvent leur mère.
-        payload.categoriesCreated.forEach { deleteCategory(it) }
+        // Catégories : chacune retrouve son nom et sa mère (une renommée reste la même ligne, avec ce qui y a été rangé depuis).
         payload.categoriesBefore.forEach { state ->
-            if (categoryDao.byName(state.name) == null) categoryDao.insert(groupRow(state.name, id = state.id ?: 0))
+            val sameRow = state.id?.let { envelopeDao.byId(it) }?.takeIf { it.isGroup }
+            when {
+                sameRow != null -> categoryDao.rename(sameRow.id, state.name)
+                categoryDao.byName(state.name) == null -> categoryDao.insert(groupRow(state.name, id = state.id ?: 0).copy(position = state.position))
+            }
         }
         payload.categoriesBefore.forEach { state -> envelopeDao.setParent(categoryDao.byName(state.name)!!.id, categoryId(state.parent)) }
         // Une enveloppe supprimée définitivement depuis n'est pas recréée vide.
         payload.envelopesBefore.filter { it.id in alive }.forEach { before ->
-            // Une entrée d'avant la v18 désigne sa catégorie par son nom.
-            val legacy = before.groupName?.let { fr.baptiste.bank.domain.model.storedCategory(it) }
-            if (legacy != null) ensureCategory(legacy)
-            val parentId = if (before.groupName != null) categoryId(legacy) else before.parentId
+            // Le parent par son identifiant ; s'il a disparu, ou pour une entrée d'avant la v18, par son nom.
+            val parentId = before.parentId?.takeIf { envelopeDao.byId(it) != null } ?: run {
+                val named = before.groupName?.let { fr.baptiste.bank.domain.model.storedCategory(it) }
+                if (named != null) ensureCategory(named)
+                categoryId(named)
+            }
             envelopeDao.upsert(before.copy(parentId = parentId, groupName = null))
             database.allocationDao().deleteForEnvelope(before.id)
             database.allocationDao().insertAll(payload.allocationsBefore.filter { it.envelopeId == before.id })
@@ -339,6 +351,8 @@ class BudgetRepository(
             state.imputations.filter { it.envelopeId in existing }.forEach { imputationDao.insert(it.copy(id = 0)) }
         }
         payload.envelopesCreated.forEach { deleteEnvelope(it) }
+        // Après les enveloppes : une catégorie créée par ce changement part si elle est redevenue vide.
+        (payload.categoriesCreated + payload.categoriesCreated.reversed()).forEach { deleteCategoryIfEmpty(it) }
         if (payload.datesBefore.isNotEmpty()) {
             payload.datesBefore.forEach { transactionDao.setDate(it.transactionId, it.date) }
             realignImputationPeriods()

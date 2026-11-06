@@ -95,8 +95,9 @@ data class EnvelopeEntity(
     /** Début d'une des périodes pour une fréquence glissante ; NULL pour une période calendaire. */
     @ColumnInfo(name = "anchor_date") val anchorDate: LocalDate? = null,
     /**
-     * Vide depuis la v18 (remplacée par [parentId]) : la colonne reste, sa suppression obligerait à
-     * reconstruire la table. Lue seulement dans les entrées d'Historique d'avant la v18.
+     * Vide en base depuis la v18 (remplacée par [parentId]) : la colonne reste, sa suppression
+     * obligerait à reconstruire la table. Dans l'Historique, elle garde le nom du parent : une
+     * annulation le retrouve si son identifiant a disparu.
      */
     @ColumnInfo(name = "group_name") val groupName: String? = null,
     /** Provision : mois (« 2026-10 ») à partir duquel elle met de côté ; NULL : part habituelle. */

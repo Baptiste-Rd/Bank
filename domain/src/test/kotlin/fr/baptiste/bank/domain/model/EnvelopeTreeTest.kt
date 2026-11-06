@@ -90,10 +90,10 @@ class EnvelopeTreeTest {
     }
 
     @Test
-    fun aLoopInTheDataEndsInsteadOfBlocking() {
-        val tree = EnvelopeTree(listOf(node(1, 2, 10), node(2, 1, 20)))
-        assertEquals(Money.euros(20), tree.covered(1))
-        assertEquals(1, tree.descendants(1).size)
+    fun anEnvelopeCaughtInALoopStaysCountedAtTheTop() {
+        val tree = EnvelopeTree(listOf(node(1, 2, 10), node(2, 1, 20), node(3, 3, 5), node(4, 1, 7)))
+        assertEquals(listOf(1L, 2L, 3L), tree.children(null).map { it.id })
+        assertEquals(Money.euros(35), tree.total)
     }
 
     @Test
