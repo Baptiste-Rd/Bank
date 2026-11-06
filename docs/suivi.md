@@ -6,7 +6,7 @@ fin de chaque lot (et quand une décision est prise).
 
 ## Où en est l'app
 
-- `main` = lot 8a (6 novembre 2026). Base de données v18 (schémas jusqu'à `18.json` dans
+- `main` = lot 8b (6 novembre 2026). Base de données v19 (schémas jusqu'à `19.json` dans
   `app/schemas/`).
 - Derniers lots livrés :
   - **7** : catégories imbriquées, actions en glissant, déplacer et renommer, Historique.
@@ -22,8 +22,12 @@ fin de chaque lot (et quand une décision est prise).
   - **8a** : socle de l'arbre, sans changement visible. Chaque catégorie est un groupe (ligne de
     `envelope`, `is_group = 1`), le parent passe par `parent_id` ; la table `category` a disparu,
     `group_name` reste vide en base et garde le nom du parent dans l'Historique. `EnvelopeTree.kt`
-    (couverture, totaux de branche, déplacement) n'est pas encore branché aux calculs.
-- Tests du domaine sans Gradle : `./scripts/domain-tests.sh` (222 au 6 novembre).
+    (couverture, totaux de branche, déplacement).
+  - **8b** : Budget et Dépenses sur l'arbre (`GlassEnvelopeTree.kt`, `TreeBudget.kt`), appui long,
+    filtre de Dépenses. La couverture des enfants vit dans `allocation.covered_cents` : le montant
+    saisi, le report et les corrections ne sont jamais réécrits, `syncCoverage` est le seul point
+    d'écriture, `budgetEnvelopes` donne aux calculs les parts propres.
+- Tests du domaine sans Gradle : `./scripts/domain-tests.sh` (236 au 6 novembre).
 
 ## Lot 8 : décisions prises (prototype testé par l'utilisateur)
 
@@ -69,9 +73,21 @@ Décisions du 6 novembre, qui complètent ou remplacent celles du prototype :
   répartit les livrets entre les objectifs (placements exclus). Les achats prévus restent des
   enveloppes « Rare ou ponctuel ».
 
-Prochaine étape : lot 8b (brancher `EnvelopeTree` aux calculs, Budget et Dépenses, appui long),
-puis 8c (objectifs d'épargne, `goal_cents`, `goal_by`, table `savings_placement`), puis 8d (doc UX,
-analyse, démo, Claude, skill).
+Prochaine étape : 8c (objectifs d'épargne, `goal_cents`, `goal_by`, table `savings_placement`), puis
+8d (doc UX, analyse, démo, Claude, skill). Question ouverte pour le 8c : réglage « Versé sur » sur
+une enveloppe d'épargne, pour suivre chaque versement et séparer l'épargne bloquée.
+
+À traiter au 8d, relevé par les relectures du 8b :
+
+- Export Claude : montants bruts d'un parent, à ramener aux parts propres.
+- `GlassBudget.kt` : paramètres morts (mois, année, `readOnly`).
+- `MoveSheet` ne propose que les groupes, et un enfant d'un vrai parent a la catégorie « Autres ».
+- Fiche d'un parent : Budget montre le budget couvert, la fiche la part propre ; un même mot.
+- Glissement : distinguer à l'œil « dedans » et « après », la ligne soulevée cache la cible.
+- Message après un déplacement vers le haut (« Courses sortie de Nourriture ») et fond opaque.
+- Couleurs de famille et de catégorie qui se recoupent, points gris de `glass-declasser`.
+- Report d'un parent après une période entière manquée ; dépôt à côté de l'enfant d'un parent arrêté.
+- `glass-budget-clair` et `glass-home-clair` identiques aux versions sombres.
 
 ## Restes connus
 
