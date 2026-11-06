@@ -406,10 +406,13 @@ class JournalTest {
         repository.moveEnvelope(stopped, "Bouffe")
         repository.moveCategory("Fruits", "Bouffe")
         repository.moveCategory("Repas", null)
+        repository.archiveEnvelope(stopped)
+        val idBefore = database.categoryDao().byName("Bouffe")?.id
         assertTrue(repository.renameCategory("Bouffe", "Repas"))
         assertEquals("Repas", categoryOf(inside))
         assertEquals("Repas", parentOf("Fruits"))
         repository.undo(lastEntry().id)
+        assertEquals(idBefore, database.categoryDao().byName("Bouffe")?.id)
         assertEquals("Bouffe", categoryOf(inside))
         assertEquals("Bouffe", categoryOf(stopped))
         assertEquals("Bouffe", parentOf("Fruits"))
@@ -425,6 +428,27 @@ class JournalTest {
         assertTrue(repository.renameCategory("Bouffe", "Repas"))
         repository.undo(leaving.id)
         assertEquals("Bouffe", categoryOf(id))
+    }
+
+    @Test
+    fun undoingARenameNeverLeavesTwoCategoriesWithTheSameName() = runBlocking {
+        val first = repository.saveEnvelope(envelope("Cinéma", 30))
+        repository.moveEnvelope(first, "Loisirs")
+        repository.renameCategory("Loisirs", "Sorties")
+        val rename = lastEntry()
+        val second = repository.saveEnvelope(envelope("Sport", 20).copy(group = "Loisirs"))
+        repository.undo(rename.id)
+        assertEquals(1, database.categoryDao().all().count { it.name == "Loisirs" })
+        assertEquals("Loisirs", categoryOf(first))
+        assertEquals("Loisirs", categoryOf(second))
+    }
+
+    @Test
+    fun undoingACaseChangeKeepsAnEmptyCategory() = runBlocking {
+        repository.moveCategory("bouffe", null)
+        repository.renameCategory("bouffe", "Bouffe")
+        repository.undo(lastEntry().id)
+        assertEquals("bouffe", database.categoryDao().byName("bouffe")?.name)
     }
 
     @Test

@@ -181,8 +181,8 @@ class BudgetRepository(
             generateSequence(existing.parentId) { byId[it]?.parentId }.take(rows.size).any { it == oldRow.id }
         when {
             existing != null -> if (oldRow != null) {
-                if (targetInside) envelopeDao.setParent(existing!!.id, oldRow.parentId)
-                envelopeDao.reparentChildren(oldRow.id, existing!!.id)
+                if (targetInside) envelopeDao.setParent(existing.id, oldRow.parentId)
+                envelopeDao.reparentChildren(oldRow.id, existing.id)
                 categoryDao.delete(oldRow.id)
             }
             oldRow != null -> categoryDao.rename(oldRow.id, target)
@@ -324,7 +324,16 @@ class BudgetRepository(
         payload.categoriesBefore.forEach { state ->
             val sameRow = state.id?.let { envelopeDao.byId(it) }?.takeIf { it.isGroup }
             when {
-                sameRow != null -> categoryDao.rename(sameRow.id, state.name)
+                sameRow != null -> {
+                    // Ce nom a été repris entre-temps : les deux ne font qu'une catégorie, un nom n'existe qu'une fois.
+                    val other = categoryDao.byName(state.name)?.takeIf { it.id != sameRow.id }
+                    if (other != null) {
+                        envelopeDao.reparentChildren(sameRow.id, other.id)
+                        categoryDao.delete(sameRow.id)
+                    } else {
+                        categoryDao.rename(sameRow.id, state.name)
+                    }
+                }
                 categoryDao.byName(state.name) == null -> categoryDao.insert(groupRow(state.name, id = state.id ?: 0).copy(position = state.position))
             }
         }
@@ -352,7 +361,9 @@ class BudgetRepository(
         }
         payload.envelopesCreated.forEach { deleteEnvelope(it) }
         // Après les enveloppes : une catégorie créée par ce changement part si elle est redevenue vide.
-        (payload.categoriesCreated + payload.categoriesCreated.reversed()).forEach { deleteCategoryIfEmpty(it) }
+        val restored = payload.categoriesBefore.map { it.name.lowercase() }.toSet()
+        val created = payload.categoriesCreated.filter { it.lowercase() !in restored }
+        (created + created.reversed()).forEach { deleteCategoryIfEmpty(it) }
         if (payload.datesBefore.isNotEmpty()) {
             payload.datesBefore.forEach { transactionDao.setDate(it.transactionId, it.date) }
             realignImputationPeriods()
