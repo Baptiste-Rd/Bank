@@ -253,8 +253,9 @@ val MIGRATION_17_18 = object : Migration(17, 18) {
         db.execSQL("ALTER TABLE envelope ADD COLUMN position INTEGER NOT NULL DEFAULT 0")
         db.execSQL("ALTER TABLE envelope ADD COLUMN is_group INTEGER NOT NULL DEFAULT 0")
         db.execSQL(
-            "INSERT OR IGNORE INTO category (name) SELECT DISTINCT TRIM(group_name) FROM envelope " +
-                "WHERE group_name IS NOT NULL AND TRIM(group_name) <> ''",
+            "INSERT OR IGNORE INTO category (name) SELECT DISTINCT TRIM(e.group_name) FROM envelope e " +
+                "WHERE e.group_name IS NOT NULL AND TRIM(e.group_name) <> '' AND NOT EXISTS " +
+                "(SELECT 1 FROM category c WHERE TRIM(c.name) = TRIM(e.group_name) COLLATE NOCASE)",
         )
         db.execSQL(
             "INSERT INTO envelope (name, type, scale, amount_cents, status, priority, carry_over, archived, every, repeats, position, is_group) " +

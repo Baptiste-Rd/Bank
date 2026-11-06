@@ -61,7 +61,7 @@ class MigrationTest {
         }
         val database = open()
         val db = database.openHelper.writableDatabase
-        db.query("SELECT name, amount_cents, group_name, funding_start FROM envelope WHERE id = 1").use { cursor ->
+        db.query("SELECT e.name, e.amount_cents, p.name, e.funding_start FROM envelope e LEFT JOIN envelope p ON p.id = e.parent_id WHERE e.id = 1").use { cursor ->
             cursor.moveToFirst()
             assertEquals("Vacances", cursor.getString(0))
             assertEquals(180000L, cursor.getLong(1))
@@ -227,13 +227,13 @@ class MigrationTest {
         }
         val database = open()
         val db = database.openHelper.writableDatabase
-        db.query("SELECT name, parent_name FROM category ORDER BY name").use { cursor ->
+        // Depuis la v18, chaque catégorie est un groupe de l'arbre.
+        db.query("SELECT name FROM envelope WHERE is_group = 1").use { cursor ->
             assertEquals(1, cursor.count)
             cursor.moveToFirst()
             assertEquals("Nourriture", cursor.getString(0))
-            assertEquals(true, cursor.isNull(1))
         }
-        db.query("SELECT group_name FROM envelope WHERE id = 2").use { cursor ->
+        db.query("SELECT p.name FROM envelope e INNER JOIN envelope p ON p.id = e.parent_id WHERE e.id = 2").use { cursor ->
             cursor.moveToFirst()
             assertEquals("Nourriture", cursor.getString(0))
         }
