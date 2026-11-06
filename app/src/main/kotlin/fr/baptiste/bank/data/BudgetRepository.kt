@@ -161,7 +161,8 @@ class BudgetRepository(
         val name = names[id].orEmpty()
         val label = parentId?.let { "$name rangée dans ${names[it].orEmpty()}" } ?: "$name rangée en haut"
         record(label, state)
-        fr.baptiste.bank.domain.budget.coverageChanges(label, before, after, names)
+        // Le message parle des enveloppes qui couvrent : le total d'un groupe suit de lui-même.
+        fr.baptiste.bank.domain.budget.coverageChanges(label, before, after, all.associate { it.id to it.name })
     }
 
     private fun groupRow(name: String, parentId: Long? = null, id: Long = 0) = fr.baptiste.bank.data.local.EnvelopeEntity(

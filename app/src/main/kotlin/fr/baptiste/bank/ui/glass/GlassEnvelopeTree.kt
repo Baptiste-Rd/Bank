@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -238,6 +239,7 @@ internal fun BudgetTree(
                                 shadowElevation = 16.dp.toPx()
                             }
                         }
+                        .then(if (lifted) Modifier.background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp)) else Modifier)
                         .drawBehind {
                             val stroke = 2.dp.toPx()
                             when (hovered) {
