@@ -234,7 +234,7 @@ internal fun BudgetTree(
                                     target = null
                                 },
                             )
-                        },
+                        }
                         .graphicsLayer {
                             if (lifted) {
                                 translationY = finger + scrolled
@@ -252,7 +252,7 @@ internal fun BudgetTree(
                                 DropZone.INTO -> drawRect(accent.copy(alpha = 0.14f))
                                 null -> Unit
                             }
-                        }
+                        },
                 ) {
                     val envelope = row.envelope
                     SwipeRow(
