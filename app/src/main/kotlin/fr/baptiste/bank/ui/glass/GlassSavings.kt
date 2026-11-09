@@ -30,7 +30,6 @@ import fr.baptiste.bank.domain.budget.HoldingLine
 import fr.baptiste.bank.domain.budget.Holdings
 import fr.baptiste.bank.ui.accounts.detail
 import fr.baptiste.bank.ui.accounts.isStale
-import fr.baptiste.bank.domain.budget.progress
 import fr.baptiste.bank.domain.model.AccountType
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.clickable

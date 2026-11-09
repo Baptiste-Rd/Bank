@@ -6,7 +6,7 @@ fin de chaque lot (et quand une décision est prise).
 
 ## Où en est l'app
 
-- `main` = lot 8d (9 novembre 2026). Base de données v20 (schémas jusqu'à `20.json` dans
+- `main` = lot 8e (9 novembre 2026). Base de données v20 (schémas jusqu'à `20.json` dans
   `app/schemas/`).
 - Derniers lots livrés :
   - **7** : catégories imbriquées, actions en glissant, déplacer et renommer, Historique.
@@ -36,7 +36,15 @@ fin de chaque lot (et quand une décision est prise).
     sauf prise sur le mois (`fundingStart`), hors du rapport du mois, de l'arbre et du disponible ;
     prise sur un objectif : mouvement négatif dans la même entrée. « Terminer » (`finishLump`) range
     le reste ou couvre le dépassement ; type et montant figés après la création.
-- Tests du domaine sans Gradle : `./scripts/domain-tests.sh` (251 au 9 novembre).
+  - **8e** : supprimer une catégorie (son contenu remonte, annulable) ; « Déplacer » sur l'arbre de
+    Budget, même chemin que le glissement (`dropInTree`) ; catégorie d'un enfant d'une vraie
+    enveloppe héritée du premier groupe au-dessus ; fiche d'un parent avec son budget couvert ;
+    report d'un parent rattrapé sans la part de ses enfants (`missingPeriods(coveredOn)`) ; export
+    Claude en parts propres (`parent`, `children_cover`) ; virements vers mes comptes nets ; zones
+    de dépôt distinctes ; couleurs de catégorie hors de celles des familles ; captures du thème
+    clair retirées (l'interface est toujours sombre) ; code mort de l'ancien SavingsGoals et de la
+    vue année de Budget retiré ; doc UX à jour (arbre, objectifs, somme mise à part).
+- Tests du domaine sans Gradle : `./scripts/domain-tests.sh` (250 au 9 novembre).
 
 ## Lot 8 : décisions prises (prototype testé par l'utilisateur)
 
@@ -87,23 +95,10 @@ sur » compte, objectif ou À répartir du mois, « Terminer » rend le reste), 
 (supprimer, défauts ci-dessous, doc UX, démo, export Claude, skill, code mort de l'ancien
 SavingsGoals), 9 revue du tri par Claude (propositions applicables une à une depuis le bilan).
 
-À traiter au 8d, relevé par les relectures du 8b :
-
-- Export Claude : montants bruts d'un parent, à ramener aux parts propres.
-- `GlassBudget.kt` : paramètres morts (mois, année, `readOnly`).
-- `MoveSheet` ne propose que les groupes, et un enfant d'un vrai parent a la catégorie « Autres ».
-- Fiche d'un parent : Budget montre le budget couvert, la fiche la part propre ; un même mot.
-- Glissement : distinguer à l'œil « dedans » et « après », la ligne soulevée cache la cible.
-- Message après un déplacement vers le haut (« Courses sortie de Nourriture ») et fond opaque.
-- Couleurs de famille et de catégorie qui se recoupent, points gris de `glass-declasser`.
-- Report d'un parent après une période entière manquée ; dépôt à côté de l'enfant d'un parent arrêté.
-- `glass-budget-clair` et `glass-home-clair` identiques aux versions sombres.
-- Somme mise à part : « mis à part » trop proche de « mis de côté » (vocabulaire) ; branche d'une
-  somme qui contient des enveloppes (dépensé total et dépensé du mois mélangés) ; « Retirer » vers
-  À répartir ; bilan d'un mois passé qui ne la mentionne pas ; captures du formulaire et du dépassement.
-- `observeTransfersToAccounts` additionne des valeurs absolues : un retrait du livret compte comme un versement.
-- Épargne : verbe de l'en-tête « Répartir » à trancher avec le doc ; couleur propre des objectifs et
-  barre placée comme dans Achats prévus ; captures du formulaire d'objectif et de la carte livrets.
+Suite : lot 9, revue du tri par Claude, lancée depuis le bilan d'un mois dans Résumé. Sept
+propositions au plus (renommer, ranger dans, fusionner, arrêter, ajuster, créer une somme mise à
+part, reclasser des opérations), chacune applicable et annulable, avec son effet sur le « par
+jour ». Données envoyées : celles de l'export (règles d'anonymisation du CLAUDE.md).
 
 ## Restes connus
 
@@ -112,6 +107,10 @@ SavingsGoals), 9 revue du tri par Claude (propositions applicables une à une de
 - Captures qui ne montrent pas encore le lot : une ligne « modifié depuis » (Historique de la démo
   vide), une catégorie dépliée à 0 € (sous le pli), l'arbre du formulaire ouvert.
 - Rattrapages acceptés avant build-202 : gardent l'ancienne répartition (décision notée dans le doc).
+- Reportés du 8e : dépôt à côté de l'enfant d'un parent arrêté (il entre dans le parent arrêté,
+  affiché au même niveau) ; « Retirer » d'une somme mise à part vers À répartir ; bilan d'un mois
+  passé qui ne cite pas ses sommes mises à part ; points gris de `glass-declasser` (couleur
+  « Autres »).
 - À étudier : « Prévoir une dépense » ; séance de test SUS sur la vraie app (quatre tâches).
 
 ## Liens
