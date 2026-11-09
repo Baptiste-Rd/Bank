@@ -188,6 +188,9 @@ interface EnvelopeDao {
     @Query("SELECT COUNT(*) FROM envelope WHERE parent_id = :parentId")
     suspend fun childCount(parentId: Long): Int
 
+    @Query("UPDATE envelope SET amount_cents = :amountCents WHERE id = :id")
+    suspend fun setAmount(id: Long, amountCents: Long)
+
     @Query("UPDATE envelope SET parent_id = :parentId, position = :position WHERE id = :id")
     suspend fun setPlace(id: Long, parentId: Long?, position: Int)
 
@@ -828,4 +831,22 @@ interface CategoryDao {
 
     @Query("DELETE FROM envelope WHERE id = :id AND is_group = 1")
     suspend fun delete(id: Long)
+}
+
+@Dao
+interface PlacementDao {
+    @Query("SELECT * FROM savings_placement ORDER BY date, id")
+    fun observeAll(): Flow<List<PlacementEntity>>
+
+    @Query("SELECT * FROM savings_placement ORDER BY date, id")
+    suspend fun all(): List<PlacementEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(rows: List<PlacementEntity>): List<Long>
+
+    @Query("DELETE FROM savings_placement WHERE id = :id")
+    suspend fun delete(id: Long)
+
+    @Query("DELETE FROM savings_placement WHERE envelope_id = :envelopeId")
+    suspend fun deleteForEnvelope(envelopeId: Long)
 }

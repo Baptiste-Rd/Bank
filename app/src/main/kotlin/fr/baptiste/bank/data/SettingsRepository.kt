@@ -101,6 +101,18 @@ class SettingsRepository(context: Context, storeName: String = "settings") {
         Money(it[precautionGoalKey] ?: 1_000_000L) to Money(it[totalGoalKey] ?: 2_000_000L)
     }
 
+    /** L'objectif de précaution d'avant les objectifs d'épargne, une seule fois : les anciens réglages sont effacés. */
+    suspend fun takeLegacyPrecaution(): Money? {
+        var found: Money? = null
+        settingsStore.edit {
+            found = it[precautionGoalKey]?.let(::Money)
+            it.remove(precautionGoalKey)
+            it.remove(totalGoalKey)
+            it.remove(totalGoalByKey)
+        }
+        return found
+    }
+
     suspend fun setSavingsGoals(precaution: Money, total: Money, totalBy: java.time.YearMonth?) {
         settingsStore.edit {
             it[precautionGoalKey] = precaution.cents

@@ -10,6 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [
+        PlacementEntity::class,
         AccountEntity::class,
         TransactionEntity::class,
         EnvelopeEntity::class,
@@ -22,7 +23,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TransferRuleEntity::class,
         JournalEntity::class,
     ],
-    version = 19,
+    version = 20,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -38,13 +39,15 @@ abstract class BankDatabase : RoomDatabase() {
     abstract fun balanceDao(): BalanceDao
     abstract fun transferRuleDao(): TransferRuleDao
     abstract fun journalDao(): JournalDao
+
+    abstract fun placementDao(): PlacementDao
     abstract fun categoryDao(): CategoryDao
 
     companion object {
         /** [name] permet au mode démo d'utiliser une base séparée, sans toucher aux vraies données. */
         fun create(context: Context, name: String = "bank.db"): BankDatabase =
             Room.databaseBuilder(context, BankDatabase::class.java, name)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20)
                 .build()
     }
 }
@@ -288,5 +291,19 @@ val MIGRATION_17_18 = object : Migration(17, 18) {
 val MIGRATION_18_19 = object : Migration(18, 19) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE allocation ADD COLUMN covered_cents INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+/** Les objectifs d'épargne : montant visé, date, compte, et les mouvements de chaque objectif. */
+val MIGRATION_19_20 = object : Migration(19, 20) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE envelope ADD COLUMN goal_cents INTEGER")
+        db.execSQL("ALTER TABLE envelope ADD COLUMN goal_by TEXT")
+        db.execSQL("ALTER TABLE envelope ADD COLUMN account_id INTEGER")
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS savings_placement (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "envelope_id INTEGER NOT NULL, date INTEGER NOT NULL, amount_cents INTEGER NOT NULL, is_start INTEGER NOT NULL DEFAULT 0)",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_savings_placement_envelope_id ON savings_placement (envelope_id)")
     }
 }

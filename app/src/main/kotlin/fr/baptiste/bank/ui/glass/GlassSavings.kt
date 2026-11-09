@@ -1,5 +1,9 @@
 package fr.baptiste.bank.ui.glass
 
+import fr.baptiste.bank.ui.components.RowDivider
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,8 +30,6 @@ import fr.baptiste.bank.domain.budget.HoldingLine
 import fr.baptiste.bank.domain.budget.Holdings
 import fr.baptiste.bank.ui.accounts.detail
 import fr.baptiste.bank.ui.accounts.isStale
-import fr.baptiste.bank.domain.budget.GoalsProgress
-import fr.baptiste.bank.domain.budget.SavingsGoals
 import fr.baptiste.bank.domain.budget.progress
 import fr.baptiste.bank.domain.model.AccountType
 import androidx.compose.foundation.layout.height
@@ -77,8 +79,11 @@ fun GlassSavingsContent(
     holdings: Holdings? = null,
     onManageAccounts: () -> Unit = {},
     onOpenAccount: (HoldingLine) -> Unit = {},
-    goals: SavingsGoals = SavingsGoals(Money.euros(10_000), Money.euros(20_000)),
-    onEditGoals: () -> Unit = {},
+    /** Objectifs d'épargne et ce qui reste à placer ; null tant que non chargé. */
+    savings: fr.baptiste.bank.domain.budget.SavingsState? = null,
+    onPlace: (start: Boolean) -> Unit = {},
+    onNewGoal: () -> Unit = {},
+    onOpenGoal: (fr.baptiste.bank.domain.model.Envelope) -> Unit = {},
     trackingStart: java.time.YearMonth? = null,
     onTrackMonth: (java.time.YearMonth) -> Unit = {},
     /** Banque : état de la connexion, pour la ligne en tête de « Mes comptes ». */
@@ -159,20 +164,14 @@ fun GlassSavingsContent(
         }
 
         // 2. Mes comptes : livrets et placements (le compte courant est sur le Résumé, la banque dans Réglages).
-        if (!readOnly && holdings != null) holdingsSection(holdings, goals, dashboard.savings.forecast, onManageAccounts, onOpenAccount, onEditGoals)
+        if (!readOnly && savings != null) goalsSection(savings, holdings, onPlace, onNewGoal, onOpenGoal)
+        if (!readOnly && holdings != null) holdingsSection(holdings, onManageAccounts, onOpenAccount)
 
-        // 5. Ce qui est mis de côté.
-        if (savingsLines.isNotEmpty()) {
+        // Mois passé : ce qui a été mis de côté (le mois en cours le montre dans « Objectifs »).
+        if (readOnly && savingsLines.isNotEmpty()) {
             sectionHeader("put-aside-label", "Mis de côté")
             item(key = "put-aside") {
-                GlassRowsCard(savingsLines) { line ->
-                    EnvelopeRow(
-                        line,
-                        onClick = if (readOnly) null else ({ onOpenEnvelope(line) }),
-                        onCover = if (readOnly) null else ({ onCover(line) }),
-                        accent = accent,
-                    )
-                }
+                GlassRowsCard(savingsLines) { line -> EnvelopeRow(line, onClick = null, onCover = null, accent = accent) }
             }
         }
         val plannedColor = envelopeTypeColor(EnvelopeType.PLANNED)
@@ -331,11 +330,8 @@ private fun GapTile(label: String, delta: Money, reference: String, modifier: Mo
  */
 private fun LazyListScope.holdingsSection(
     holdings: Holdings,
-    goals: SavingsGoals,
-    monthlySavings: Money,
     onManage: () -> Unit,
     onOpen: (HoldingLine) -> Unit,
-    onEditGoals: () -> Unit,
 ) {
     sectionHeader("holdings-label", "Mes comptes", action = if (holdings.lines.isEmpty()) null else "Tout voir", onAction = onManage)
     item(key = "holdings") {
@@ -350,7 +346,8 @@ private fun LazyListScope.holdingsSection(
             }
             return@item
         }
-        val progress = holdings.progress(goals)
+        val available = holdings.lines.filter { it.account.type == AccountType.SAVINGS }.fold(Money.ZERO) { sum, it -> sum + (it.balance ?: Money.ZERO) }
+        val invested = holdings.total - available
         GlassCard(contentPadding = 16.dp, verticalPadding = 4.dp) {
             Column(Modifier.padding(vertical = 12.dp)) {
                 Text(holdings.total.summary(), style = MaterialTheme.typography.titleLarge)
@@ -362,10 +359,9 @@ private fun LazyListScope.holdingsSection(
                 if (parts.isNotEmpty()) {
                     Text(parts.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                GoalsBar(progress, monthlySavings, Modifier.padding(top = 12.dp).clickable(onClick = onEditGoals))
             }
-            HoldingGroup("Disponible tout de suite", progress.available, holdings.lines.filter { it.account.type == AccountType.SAVINGS }, onOpen)
-            HoldingGroup("Placé, valeur qui fluctue", progress.invested, holdings.lines.filter { it.account.type != AccountType.SAVINGS }, onOpen)
+            HoldingGroup("Disponible tout de suite", available, holdings.lines.filter { it.account.type == AccountType.SAVINGS }, onOpen)
+            HoldingGroup("Placé, valeur qui fluctue", invested, holdings.lines.filter { it.account.type != AccountType.SAVINGS }, onOpen)
         }
     }
     // Évolution du total sur douze mois : seuls les mois connus (après le premier relevé) comptent.
@@ -432,34 +428,96 @@ private fun HoldingsLineChart(history: List<fr.baptiste.bank.domain.budget.Holdi
  * Deux paliers sur une barre : la précaution (livrets) et le total visé. La barre suit le total ;
  * un repère marque la précaution. Toucher la barre règle les objectifs.
  */
-@Composable
-private fun GoalsBar(progress: GoalsProgress, monthlySavings: Money, modifier: Modifier = Modifier) {
-    val status = BankTheme.status
-    val accent = envelopeTypeColor(EnvelopeType.SAVINGS)
-    val target = progress.goals.total
-    val ratio = if (target.isPositive) (progress.total.cents.toFloat() / target.cents).coerceIn(0f, 1f) else 1f
-    val mark = if (target.isPositive) (progress.goals.precaution.cents.toFloat() / target.cents).coerceIn(0f, 1f) else 0f
-    val track = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-    val ink = MaterialTheme.colorScheme.onSurface
-    Column(modifier) {
-        androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(10.dp)) {
-            val r = androidx.compose.ui.geometry.CornerRadius(size.height / 2)
-            drawRoundRect(track, cornerRadius = r)
-            drawRoundRect(accent, size = size.copy(width = size.width * ratio), cornerRadius = r)
-            val x = size.width * mark
-            drawLine(ink, androidx.compose.ui.geometry.Offset(x, -3f), androidx.compose.ui.geometry.Offset(x, size.height + 3f), strokeWidth = 3f)
+/**
+ * Les objectifs : ce que chacun contient, sa part du mois et ce qui manque. Au-dessus, ce qui reste
+ * à faire : répartir les livrets une première fois, puis placer ce qui arrive sur les comptes.
+ */
+private fun LazyListScope.goalsSection(
+    state: fr.baptiste.bank.domain.budget.SavingsState,
+    holdings: Holdings?,
+    onPlace: (Boolean) -> Unit,
+    onNewGoal: () -> Unit,
+    onOpenGoal: (fr.baptiste.bank.domain.model.Envelope) -> Unit,
+) {
+    if (!state.started && state.goals.isNotEmpty() && state.livrets.isPositive) {
+        item(key = "start-split") {
+            ActionCard("${state.livrets.summary()} sur tes livrets", "Répartis-les entre tes objectifs pour suivre chacun.") { onPlace(true) }
         }
-        Text(
-            if (progress.precautionReached) {
-                "Précaution atteinte (${progress.goals.precaution.summary()})"
+    }
+    if (state.toPlace != Money.ZERO && state.goals.isNotEmpty()) {
+        item(key = "to-place") {
+            val since = state.since.format(java.time.format.DateTimeFormatter.ofPattern("d MMMM", Locale.FRANCE))
+            if (state.toPlace.isPositive) {
+                ActionCard("${state.toPlace.summary()} à placer", "Virés vers tes comptes depuis le $since, pas encore dans un objectif.") { onPlace(false) }
             } else {
-                "Précaution : il manque ${progress.precautionMissing.summary()} sur ${progress.goals.precaution.summary()}"
-            },
+                ActionCard("${Money(-state.toPlace.cents).summary()} retirés", "Sortis de tes comptes depuis le $since : retire-les d'un objectif.") { onPlace(false) }
+            }
+        }
+    }
+    val accounts = holdings?.lines.orEmpty().associate { it.account.id to it.account }
+    val held = state.goals.fold(Money.ZERO) { sum, it -> sum + it.held }
+    sectionHeader("goals-label", "Objectifs", trailing = if (held.isPositive) "${held.summary()} de côté" else null)
+    item(key = "goals") {
+        GlassCard(contentPadding = 16.dp, verticalPadding = 4.dp) {
+            if (state.goals.isEmpty()) {
+                Text(
+                    "Un objectif est une enveloppe d'épargne : un montant, une date si tu veux, et sa part chaque mois.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 12.dp),
+                )
+            }
+            state.goals.forEachIndexed { index, line ->
+                if (index > 0) RowDivider(0.dp)
+                GoalRow(line, accounts[line.envelope.accountId]) { onOpenGoal(line.envelope) }
+            }
+        }
+    }
+    item(key = "new-goal") {
+        Box(Modifier.fillMaxWidth(), Alignment.Center) { TextButton(onClick = onNewGoal) { Text("Nouvel objectif") } }
+    }
+}
+
+@Composable
+private fun ActionCard(title: String, detail: String, onClick: () -> Unit) {
+    GlassCard(contentPadding = 16.dp) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            GlassPillButton("Répartir", onClick = onClick)
+        }
+    }
+}
+
+@Composable
+private fun GoalRow(line: fr.baptiste.bank.domain.budget.SavingsGoalLine, account: fr.baptiste.bank.domain.budget.HoldingAccount?, onClick: () -> Unit) {
+    val goal = line.goal
+    Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(line.envelope.name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            Text(line.held.summary(), style = MaterialTheme.typography.titleMedium)
+        }
+        if (goal != null && goal.isPositive) {
+            val fraction = (line.held.cents.toFloat() / goal.cents).coerceIn(0f, 1f)
+            Box(Modifier.padding(top = 8.dp).fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.09f))) {
+                Box(Modifier.fillMaxWidth(fraction).height(6.dp).clip(RoundedCornerShape(3.dp)).background(envelopeTypeColor(EnvelopeType.SAVINGS)))
+            }
+        }
+        val by = line.envelope.goalBy?.let { " d'ici " + it.format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy", Locale.FRANCE)) }.orEmpty()
+        val target = when {
+            goal == null -> ""
+            line.reached -> " · objectif atteint"
+            else -> " · ${line.missing!!.summary()} pour ${goal.summary()}$by"
+        }
+        val where = account?.let { if (it.type == AccountType.SAVINGS) " · ${it.name}" else " · ${it.name}, bloqué" }.orEmpty()
+        Text(
+            "${line.monthly.summary()} par mois$target$where",
             style = MaterialTheme.typography.bodySmall,
-            color = if (progress.precautionReached) status.good else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 6.dp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp),
         )
-        // Le total visé et son rythme vivent dans la fenêtre des objectifs (toucher la barre).
     }
 }
 

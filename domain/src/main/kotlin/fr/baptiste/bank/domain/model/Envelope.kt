@@ -111,6 +111,12 @@ data class Envelope(
     val parentId: Long? = null,
     /** Rang parmi les enveloppes du même parent. */
     val position: Int = 0,
+    /** Épargne : montant visé (null : sans objectif chiffré). */
+    val goal: Money? = null,
+    /** Épargne : mois où l'objectif doit être atteint (null : sans date, la part du mois est saisie). */
+    val goalBy: java.time.YearMonth? = null,
+    /** Épargne : compte où l'argent est versé (rappel du versement, épargne bloquée ou disponible). */
+    val accountId: Long? = null,
     /**
      * Périodes enregistrées, de la plus ancienne à la plus récente : le passé figé. Une période
      * commencée garde ses bornes et son montant même si l'enveloppe change ensuite.

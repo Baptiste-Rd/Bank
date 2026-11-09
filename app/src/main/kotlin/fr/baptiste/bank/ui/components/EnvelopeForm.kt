@@ -110,6 +110,12 @@ fun EnvelopeDialog(
     /** Ce qui est rangé dans l'enveloppe, pour annoncer une suppression définitive. */
     usage: suspend () -> EnvelopeUsage? = { null },
     onDelete: (Envelope) -> Unit = {},
+    /** Épargne : ce que contient déjà l'objectif, pour la part d'un objectif daté. */
+    held: Money = Money.ZERO,
+    /** Épargne : les comptes où verser (identifiant, nom). */
+    accounts: List<Pair<Long, String>> = emptyList(),
+    /** Le « par jour » d'aujourd'hui et celui qu'il serait avec ce montant réservé en plus, ou null. */
+    perDay: (Money) -> Pair<Money, Money>? = { null },
 ) {
     val today = LocalDate.now()
     // Un modèle (id 0) pré-remplit le formulaire mais reste une création.
@@ -154,7 +160,19 @@ fun EnvelopeDialog(
         mutableStateOf(initial?.status?.let { it == EnvelopeStatus.PROTECTED } ?: false)
     }
 
-    val amount = if (amountText.isBlank()) Money.ZERO else parseMoney(amountText)
+    // Épargne : un objectif (montant, date facultative) et le compte où l'argent est versé.
+    var goalText by rememberSaveable { mutableStateOf(initial?.goal?.toFieldText().orEmpty()) }
+    var goalBy by rememberSaveable { mutableStateOf(initial?.goalBy?.toString()) }
+    var accountId by rememberSaveable { mutableStateOf(initial?.accountId) }
+    val goal = goalText.takeIf { it.isNotBlank() }?.let(::parseMoney)
+    val goalValid = goalText.isBlank() || (goal != null && goal.isPositive)
+    val goalMonth = goalBy?.let { runCatching { YearMonth.parse(it) }.getOrNull() }
+    val dated = use == Use.SAVINGS && goal != null && goalMonth != null
+    val amount = when {
+        dated -> fr.baptiste.bank.domain.budget.goalMonthly(goal!!, held, goalMonth!!, YearMonth.from(today))
+        amountText.isBlank() -> Money.ZERO
+        else -> parseMoney(amountText)
+    }
     val thenAmount = if (thenEdited) parseMoney(thenText) else amount
     val rareEvery = rareEveryText.toIntOrNull()?.takeIf { it in 1..99 }
     val every = everyText.toIntOrNull()?.takeIf { it in 1..999 }
@@ -168,7 +186,7 @@ fun EnvelopeDialog(
     }
     val nameTaken = isNameTaken(name, takenNames)
     val resetValid = use != Use.RARE || reset.isAfter(start ?: today.minusDays(1))
-    val canSave = name.isNotBlank() && !nameTaken && amount != null && !amount.isNegative && frequency != null &&
+    val canSave = name.isNotBlank() && !nameTaken && (use != Use.SAVINGS || goalValid) && amount != null && !amount.isNegative && frequency != null &&
         resetValid && (use != Use.RARE || !repeats || (thenAmount != null && !thenAmount.isNegative))
 
     // Montant proposé : la moyenne des mois passés de l'enveloppe, recalculée quand le rythme change.
@@ -184,6 +202,7 @@ fun EnvelopeDialog(
             category = storedCategory(newCategory?.takeIf { it.isNotBlank() } ?: category),
             use = use, amount = amount, thenAmount = thenAmount ?: amount, frequency = frequency,
             start = start, reset = reset.takeIf { resetTouched }, repeats = repeats, keep = keep, anchor = anchor, protected = protected,
+            goal = goal.takeIf { goalValid }, goalBy = goalMonth.takeIf { goal != null }, accountId = accountId,
         )
     } else {
         null
@@ -344,25 +363,63 @@ fun EnvelopeDialog(
                     }
                 }
 
-                // 1. Combien ?
-                MoneyField(
-                    value = amountText,
-                    onValueChange = { amountText = it },
-                    label = when {
-                        use == Use.RARE && !isExisting -> "Combien"
-                        use == Use.SAVINGS -> "Combien mettre de côté ?"
-                        else -> "Combien par période ?"
-                    },
-                )
-                suggestion?.let { proposed ->
-                    AssistChip(
-                        onClick = { amountText = proposed.amount.toFieldText() },
-                        label = {
-                            // D'où vient le chiffre : l'historique de cette enveloppe (une nouvelle n'a pas de proposition).
-                            val span = if (proposed.months > 1) "sur ${proposed.months} mois" else "sur le dernier mois"
-                            Text("Proposé : ${proposed.amount.summary()} (moyenne $span)")
+                if (use == Use.SAVINGS) {
+                    MoneyField(value = goalText, onValueChange = { goalText = it }, label = "Objectif (facultatif)")
+                    val months = remember { (0..60).map { YearMonth.from(today).plusMonths(it.toLong()).toString() } }
+                    ChoiceField(
+                        label = "D'ici",
+                        selected = goalBy ?: NO_DATE,
+                        options = listOf(NO_DATE) + months,
+                        optionLabel = { if (it == NO_DATE) it else monthLabel(YearMonth.parse(it)) },
+                        onSelect = { goalBy = it.takeIf { choice -> choice != NO_DATE } },
+                    )
+                    if (!dated) MoneyField(value = amountText, onValueChange = { amountText = it }, label = "Chaque mois")
+                    if (accounts.isNotEmpty()) {
+                        ChoiceField(
+                            label = "Versé sur",
+                            selected = accounts.firstOrNull { it.first == accountId }?.second ?: NO_ACCOUNT,
+                            options = listOf(NO_ACCOUNT) + accounts.map { it.second },
+                            optionLabel = { it },
+                            onSelect = { choice -> accountId = accounts.firstOrNull { it.second == choice }?.first },
+                        )
+                    }
+                    // Ce que l'objectif change au quotidien : sa part du mois sort du « par jour ».
+                    amount?.takeIf { it.isPositive }?.let { monthly ->
+                        val before = if (isExisting && initial?.type == EnvelopeType.SAVINGS) initial.amount else Money.ZERO
+                        val days = perDay(monthly - before)
+                        val until = if (dated) " jusqu'à ${monthLabel(goalMonth!!)}, recalculé chaque mois" else ""
+                        val effect = days?.let { (now, then) ->
+                            if (then.isNegative) "\nTon plan dépasserait ton salaire : repousse la date ou baisse l'objectif."
+                            else "\nPar jour : ${then.summary()} au lieu de ${now.summary()}."
+                        }.orEmpty()
+                        Text(
+                            "${monthly.summary()} par mois$until$effect",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (days?.second?.isNegative == true) BankThemeColors.over() else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                } else {
+                    // 1. Combien ?
+                    MoneyField(
+                        value = amountText,
+                        onValueChange = { amountText = it },
+                        label = when {
+                            use == Use.RARE && !isExisting -> "Combien"
+                            use == Use.SAVINGS -> "Combien mettre de côté ?"
+                            else -> "Combien par période ?"
                         },
                     )
+                    suggestion?.let { proposed ->
+                        AssistChip(
+                            onClick = { amountText = proposed.amount.toFieldText() },
+                            label = {
+                                // D'où vient le chiffre : l'historique de cette enveloppe (une nouvelle n'a pas de proposition).
+                                val span = if (proposed.months > 1) "sur ${proposed.months} mois" else "sur le dernier mois"
+                                Text("Proposé : ${proposed.amount.summary()} (moyenne $span)")
+                            },
+                        )
+                    }
+
                 }
 
                 if (use == Use.RARE) {
@@ -535,6 +592,12 @@ private fun monthsBetween(start: LocalDate, reset: LocalDate): Int =
     (ChronoUnit.MONTHS.between(YearMonth.from(start), YearMonth.from(reset.minusDays(1))) + 1).coerceAtLeast(1).toInt()
 
 /** L'enveloppe que décrit le formulaire. */
+private const val NO_DATE = "Pas de date"
+private const val NO_ACCOUNT = "Aucun compte"
+
+private fun monthLabel(month: YearMonth): String =
+    month.format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy", java.util.Locale.FRANCE))
+
 private fun buildEnvelope(
     initial: Envelope?,
     isExisting: Boolean,
@@ -552,6 +615,9 @@ private fun buildEnvelope(
     keep: Boolean,
     anchor: LocalDate,
     protected: Boolean,
+    goal: Money?,
+    goalBy: YearMonth?,
+    accountId: Long?,
 ): Envelope {
     val type = when (use) {
         Use.DAILY -> EnvelopeType.DAILY
@@ -589,6 +655,9 @@ private fun buildEnvelope(
             else -> anchor
         },
         group = category,
+        goal = if (use == Use.SAVINGS) goal else null,
+        goalBy = if (use == Use.SAVINGS) goalBy else null,
+        accountId = if (use == Use.SAVINGS) accountId else null,
         status = if (protected || type == EnvelopeType.PLANNED && !isExisting) EnvelopeStatus.PROTECTED else EnvelopeStatus.FLEXIBLE,
     )
 }

@@ -120,6 +120,23 @@ data class EnvelopeEntity(
     @ColumnInfo(defaultValue = "0") val position: Int = 0,
     /** Groupe : une enveloppe sans montant, qui ne sert qu'à en contenir d'autres. Jamais dans un calcul. */
     @ColumnInfo(name = "is_group", defaultValue = "0") val isGroup: Boolean = false,
+    /** Épargne : montant visé, en centimes. */
+    @ColumnInfo(name = "goal_cents") val goalCents: Long? = null,
+    /** Épargne : mois visé (AAAA-MM). */
+    @ColumnInfo(name = "goal_by") val goalBy: String? = null,
+    /** Épargne : compte où l'argent est versé. */
+    @ColumnInfo(name = "account_id") val accountId: Long? = null,
+)
+
+/** Un mouvement dans un objectif d'épargne (voir Placement). */
+@Entity(tableName = "savings_placement", indices = [Index("envelope_id")])
+data class PlacementEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    @ColumnInfo(name = "envelope_id") val envelopeId: Long,
+    val date: LocalDate,
+    @ColumnInfo(name = "amount_cents") val amountCents: Long,
+    /** La répartition de départ des livrets. */
+    @ColumnInfo(name = "is_start", defaultValue = "0") val isStart: Boolean = false,
 )
 
 @Entity(

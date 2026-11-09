@@ -8,6 +8,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -329,6 +330,25 @@ class MigrationTest {
         database.close()
     }
 
+    @Test
+    fun migrate19To20AddsGoalsWithoutTouchingEnvelopes() {
+        createDatabase(version = 19) { db ->
+            db.execSQL("INSERT INTO envelope (id, name, type, scale, amount_cents, status, priority, carry_over, archived, every, repeats) VALUES (1, 'Précaution', 'SAVINGS', 'MONTH', 20000, 'PROTECTED', 0, 0, 0, 1, 1)")
+        }
+        val database = open()
+        val db = database.openHelper.writableDatabase
+        db.query("SELECT amount_cents, goal_cents, goal_by, account_id FROM envelope WHERE id = 1").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(20000L, cursor.getLong(0))
+            assertTrue(cursor.isNull(1) && cursor.isNull(2) && cursor.isNull(3))
+        }
+        db.query("SELECT COUNT(*) FROM savings_placement").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(0, cursor.getInt(0))
+        }
+        database.close()
+    }
+
     /** Recrée une base de [version] à partir de son schéma exporté, puis y écrit [fill]. */
     private fun createDatabase(version: Int, fill: (SQLiteDatabase) -> Unit) {
         val assets = InstrumentationRegistry.getInstrumentation().context.assets
@@ -354,7 +374,7 @@ class MigrationTest {
     }
 
     private fun open(): BankDatabase = Room.databaseBuilder(context, BankDatabase::class.java, DB)
-        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19)
+        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20)
         .build()
 
     private companion object {

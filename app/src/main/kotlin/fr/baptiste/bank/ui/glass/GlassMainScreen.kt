@@ -119,7 +119,7 @@ fun GlassMainScreen(
     val bankViewModel: BankViewModel = androidx.lifecycle.viewmodel.compose.viewModel(factory = BankViewModel.Factory)
     val bankConnection by bankViewModel.connection.collectAsStateWithLifecycle()
     val currentAccount by viewModel.currentAccount.collectAsStateWithLifecycle()
-    val savingsGoals by viewModel.savingsGoals.collectAsStateWithLifecycle()
+    val savingsState by viewModel.savingsState.collectAsStateWithLifecycle()
     val trackingStart by viewModel.trackingStart.collectAsStateWithLifecycle()
     val firstOperationDate by viewModel.firstOperationDate.collectAsStateWithLifecycle()
     val salaryCandidates by viewModel.salaryCandidates.collectAsStateWithLifecycle()
@@ -358,8 +358,17 @@ fun GlassMainScreen(
                         holdings = holdings,
                         onManageAccounts = { controller.dialog = OpenDialog.Accounts },
                         onOpenAccount = { controller.dialog = OpenDialog.AccountEdit(it) },
-                        goals = savingsGoals,
-                        onEditGoals = { controller.dialog = OpenDialog.SavingsGoals },
+                        savings = savingsState,
+                        onPlace = { controller.dialog = OpenDialog.PlaceSavings(it) },
+                        onNewGoal = {
+                            controller.dialog = OpenDialog.EnvelopeEditor(
+                                fr.baptiste.bank.domain.model.Envelope(
+                                    0, "", fr.baptiste.bank.domain.model.EnvelopeType.SAVINGS, fr.baptiste.bank.domain.period.Frequency.MONTHLY,
+                                    fr.baptiste.bank.domain.money.Money.ZERO, fr.baptiste.bank.domain.model.EnvelopeStatus.PROTECTED,
+                                ),
+                            )
+                        },
+                        onOpenGoal = { goal -> controller.dialog = OpenDialog.EnvelopeEditor(goal) },
                         trackingStart = trackingStart,
                         onTrackMonth = { month ->
                             viewModel.setTrackingStart(month)

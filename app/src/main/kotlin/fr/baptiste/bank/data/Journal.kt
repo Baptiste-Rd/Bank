@@ -84,6 +84,9 @@ data class JournalPayload(
     val aliasRowsRemoved: List<LabelAliasEntity> = emptyList(),
     val monthCountsBefore: List<MonthCountState> = emptyList(),
     val transfersCancelled: List<Long> = emptyList(),
+    /** Mouvements d'épargne créés (à retirer) et retirés (à remettre). */
+    val placementsCreated: List<Long> = emptyList(),
+    val placementsRemoved: List<fr.baptiste.bank.data.local.PlacementEntity> = emptyList(),
     /**
      * Éléments touchés lus en base au moment du changement : enveloppes utilisées (une opération
      * rangée, une saisie, un ajout ou une règle vers elle), motifs des règles et des alias créés.
@@ -95,7 +98,7 @@ data class JournalPayload(
             transfersCreated.isEmpty() && envelopesBefore.isEmpty() && envelopesCreated.isEmpty() && manualCreated.isEmpty() &&
             categoriesBefore.isEmpty() && categoriesCreated.isEmpty() && manualDeleted.isEmpty() && datesBefore.isEmpty() &&
             aliasesBefore.isEmpty() && aliasRowsCreated.isEmpty() && aliasRowsRemoved.isEmpty() && monthCountsBefore.isEmpty() &&
-            transfersCancelled.isEmpty()
+            transfersCancelled.isEmpty() && placementsCreated.isEmpty() && placementsRemoved.isEmpty()
 
     /**
      * Ce que l'entrée touche : opérations, enveloppes, catégories, transferts, alias, mois. Deux
@@ -112,6 +115,7 @@ data class JournalPayload(
         categoriesBefore.forEach { add("cat:${it.name.lowercase()}") }
         categoriesCreated.forEach { add("cat:${it.lowercase()}") }
         (transfersCreated + transfersCancelled).forEach { add("transfer:$it") }
+        (placementsCreated + placementsRemoved.map { it.id }).forEach { add("placement:$it") }
         // Règles et alias : une clé par motif normalisé, la même à la création et à la suppression.
         rulesRemoved.forEach { add(ruleKey(it.pattern)) }
         aliasRowsRemoved.forEach { add(aliasKey(it.pattern)) }
@@ -156,6 +160,8 @@ data class JournalPayload(
         aliasRowsRemoved = aliasRowsRemoved + other.aliasRowsRemoved,
         monthCountsBefore = (monthCountsBefore + other.monthCountsBefore).distinctBy { it.month },
         transfersCancelled = transfersCancelled + other.transfersCancelled,
+        placementsCreated = placementsCreated + other.placementsCreated,
+        placementsRemoved = placementsRemoved + other.placementsRemoved,
         extraTouched = (extraTouched + other.extraTouched).distinct(),
     )
 
@@ -178,6 +184,8 @@ data class JournalPayload(
         put("aliasRowsRemoved", JSONArray(aliasRowsRemoved.map { JSONObject().put("id", it.id).put("pattern", it.pattern).put("alias", it.alias) }))
         put("monthCountsBefore", JSONArray(monthCountsBefore.map { JSONObject().put("month", it.month.toString()).putNullable("counted", it.counted) }))
         put("transfersCancelled", JSONArray(transfersCancelled))
+        put("placementsCreated", JSONArray(placementsCreated))
+        put("placementsRemoved", JSONArray(placementsRemoved.map { it.toJson() }))
         put("extraTouched", JSONArray(extraTouched))
     }.toString()
 
@@ -203,6 +211,8 @@ data class JournalPayload(
                 aliasRowsRemoved = json.objects("aliasRowsRemoved").map { LabelAliasEntity(id = it.optLong("id", 0L), pattern = it.getString("pattern"), alias = it.getString("alias")) },
                 monthCountsBefore = json.objects("monthCountsBefore").map { MonthCountState(java.time.YearMonth.parse(it.getString("month")), if (it.isNull("counted")) null else it.getBoolean("counted")) },
                 transfersCancelled = json.longs("transfersCancelled"),
+                placementsCreated = json.longs("placementsCreated"),
+                placementsRemoved = json.optJSONArray("placementsRemoved")?.let { rows -> (0 until rows.length()).map { rows.getJSONObject(it).toPlacement() } }.orEmpty(),
                 extraTouched = json.optJSONArray("extraTouched")?.let { array -> (0 until array.length()).map { array.getString(it) } }.orEmpty(),
             )
         }
@@ -308,6 +318,9 @@ private fun EnvelopeEntity.toJson() = JSONObject()
     .put("repeats", repeats)
     .putNullable("retiredOn", retiredOn?.toString())
     .putNullable("parentId", parentId)
+    .putNullable("goalCents", goalCents)
+    .putNullable("goalBy", goalBy)
+    .putNullable("accountId", accountId)
     .put("position", position)
 
 private fun JSONObject.toEnvelope() = EnvelopeEntity(
@@ -331,6 +344,9 @@ private fun JSONObject.toEnvelope() = EnvelopeEntity(
     repeats = getBoolean("repeats"),
     retiredOn = dateOrNull("retiredOn"),
     parentId = longOrNull("parentId"),
+    goalCents = longOrNull("goalCents"),
+    goalBy = stringOrNull("goalBy"),
+    accountId = longOrNull("accountId"),
     position = optInt("position"),
 )
 
@@ -372,3 +388,14 @@ private fun JSONObject.toTransaction() = TransactionEntity(
  * mêmes éléments ; l'annuler écraserait ce changement-là (« Modifié depuis »).
  */
 data class JournalLine(val id: Long, val at: Long, val label: String, val undone: Boolean, val blocked: Boolean = false)
+
+private fun fr.baptiste.bank.data.local.PlacementEntity.toJson() = JSONObject()
+    .put("id", id).put("envelopeId", envelopeId).put("date", date.toString()).put("amountCents", amountCents).put("isStart", isStart)
+
+private fun JSONObject.toPlacement() = fr.baptiste.bank.data.local.PlacementEntity(
+    id = getLong("id"),
+    envelopeId = getLong("envelopeId"),
+    date = java.time.LocalDate.parse(getString("date")),
+    amountCents = getLong("amountCents"),
+    isStart = optBoolean("isStart"),
+)

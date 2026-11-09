@@ -22,7 +22,6 @@ import fr.baptiste.bank.data.local.TransferRow
 import fr.baptiste.bank.domain.budget.BalanceSnapshot
 import fr.baptiste.bank.domain.budget.CurrentAccountExplained
 import fr.baptiste.bank.domain.budget.Dashboard
-import fr.baptiste.bank.domain.budget.SavingsGoals
 import fr.baptiste.bank.domain.budget.HoldingAccount
 import fr.baptiste.bank.domain.budget.Holdings
 import fr.baptiste.bank.domain.model.AccountType
@@ -402,10 +401,9 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
 
     fun setCurrentAccountBalance(balance: Money) = perform { repository.setCurrentAccountBalance(balance) }
 
-    val savingsGoals: StateFlow<SavingsGoals> =
-        repository.savingsGoals.asState(SavingsGoals(Money.euros(10_000), Money.euros(20_000)))
+    val savingsState: StateFlow<fr.baptiste.bank.domain.budget.SavingsState?> = repository.savingsState.asState(null)
 
-    fun setSavingsGoals(goals: SavingsGoals) = perform { repository.setSavingsGoals(goals) }
+    fun placeSavings(parts: Map<Long, Money>, start: Boolean) = perform { repository.placeSavings(parts, start) }
 
     /** Virements vers mes comptes, mois par mois, pour le bilan. */
     fun transfersToAccounts(month: YearMonth): Flow<Money> = repository.transfersToAccounts(month)

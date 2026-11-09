@@ -47,7 +47,6 @@ import fr.baptiste.bank.domain.budget.HoldingAccount
 import fr.baptiste.bank.domain.budget.Holdings
 import fr.baptiste.bank.domain.budget.computeHoldings
 import fr.baptiste.bank.domain.budget.CurrentAccountExplained
-import fr.baptiste.bank.domain.budget.SavingsGoals
 import fr.baptiste.bank.domain.budget.explainCurrentAccount
 import fr.baptiste.bank.domain.budget.SavingsOutlook
 import fr.baptiste.bank.domain.budget.Spending
@@ -60,6 +59,9 @@ import fr.baptiste.bank.domain.budget.dashboardDateRange
 import fr.baptiste.bank.domain.model.AccountType
 import fr.baptiste.bank.domain.model.Envelope
 import fr.baptiste.bank.domain.budget.withOwnAmounts
+import fr.baptiste.bank.domain.money.sumOfMoney
+import fr.baptiste.bank.domain.budget.placingSince
+import fr.baptiste.bank.domain.budget.heldByEnvelope
 import fr.baptiste.bank.domain.model.EnvelopeType
 import fr.baptiste.bank.domain.model.ImputationMode
 import fr.baptiste.bank.domain.model.RuleMatchType
@@ -101,6 +103,84 @@ class BudgetRepository(
 
     /** La mère de chaque catégorie (voir parentsOf). */
     val categoryParents: Flow<Map<String, String>> = categories.map { fr.baptiste.bank.domain.model.parentsOf(it) }
+
+    private val placementDao = database.placementDao()
+
+    /** L'ancien objectif de précaution devient une enveloppe d'épargne, une fois ; le total disparaît. */
+    private suspend fun migrateLegacyPrecaution() {
+        val goal = settings.takeLegacyPrecaution() ?: return
+        val existing = envelopeDao.active().firstOrNull { !it.isGroup && it.type == EnvelopeType.SAVINGS && it.name.equals("Précaution", ignoreCase = true) }
+        if (existing != null) {
+            if (existing.goalCents == null) envelopeDao.upsert(existing.copy(goalCents = goal.cents))
+            return
+        }
+        envelopeDao.upsert(
+            fr.baptiste.bank.data.local.EnvelopeEntity(
+                name = "Précaution",
+                type = EnvelopeType.SAVINGS,
+                scale = fr.baptiste.bank.domain.period.Scale.MONTH,
+                amountCents = 0,
+                status = fr.baptiste.bank.domain.model.EnvelopeStatus.PROTECTED,
+                goalCents = goal.cents,
+            ),
+        )
+    }
+
+    /** Un objectif daté : sa part du mois se recalcule au début de chaque période, puis reste figée. */
+    private suspend fun updateDatedGoals(today: LocalDate) {
+        val held = placementDao.all().map { it.toPlacement() }.heldByEnvelope()
+        val month = YearMonth.from(today)
+        envelopeDao.active().filter { it.type == EnvelopeType.SAVINGS && it.goalCents != null && it.goalBy != null }.forEach { row ->
+            val by = runCatching { YearMonth.parse(row.goalBy) }.getOrNull() ?: return@forEach
+            val monthly = fr.baptiste.bank.domain.budget.goalMonthly(Money(row.goalCents!!), held[row.id] ?: Money.ZERO, by, month)
+            val started = database.allocationDao().forEnvelope(row.id).any { it.startDate != null && it.endDate != null && today in it.startDate..it.endDate }
+            if (!started && monthly.cents != row.amountCents) envelopeDao.setAmount(row.id, monthly.cents)
+        }
+    }
+
+    /** Les objectifs d'épargne, ce qu'ils contiennent, et ce qui reste à placer. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val savingsState: Flow<fr.baptiste.bank.domain.budget.SavingsState> =
+        combine(envelopes, placementDao.observeAll(), trackingStart()) { all, rows, start -> Triple(all, rows, start) }
+            .flatMapLatest { (all, rows, start) ->
+                val today = LocalDate.now()
+                val placements = rows.map { it.toPlacement() }
+                val since = placements.placingSince(start.atDay(1))
+                combine(transactionDao.observeTransfersByAccount(since, today), holdings(today)) { transfers, holdings ->
+                    val held = placements.heldByEnvelope()
+                    val list = transfers.map { fr.baptiste.bank.domain.budget.AccountTransfer(it.accountId, it.date, Money(it.amountCents)) }
+                    fr.baptiste.bank.domain.budget.SavingsState(
+                        goals = all.filter { it.type == EnvelopeType.SAVINGS }.map { fr.baptiste.bank.domain.budget.SavingsGoalLine(it, held[it.id] ?: Money.ZERO) },
+                        toPlace = fr.baptiste.bank.domain.budget.toPlace(list, placements, since),
+                        since = since,
+                        received = list.groupBy { it.accountId }.mapValues { (_, part) -> part.sumOfMoney { it.amount } },
+                        started = placements.any { it.isStart },
+                        livrets = holdings.lines.filter { it.account.type == AccountType.SAVINGS }.sumOfMoney { it.balance ?: Money.ZERO },
+                    )
+                }
+            }
+
+    /**
+     * Range de l'argent dans les objectifs. [start] : la répartition de départ des livrets, qui
+     * remplace toute répartition précédente (les livrets la contiennent déjà). S'annule depuis l'Historique.
+     */
+    suspend fun placeSavings(parts: Map<Long, Money>, start: Boolean) = database.withTransaction {
+        val today = LocalDate.now()
+        val removed = if (start) placementDao.all() else emptyList()
+        removed.forEach { placementDao.delete(it.id) }
+        val created = placementDao.insertAll(
+            parts.filterValues { it != Money.ZERO }.map { (id, amount) ->
+                fr.baptiste.bank.data.local.PlacementEntity(envelopeId = id, date = today, amountCents = amount.cents, isStart = start)
+            },
+        )
+        val total = parts.values.sumOfMoney { it }
+        val label = when {
+            start -> "Livrets répartis entre les objectifs"
+            total.isNegative -> "${Money(-total.cents).formatted()} retirés des objectifs"
+            else -> "${total.formatted()} répartis dans les objectifs"
+        }
+        record(label, JournalPayload(placementsCreated = created, placementsRemoved = removed))
+    }
 
     /** Les groupes de l'arbre. */
     val treeGroups: Flow<List<fr.baptiste.bank.domain.budget.GroupNode>> = categoryDao.observeAll().map { rows -> rows.map { it.toGroupNode() } }
@@ -373,6 +453,8 @@ class BudgetRepository(
             }
         }
         payload.transfersCancelled.forEach { transferDao.restore(it) }
+        payload.placementsCreated.forEach { placementDao.delete(it) }
+        if (payload.placementsRemoved.isNotEmpty()) placementDao.insertAll(payload.placementsRemoved)
         payload.aliasesBefore.forEach { transactionDao.setAlias(it.transactionId, it.alias) }
         database.aliasDao().delete(payload.aliasRowsCreated)
         // Remis avec leur identifiant d'origine (jamais réutilisé) : une création annulée ensuite les retrouve.
@@ -680,6 +762,8 @@ class BudgetRepository(
      * Une enveloppe archivée sans date de retrait (d'avant la version 13) est laissée telle quelle.
      */
     suspend fun ensurePeriods(today: LocalDate = LocalDate.now()): Int {
+        migrateLegacyPrecaution()
+        updateDatedGoals(today)
         val from = trackingStart(today).first().atDay(1)
         val spent = imputationDao.spentByPeriod()
             .groupBy { it.envelopeId }
@@ -734,6 +818,7 @@ class BudgetRepository(
         imputationDao.deleteForEnvelope(id)
         database.ruleDao().deleteForEnvelope(id)
         transferDao.deleteForEnvelope(id)
+        placementDao.deleteForEnvelope(id)
         // Ce qu'elle contenait monte d'un niveau.
         envelopeDao.reparentChildren(id, envelopeDao.byId(id)?.parentId)
         envelopeDao.delete(id)
@@ -1385,9 +1470,13 @@ class BudgetRepository(
             holdingAccounts,
             balanceDao.observeAll(),
             transactionDao.observeTransfersByAccount(month.atDay(1), month.atEndOfMonth()),
-        ) { accounts, balances, transfers ->
+            envelopes,
+        ) { accounts, balances, transfers, all ->
+            // Versé sur : le versement attendu d'un compte est la part du mois des objectifs qui y sont versés.
+            val linked = all.filter { it.type == EnvelopeType.SAVINGS && it.accountId != null }
+                .groupBy { it.accountId }.mapValues { (_, list) -> list.sumOfMoney { it.amount } }
             computeHoldings(
-                accounts = accounts,
+                accounts = accounts.map { account -> linked[account.id]?.let { account.copy(monthlyTarget = it) } ?: account },
                 snapshots = balances.map { BalanceSnapshot(it.accountId, it.date, Money(it.balanceCents)) },
                 today = today,
                 months = 12,
@@ -1607,11 +1696,6 @@ class BudgetRepository(
         }
     }
 
-    val savingsGoals: Flow<SavingsGoals> = combine(settings.savingsGoals, settings.savingsGoalBy) { (precaution, total), by ->
-        SavingsGoals(precaution, total, by)
-    }
-
-    suspend fun setSavingsGoals(goals: SavingsGoals) = settings.setSavingsGoals(goals.precaution, goals.total, goals.totalBy)
 
     /** Ajoute un compte saisi à la main, avec son solde du jour. */
     suspend fun addManualAccount(name: String, type: AccountType, balance: Money): Long = database.withTransaction {
@@ -1790,6 +1874,9 @@ private fun EnvelopeEntity.toDomain(allocations: List<AllocationEntity> = emptyL
     group = parentId?.let(groupNames::get),
     parentId = parentId,
     position = position,
+    goal = goalCents?.let(::Money),
+    goalBy = goalBy?.let { runCatching { YearMonth.parse(it) }.getOrNull() },
+    accountId = accountId,
     fundingStart = fundingStart?.let { runCatching { YearMonth.parse(it) }.getOrNull() },
     catchUpFrom = catchUpFrom?.let { runCatching { YearMonth.parse(it) }.getOrNull() },
     start = startDate,
@@ -1831,6 +1918,9 @@ private fun Envelope.toEntity() = EnvelopeEntity(
     retiredOn = retiredOn,
     parentId = parentId,
     position = position,
+    goalCents = goal?.cents,
+    goalBy = goalBy?.toString(),
+    accountId = accountId,
 )
 
 /** Ce qui est rangé dans une enveloppe : annoncé avant une suppression définitive. */
@@ -1838,3 +1928,7 @@ data class EnvelopeUsage(val bankCount: Int, val bankAmount: Money, val manualCo
 
 /** Une opération et ses parts : le total (positif) et, par enveloppe, le montant (positif). */
 data class OperationSplit(val total: Money, val parts: List<Pair<Long, Money>>)
+
+private fun fr.baptiste.bank.data.local.PlacementEntity.toPlacement() =
+    fr.baptiste.bank.domain.budget.Placement(envelopeId, date, Money(amountCents), isStart)
+

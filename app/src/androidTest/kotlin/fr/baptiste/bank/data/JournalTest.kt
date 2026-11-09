@@ -539,6 +539,28 @@ class JournalTest {
         assertEquals(listOf(30000L), database.allocationDao().forEnvelope(parent).map { it.coveredCents })
     }
 
+    @Test
+    fun placingSavingsIsUndoneAndTheStartSplitReplacesEverything() = runBlocking {
+        val goal = repository.saveEnvelope(envelope("Projets", 100).copy(type = fr.baptiste.bank.domain.model.EnvelopeType.SAVINGS))
+        repository.placeSavings(mapOf(goal to Money.euros(40)), start = false)
+        assertEquals(Money.euros(40), repository.savingsState.first().goals.single().held)
+        repository.placeSavings(mapOf(goal to Money.euros(3000)), start = true)
+        assertEquals(Money.euros(3000), repository.savingsState.first().goals.single().held)
+        repository.undo(lastEntry().id)
+        assertEquals(Money.euros(40), repository.savingsState.first().goals.single().held)
+    }
+
+    @Test
+    fun aDatedGoalGetsItsMonthlyShareWhenItsPeriodStarts() = runBlocking {
+        val by = java.time.YearMonth.now().plusMonths(9)
+        val id = repository.saveEnvelope(
+            envelope("Voiture", 0).copy(type = fr.baptiste.bank.domain.model.EnvelopeType.SAVINGS, goal = Money.euros(1000), goalBy = by),
+        )
+        database.allocationDao().forEnvelope(id).forEach { database.allocationDao().delete(id, it.periodKey) }
+        repository.ensurePeriods()
+        assertEquals(Money.euros(100).cents, database.envelopeDao().byId(id)!!.amountCents)
+    }
+
     /** Nom du groupe qui contient l'enveloppe [id]. */
     private suspend fun categoryOf(id: Long): String? =
         database.envelopeDao().byId(id)?.parentId?.let { database.envelopeDao().byId(it)?.name }
