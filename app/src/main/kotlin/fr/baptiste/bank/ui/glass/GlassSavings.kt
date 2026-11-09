@@ -72,9 +72,6 @@ fun GlassSavingsContent(
     onOpenEnvelope: (EnvelopeLine) -> Unit,
     onCover: (EnvelopeLine) -> Unit,
     selectedMonth: java.time.YearMonth = java.time.YearMonth.now(),
-    canNextMonth: Boolean = false,
-    onPreviousMonth: () -> Unit = {},
-    onNextMonth: () -> Unit = {},
     /** Livrets et investissements ; null tant que non chargé. */
     holdings: Holdings? = null,
     onManageAccounts: () -> Unit = {},
@@ -88,10 +85,6 @@ fun GlassSavingsContent(
     onTrackMonth: (java.time.YearMonth) -> Unit = {},
     /** Banque : état de la connexion, pour la ligne en tête de « Mes comptes ». */
     bank: BankStatus? = null,
-    onOpenBank: () -> Unit = {},
-    /** Compte courant décomposé (reste du mois, charges, épargne à virer, réserve). */
-    currentAccount: fr.baptiste.bank.domain.budget.CurrentAccountExplained? = null,
-    onSetBalance: () -> Unit = {},
     /** Épargne depuis janvier (mois renseignés), ou null. */
     yearSavings: Money? = null,
     /** Essayer un plan (projet, épargne). */

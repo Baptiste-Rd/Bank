@@ -290,39 +290,18 @@ fun GlassMainScreen(
                         )
                     }
                     Tab.BUDGET -> {
-                        val yearOverview by viewModel.yearOverview.collectAsStateWithLifecycle()
                         // Budget est le prévisionnel : toujours le plan du mois en cours.
                         GlassBudgetContent(
                             dashboard = dashboard,
                             monthlyIncome = dashboard?.income,
                             archived = archived,
-                            month = YearMonth.now(),
-                            canNextMonth = false,
-                            onPreviousMonth = {},
-                            onNextMonth = {},
-                            yearOverview = yearOverview,
-                            year = selectedYear,
-                            canNextYear = selectedYear < LocalDate.now().year,
-                            onPreviousYear = viewModel::previousYear,
-                            onNextYear = viewModel::nextYear,
                             onEditIncome = { controller.dialog = OpenDialog.Income },
-                            onOpen = openEnvelope,
-                            onCover = cover,
                             onEdit = { edited -> controller.dialog = OpenDialog.EnvelopeEditor((envelopes + archived).firstOrNull { it.id == edited.id } ?: edited) },
                             onRestore = {
                                 viewModel.restoreEnvelope(it.id)
                                 controller.notify("${it.name} est de nouveau active.")
                             },
-                            initialView = initialBudgetView,
-                            currentAccount = currentAccount,
-                            onSetBalance = { controller.dialog = OpenDialog.CurrentBalance },
-                            monthTransfers = monthTransfers,
                             trackingStart = trackingStart,
-                            onTrackMonth = { month ->
-                                viewModel.setTrackingStart(month)
-                                controller.notify("Suivi depuis ${month.label}.")
-                            },
-                            onTryPlan = { controller.dialog = OpenDialog.TryPlan() },
                             onNewEnvelope = { controller.dialog = OpenDialog.EnvelopeEditor(null) },
                             onMoveEnvelope = moveEnvelope,
                             envelopes = envelopes,
@@ -352,9 +331,6 @@ fun GlassMainScreen(
                         onOpenEnvelope = openEnvelope,
                         onCover = cover,
                         selectedMonth = YearMonth.now(),
-                        canNextMonth = false,
-                        onPreviousMonth = {},
-                        onNextMonth = {},
                         holdings = holdings,
                         onManageAccounts = { controller.dialog = OpenDialog.Accounts },
                         onOpenAccount = { controller.dialog = OpenDialog.AccountEdit(it) },
@@ -383,9 +359,6 @@ fun GlassMainScreen(
                                 expired = it.isExpired,
                             )
                         },
-                        onOpenBank = { controller.dialog = OpenDialog.Bank },
-                        currentAccount = currentAccount,
-                        onSetBalance = { controller.dialog = OpenDialog.CurrentBalance },
                         yearSavings = yearOverviewForSavings?.takeIf { it.year == LocalDate.now().year }?.savings,
                         onTryPlan = { controller.dialog = OpenDialog.TryPlan() },
                     )
@@ -398,9 +371,6 @@ fun GlassMainScreen(
                             pace = analysisPace,
                             month = selectedMonth,
                             monthYear = monthYearSpending,
-                            canNextMonth = selectedMonth < YearMonth.now(),
-                            onPreviousMonth = viewModel::previousMonth,
-                            onNextMonth = viewModel::nextMonth,
                             year = selectedYear,
                             yearSpending = yearSpending,
                             canNextYear = selectedYear < LocalDate.now().year,

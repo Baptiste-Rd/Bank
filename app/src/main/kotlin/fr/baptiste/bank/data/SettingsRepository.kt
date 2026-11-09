@@ -91,16 +91,6 @@ class SettingsRepository(context: Context, storeName: String = "settings") {
     private val totalGoalKey = longPreferencesKey("goal_total_cents")
     private val totalGoalByKey = stringPreferencesKey("goal_total_by")
 
-    /** Échéance de l'objectif total (« 2026-12 »), ou null. */
-    val savingsGoalBy: Flow<java.time.YearMonth?> = settingsStore.data.map { prefs ->
-        prefs[totalGoalByKey]?.let { runCatching { java.time.YearMonth.parse(it) }.getOrNull() }
-    }
-
-    /** Objectifs d'épargne : précaution (livrets) puis total (tous comptes). 10 000 € et 20 000 € par défaut. */
-    val savingsGoals: Flow<Pair<Money, Money>> = settingsStore.data.map {
-        Money(it[precautionGoalKey] ?: 1_000_000L) to Money(it[totalGoalKey] ?: 2_000_000L)
-    }
-
     /** L'objectif de précaution d'avant les objectifs d'épargne, une seule fois : les anciens réglages sont effacés. */
     suspend fun takeLegacyPrecaution(): Money? {
         var found: Money? = null
@@ -113,6 +103,7 @@ class SettingsRepository(context: Context, storeName: String = "settings") {
         return found
     }
 
+    /** L'ancien réglage, gardé pour vérifier sa reprise (voir takeLegacyPrecaution). */
     suspend fun setSavingsGoals(precaution: Money, total: Money, totalBy: java.time.YearMonth?) {
         settingsStore.edit {
             it[precautionGoalKey] = precaution.cents

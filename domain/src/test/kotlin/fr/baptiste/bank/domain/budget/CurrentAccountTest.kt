@@ -58,40 +58,4 @@ class CurrentAccountTest {
         assertEquals(Money.euros(-736), explained.free)
     }
 
-    @Test
-    fun `goals count livrets as available and placements apart`() {
-        val holdings = computeHoldings(
-            accounts = listOf(
-                HoldingAccount(1, "Livret A", AccountType.SAVINGS, linked = false),
-                HoldingAccount(2, "PEA", AccountType.INVESTMENT, linked = false),
-            ),
-            snapshots = listOf(
-                BalanceSnapshot(1, today, Money.euros(11000)),
-                BalanceSnapshot(2, today, Money.euros(4000)),
-            ),
-            today = today,
-        )
-        val progress = holdings.progress(SavingsGoals(precaution = Money.euros(10000), total = Money.euros(20000)))
-        assertTrue(progress.precautionReached)
-        assertFalse(progress.totalReached)
-        assertEquals(Money.euros(5000), progress.totalMissing)
-        assertEquals(Money.ZERO, progress.beyond)
-    }
-
-    @Test
-    fun `a target date gives the monthly amount and when the current pace gets there`() {
-        val progress = GoalsProgress(
-            available = Money.euros(18_000),
-            invested = Money.ZERO,
-            goals = SavingsGoals(Money.euros(10_000), Money.euros(20_000), totalBy = java.time.YearMonth.of(2026, 12)),
-        )
-        // Fin octobre : il reste les salaires de novembre et décembre pour 2 000 €.
-        val pace = progress.pace(today, monthlySavings = Money.euros(650))!!
-        assertEquals(2, pace.monthsLeft)
-        assertEquals(Money.euros(1000), pace.monthlyNeeded)
-        assertFalse(pace.onTrack)
-        // 2 000 / 650 = 3,08 : quatre mois, février.
-        assertEquals(java.time.YearMonth.of(2027, 2), pace.reachedAt)
-        assertEquals(null, progress.copy(goals = progress.goals.copy(totalBy = null)).pace(today, Money.euros(650)))
-    }
 }

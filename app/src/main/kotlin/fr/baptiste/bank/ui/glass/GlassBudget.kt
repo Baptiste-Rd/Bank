@@ -95,32 +95,13 @@ fun GlassBudgetContent(
     dashboard: Dashboard?,
     monthlyIncome: Money?,
     archived: List<Envelope>,
-    month: YearMonth,
-    canNextMonth: Boolean,
-    onPreviousMonth: () -> Unit,
-    onNextMonth: () -> Unit,
-    yearOverview: YearOverview?,
-    year: Int,
-    canNextYear: Boolean,
-    onPreviousYear: () -> Unit,
-    onNextYear: () -> Unit,
     onEditIncome: () -> Unit,
-    onOpen: (EnvelopeLine) -> Unit,
-    onCover: (EnvelopeLine) -> Unit,
     onEdit: (Envelope) -> Unit,
     onRestore: (Envelope) -> Unit,
-    initialView: BudgetView = BudgetView.MONTH,
     /** Le bouton « Nouvelle enveloppe » en bas de l'onglet (aussi dans le + › Ajouter). */
     onNewEnvelope: () -> Unit = {},
-    /** Compte courant décomposé (mois en cours) ; null sans solde connu. */
-    currentAccount: CurrentAccountExplained? = null,
-    onSetBalance: () -> Unit = {},
-    /** Viré vers mes livrets et placements le mois affiché (bilan). */
-    monthTransfers: Money? = null,
     /** Début du suivi : un mois avant lui est « non renseigné ». */
     trackingStart: YearMonth? = null,
-    onTrackMonth: (YearMonth) -> Unit = {},
-    onTryPlan: () -> Unit = {},
     /** Glisser une enveloppe : la ranger dans une autre catégorie. */
     onMoveEnvelope: (Envelope) -> Unit = {},
     /** L'arbre : les enveloppes actives, leurs montants saisis, et les groupes. */
@@ -132,7 +113,6 @@ fun GlassBudgetContent(
 ) {
     val listState = rememberTabListState()
     var showInfo by remember { mutableStateOf(false) }
-    val isCurrentMonth = month == YearMonth.now()
     val parts = dashboard?.let(::planParts).orEmpty()
 
     LazyColumn(
@@ -152,19 +132,10 @@ fun GlassBudgetContent(
                         parts = parts,
                         monthlyIncome = monthlyIncome,
                         archived = archived,
-                        readOnly = false,
                         onShowInfo = { showInfo = true },
                         onEditIncome = onEditIncome,
-                        onOpen = onOpen,
-                        onCover = onCover,
                         onEdit = onEdit,
                         onRestore = onRestore,
-                        currentAccount = currentAccount,
-                        // Le compte courant vit dans Épargne › Mes comptes.
-                        showAccountCard = false,
-                        onSetBalance = onSetBalance,
-                        monthTransfers = monthTransfers,
-                        onTryPlan = onTryPlan,
                         onMoveEnvelope = onMoveEnvelope,
                         envelopes = envelopes,
                         groups = groups,
@@ -204,18 +175,10 @@ private fun LazyListScope.monthContent(
     parts: List<PlanPart>,
     monthlyIncome: Money?,
     archived: List<Envelope>,
-    readOnly: Boolean,
     onShowInfo: () -> Unit,
     onEditIncome: () -> Unit,
-    onOpen: (EnvelopeLine) -> Unit,
-    onCover: (EnvelopeLine) -> Unit,
     onEdit: (Envelope) -> Unit,
     onRestore: (Envelope) -> Unit,
-    currentAccount: CurrentAccountExplained?,
-    showAccountCard: Boolean,
-    onSetBalance: () -> Unit,
-    monthTransfers: Money?,
-    onTryPlan: (() -> Unit)? = null,
     onMoveEnvelope: (Envelope) -> Unit = {},
     envelopes: List<Envelope>,
     groups: List<fr.baptiste.bank.domain.budget.GroupNode>,
@@ -238,9 +201,8 @@ private fun LazyListScope.monthContent(
                 }
                 InfoButton(onClick = onShowInfo, contentDescription = "Comment le salaire est réparti")
             }
-            // Un mois passé ne se corrige pas d'ici : pas de bouton, seulement la mention.
             if (monthlyIncome == null) {
-                if (!readOnly) RowActionButton("Indiquer mon salaire", onClick = onEditIncome, modifier = Modifier.padding(top = 8.dp))
+                RowActionButton("Indiquer mon salaire", onClick = onEditIncome, modifier = Modifier.padding(top = 8.dp))
             } else {
                 PlanBar(parts, Modifier.padding(vertical = 12.dp))
                 parts.forEach { part ->
@@ -263,12 +225,6 @@ private fun LazyListScope.monthContent(
         }
     }
 
-    // Le compte courant, expliqué : du solde de la banque au reste du mois.
-    if (showAccountCard) {
-        sectionHeader("account-label", "Compte courant", action = "Solde", onAction = onSetBalance)
-        item(key = "account") { CurrentAccountCard(currentAccount, onSetBalance) }
-    }
-
     sectionHeader("tree-label", "Enveloppes")
     item(key = "tree") {
         GlassCard(contentPadding = 16.dp, verticalPadding = 4.dp) {
@@ -286,7 +242,7 @@ private fun LazyListScope.monthContent(
         }
     }
 
-    if (!readOnly && archived.isNotEmpty()) {
+    if (archived.isNotEmpty()) {
         sectionHeader("archived-label", "Arrêtées", trailing = "${archived.size}")
         item(key = "archived") {
             GlassRowsCard(archived, inset = 0.dp) { envelope ->
@@ -306,85 +262,6 @@ private fun LazyListScope.monthContent(
                 }
             }
         }
-    }
-}
-
-private fun LazyListScope.yearContent(overview: YearOverview) {
-    if (overview.monthsCounted == 0) {
-        item(key = "year-empty") {
-            GlassCard(contentPadding = 16.dp) {
-                Text("Aucune opération enregistrée en ${overview.year}.", style = MaterialTheme.typography.bodyMedium)
-            }
-        }
-        return
-    }
-    val board = overview.dashboard
-    val accent = envelopeTypeColor(EnvelopeType.SAVINGS)
-    val target = board.savings.target * overview.monthsCounted
-    val parts = planParts(board)
-    val families = listOf(EnvelopeFamily.DAILY, EnvelopeFamily.FIXED, EnvelopeFamily.PROVISIONS)
-
-    item(key = "year-savings") {
-        GlassCard(strong = true) {
-            Text("Épargne de l'année", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(overview.savings.summary(), style = MaterialTheme.typography.displaySmall)
-            val gap = overview.savings - target
-            Text(
-                "${gap.signed()} par rapport à l'objectif (${target.formatted()} sur ${overview.monthsCounted} mois)",
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (gap.isNegative) BankTheme.status.warning else BankTheme.status.gain,
-            )
-            if (overview.months.size > 1) {
-                SavingsBarsChart(overview.months, board.savings.target, accent, legend = null)
-            }
-        }
-    }
-
-    sectionHeader("year-spent-label", "Dépenses de l'année", trailing = "face au prévu")
-    item(key = "year-spent") {
-        GlassRowsCard(families, inset = 0.dp) { family ->
-            val ids = board.envelopes.filter { it.envelope.type.family == family }.map { it.envelope.id }.toSet()
-            val spent = overview.spentByEnvelope.filterKeys { it in ids }.values.fold(Money.ZERO) { sum, m -> sum + m }
-            val planned = (parts.firstOrNull { it.family == family }?.amount ?: Money.ZERO) * overview.monthsCounted
-            FamilyYearRow(family.label, family.color, spent, planned)
-        }
-    }
-
-    val provisions = board.envelopes.filter { it.envelope.type.family == EnvelopeFamily.PROVISIONS }
-    if (provisions.isNotEmpty()) {
-        sectionHeader("year-provisions-label", "Rares et ponctuels", dot = EnvelopeFamily.PROVISIONS.color)
-        item(key = "year-provisions") {
-            GlassRowsCard(provisions) { line ->
-                EnvelopeRow(line, accent = envelopeTypeColor(line.envelope.type))
-            }
-        }
-    }
-}
-
-/** Une famille sur l'année : dépensé sur prévu, et la barre (rouge au-delà du prévu). */
-@Composable
-private fun FamilyYearRow(label: String, color: Color, spent: Money, planned: Money) {
-    val over = spent > planned
-    Column(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(label, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), modifier = Modifier.weight(1f))
-            Text(spent.formatted(), style = MaterialTheme.typography.titleMedium)
-            Text(
-                "  sur ${planned.formatted()}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        val ratio = if (planned.isPositive) (spent.cents.toFloat() / planned.cents).coerceIn(0f, 1f) else 0f
-        LinearProgressIndicator(
-            progress = { ratio },
-            color = if (over) BankTheme.status.over else color,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant,
-            strokeCap = StrokeCap.Round,
-            gapSize = 0.dp,
-            drawStopIndicator = {},
-            modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
-        )
     }
 }
 
@@ -480,82 +357,6 @@ private fun ReviewLine(label: String, amount: Money) {
             color = when {
                 amount.isNegative -> BankTheme.status.warning
                 amount.isPositive -> BankTheme.status.gain
-                else -> MaterialTheme.colorScheme.onSurface
-            },
-        )
-    }
-}
-
-/**
- * Le solde du compte courant, décomposé. Règle de lecture : solde = reste du mois + charges à
- * payer + épargne à virer + provisions mises de côté + libre. Un « libre » négatif dit qu'il
- * manque de l'argent sur le compte par rapport au budget.
- */
-@Composable
-internal fun CurrentAccountCard(explained: CurrentAccountExplained?, onSetBalance: () -> Unit) {
-    GlassCard(contentPadding = 16.dp) {
-        if (explained == null) {
-            Text(
-                "Indique le solde de ton compte courant (ou connecte ta banque) pour voir comment il se répartit.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            RowActionButton("Indiquer le solde", onClick = onSetBalance, modifier = Modifier.padding(top = 8.dp))
-            return@GlassCard
-        }
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(explained.balance.formatted(), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-            Text(
-                "au ${explained.asOf.formatted()}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Column(Modifier.padding(top = 8.dp)) {
-            AccountLine("Reste du mois", explained.monthLeft)
-            if (explained.chargesDue.isPositive) AccountLine("Charges à payer ce mois", explained.chargesDue)
-            if (explained.savingsPending.isPositive) AccountLine("Épargne du mois à virer", explained.savingsPending)
-            if (explained.provisionsHeld.isPositive) AccountLine("Mis de côté pour les budgets rares", explained.provisionsHeld)
-            if (explained.nextMonthSalary.isPositive) AccountLine("Salaire du mois prochain", explained.nextMonthSalary)
-            fr.baptiste.bank.ui.components.RowDivider(0.dp)
-            val free = explained.free
-            AccountLine(if (free.isNegative) "Il manque" else "Disponible sur le compte", free, strong = true, positiveGood = true)
-        }
-        val note = when {
-            explained.free.isNegative -> buildString {
-                append("Moins que ce que le budget réserve : salaire pas encore arrivé")
-                if (explained.unsortedOut.isPositive) append(", ${explained.unsortedOut.summary()} à trier")
-                append(" ou argent gardé sur un livret.")
-            }
-            explained.free.isPositive ->
-                "Hors budget du mois : « Mettre de côté » le range sans toucher à ton mois."
-            else -> null
-        }
-        if (note != null) {
-            Text(
-                note,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 8.dp),
-            )
-        }
-    }
-}
-
-@Composable
-private fun AccountLine(label: String, amount: Money, strong: Boolean = false, positiveGood: Boolean = false) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 3.dp)) {
-        Text(
-            label,
-            style = if (strong) MaterialTheme.typography.titleSmall else MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(1f),
-        )
-        Text(
-            amount.summary(),
-            style = MaterialTheme.typography.titleSmall,
-            color = when {
-                amount.isNegative -> BankTheme.status.warning
-                positiveGood && amount.isPositive -> BankTheme.status.gain
                 else -> MaterialTheme.colorScheme.onSurface
             },
         )
