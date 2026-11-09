@@ -565,6 +565,29 @@ class JournalTest {
         assertEquals(Money.euros(100).cents, database.envelopeDao().byId(id)!!.amountCents)
     }
 
+    @Test
+    fun theOldPrecautionGoalBecomesASavingsEnvelopeOnlyOnce() = runBlocking {
+        val settings = SettingsRepository(context, "precaution_${System.nanoTime()}")
+        val withGoal = BudgetRepository(database, settings)
+        settings.setSavingsGoals(Money.euros(6000), Money.euros(20000), null)
+        withGoal.ensurePeriods()
+        withGoal.ensurePeriods()
+        val found = database.envelopeDao().active().filter { it.name == "Précaution" }
+        assertEquals(1, found.size)
+        assertEquals(Money.euros(6000).cents, found.single().goalCents)
+    }
+
+    @Test
+    fun anExistingPrecautionReceivesTheOldGoalWithoutADuplicate() = runBlocking {
+        val id = repository.saveEnvelope(envelope("Précaution", 200).copy(type = fr.baptiste.bank.domain.model.EnvelopeType.SAVINGS))
+        val settings = SettingsRepository(context, "precaution_${System.nanoTime()}")
+        settings.setSavingsGoals(Money.euros(6000), Money.euros(20000), null)
+        BudgetRepository(database, settings).ensurePeriods()
+        assertEquals(1, database.envelopeDao().active().count { it.name == "Précaution" })
+        assertEquals(Money.euros(6000).cents, database.envelopeDao().byId(id)!!.goalCents)
+        assertEquals(Money.euros(200).cents, database.envelopeDao().byId(id)!!.amountCents)
+    }
+
     /** Nom du groupe qui contient l'enveloppe [id]. */
     private suspend fun categoryOf(id: Long): String? =
         database.envelopeDao().byId(id)?.parentId?.let { database.envelopeDao().byId(it)?.name }

@@ -239,4 +239,16 @@ class DashboardTest {
         assertTrue(holidays.existsOn(LocalDate.of(2026, 10, 15)))
         assertTrue(projects.existsOn(LocalDate.of(2020, 1, 1)))
     }
+
+    @Test
+    fun `the per day preview matches a dashboard holding the extra savings`() {
+        val income = Money.euros(2400)
+        val spent = listOf(spending(food, today.minusDays(2), 40))
+        val base = computeDashboard(listOf(food, loan), emptyMap(), spent, income, today)
+        assertEquals(base.dailyAllowance.allowance, base.perDayWithReserved(Money.ZERO))
+        val saving = envelope(9, EnvelopeType.SAVINGS, euros = 140)
+        val withSaving = computeDashboard(listOf(food, loan, saving), emptyMap(), spent, income, today)
+        assertEquals(withSaving.dailyAllowance.allowance, base.perDayWithReserved(Money.euros(140)))
+        assertEquals(null, computeDashboard(listOf(food), emptyMap(), emptyList(), null, today).perDayWithReserved(Money.euros(10)))
+    }
 }

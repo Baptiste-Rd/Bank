@@ -455,7 +455,7 @@ private fun LazyListScope.goalsSection(
     val accounts = holdings?.lines.orEmpty().associate { it.account.id to it.account }
     val held = state.goals.fold(Money.ZERO) { sum, it -> sum + it.held }
     // « Répartir » refait la répartition des livrets : déplacer de l'argent d'un objectif à un autre.
-    sectionHeader("goals-label", "Objectifs", action = if (state.started) "Répartir" else null, onAction = { onPlace(true) })
+    sectionHeader("goals-label", "Objectifs", action = if (state.started || held != Money.ZERO) "Répartir" else null, onAction = { onPlace(true) })
     item(key = "goals") {
         GlassCard(contentPadding = 16.dp, verticalPadding = 4.dp) {
             if (state.goals.isEmpty()) {

@@ -413,7 +413,7 @@ fun AppDialogs(
                 // Refaire la répartition peut porter sur plus que les livrets (placements, solde pas à jour).
                 val held = state.goals.fold(Money.ZERO) { sum, it -> sum + it.held }
                 val total = when {
-                    current.start && state.started -> maxOf(state.livrets, held)
+                    current.start && (state.started || held != Money.ZERO) -> maxOf(state.livrets, held)
                     current.start -> state.livrets
                     else -> state.toPlace
                 }
@@ -427,7 +427,7 @@ fun AppDialogs(
                     goals = state.goals,
                     total = total,
                     // Refaire la répartition part de ce que contient chaque objectif aujourd'hui.
-                    proposal = if (current.start && state.started) state.goals.associate { it.envelope.id to it.held }
+                    proposal = if (current.start && (state.started || held != Money.ZERO)) state.goals.associate { it.envelope.id to it.held }
                     else if (current.start) fr.baptiste.bank.domain.budget.fillInOrder(state.goals, total) else fr.baptiste.bank.domain.budget.proposeSplit(state.goals, state.received, total),
                     action = if (current.start) "Répartir" else if (total.isNegative) "Retirer" else "Ranger",
                     onDismiss = ::close,
