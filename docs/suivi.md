@@ -110,7 +110,8 @@ jour ». Données envoyées : celles de l'export (règles d'anonymisation du CLA
 - Reportés du 8e : dépôt à côté de l'enfant d'un parent arrêté (il entre dans le parent arrêté,
   affiché au même niveau) ; « Retirer » d'une somme mise à part vers À répartir ; bilan d'un mois
   passé qui ne cite pas ses sommes mises à part ; points gris de `glass-declasser` (couleur
-  « Autres »).
+  « Autres ») ; catégorie héritée cherchée dans la seule liste reçue (un enfant actif d'un parent
+  arrêté retombe en « Autres » dans l'export).
 - À étudier : « Prévoir une dépense » ; séance de test SUS sur la vraie app (quatre tâches).
 
 ## Liens

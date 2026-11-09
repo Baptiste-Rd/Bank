@@ -37,7 +37,8 @@ Onglets, dans l'ordre : **Résumé** (où j'en suis ce mois ?), **Budget** (où 
   message ou l'Historique. Une sous-catégorie sans couleur propre prend celle de sa branche.
 - Une catégorie se repère à son point de couleur (plus d'initiale) ; une catégorie qui contient
   une enveloppe (même sans dépense du mois) porte un chevron et se déplie. Ranger une enveloppe
-  dit « X rangée dans la catégorie Y ». Le formulaire d'enveloppe propose le même arbre que « Déplacer ». Les en-têtes de famille n'ont
+  dit « X rangée dans Y » (message et Historique). Le formulaire d'enveloppe propose les
+  catégories ; « Déplacer » propose l'arbre entier, vraies enveloppes comprises. Les en-têtes de famille n'ont
   pas de point (les couleurs des familles restent dans la barre du plan et sa légende).
 - Dépenses : la barre des mois, puis Catégories | Opérations, rien d'autre en en-tête. Opérations :
   « N dates d'achat à corriger » (s'il y en a), la file À trier avec « Trier une par une », puis

@@ -333,7 +333,7 @@ class BudgetRepository(
         val created = ensureCategory(category)
         envelopeDao.setParent(envelopeId, categoryId(stored))
         syncCoverage()
-        record("$name rangée dans la catégorie ${stored ?: fr.baptiste.bank.domain.model.DEFAULT_CATEGORY}", before + JournalPayload(categoriesCreated = listOfNotNull(stored.takeIf { created })))
+        record(stored?.let { "$name rangée dans $it" } ?: "$name sortie de sa catégorie", before + JournalPayload(categoriesCreated = listOfNotNull(stored.takeIf { created })))
     }
 
     /**
@@ -352,8 +352,8 @@ class BudgetRepository(
         envelopeDao.setParent(categoryDao.byName(stored)!!.id, categoryId(target))
         syncCoverage()
         record(
-            if (target != null) "$stored rangée dans la catégorie $target" else "$stored devient une catégorie principale",
-            JournalPayload(categoriesBefore = listOfNotNull(before?.let { CategoryState(it.name, it.parentId?.let(names::get), it.id, it.position) }), categoriesCreated = created),
+            if (target != null) "$stored rangée dans $target" else "$stored rangée en haut",
+            JournalPayload(categoriesBefore = listOfNotNull(before?.let { CategoryState(it.name, it.parentId?.let(names::get), it.id, it.position, it.parentId) }), categoriesCreated = created),
         )
         true
     }
@@ -389,7 +389,7 @@ class BudgetRepository(
             "$old renommée $target",
             affected.fold(JournalPayload()) { all, part -> all + part } + JournalPayload(
                 categoriesBefore = (listOfNotNull(oldRow, existing.takeIf { targetInside }) + children).distinctBy { it.id }
-                    .map { CategoryState(it.name, it.parentId?.let(names::get), it.id, it.position) },
+                    .map { CategoryState(it.name, it.parentId?.let(names::get), it.id, it.position, it.parentId) },
                 categoriesCreated = listOfNotNull(target.takeIf { existing == null }),
             ),
         )
@@ -407,13 +407,23 @@ class BudgetRepository(
         val names = rows.associate { it.id to it.name }
         val inside = envelopeDao.inGroup(row.id).map { envelopeState(it.id) }
         val children = rows.filter { it.parentId == row.id }
-        envelopeDao.reparentChildren(row.id, row.parentId)
+        // Le contenu prend la place de la catégorie parmi ses nouvelles voisines, dans son ordre.
+        val places = (rows.map { Triple(it.id, it.parentId, it.position) } + allEnvelopes().map { Triple(it.id, it.parentId, it.position) })
+            .distinctBy { it.first }
+        val content = places.filter { it.second == row.id }.sortedBy { it.third }.map { it.first }
+        val neighbours = places.filter { it.second == row.parentId }.sortedBy { it.third }.map { it.first }.toMutableList()
+        val at = neighbours.indexOf(row.id).coerceAtLeast(0)
+        neighbours.remove(row.id)
+        neighbours.addAll(at.coerceAtMost(neighbours.size), content)
+        neighbours.forEachIndexed { index, id -> envelopeDao.setPlace(id, row.parentId, index) }
         categoryDao.delete(row.id)
         syncCoverage()
         record(
             "Catégorie $stored supprimée",
             inside.fold(JournalPayload()) { all, part -> all + part } + JournalPayload(
-                categoriesBefore = (listOf(row) + children).map { CategoryState(it.name, it.parentId?.let(names::get), it.id, it.position) },
+                // Les sous-catégories aussi par leur identifiant : un glissement ultérieur (env:id) bloque l'annulation.
+                extraTouched = children.map { "env:${it.id}" },
+                categoriesBefore = (listOf(row) + children).map { CategoryState(it.name, it.parentId?.let(names::get), it.id, it.position, it.parentId) },
             ),
         )
         true
@@ -560,7 +570,11 @@ class BudgetRepository(
                 categoryDao.byName(state.name) == null -> categoryDao.insert(groupRow(state.name, id = state.id ?: 0).copy(position = state.position))
             }
         }
-        payload.categoriesBefore.forEach { state -> envelopeDao.setParent(categoryDao.byName(state.name)!!.id, categoryId(state.parent)) }
+        // Le parent par son identifiant (une vraie enveloppe n'a pas de nom de catégorie), sinon par son nom.
+        payload.categoriesBefore.forEach { state ->
+            val parent = state.parentId?.takeIf { envelopeDao.byId(it) != null } ?: categoryId(state.parent)
+            envelopeDao.setParent(categoryDao.byName(state.name)!!.id, parent)
+        }
         // Une enveloppe supprimée définitivement depuis n'est pas recréée vide.
         payload.envelopesBefore.filter { it.id in alive }.forEach { before ->
             // Le parent par son identifiant ; s'il a disparu, ou pour une entrée d'avant la v18, par son nom.
@@ -1754,12 +1768,12 @@ class BudgetRepository(
     }
 
     /**
-     * Viré vers mes livrets et placements sur un mois, net : un versement (débit du compte courant)
-     * compte en plus, un retrait vers le compte courant en moins.
+     * Versé sur mes livrets et placements sur un mois : les débits du compte courant seulement, comme
+     * « Pas compté » de Dépenses. Un retrait vers le compte courant n'est pas un versement.
      */
     fun transfersToAccounts(month: YearMonth): Flow<Money> =
         transactionDao.observeTransfersToAccounts(month.atDay(1), month.atEndOfMonth())
-            .map { amounts -> Money(-amounts.sum()) }
+            .map { amounts -> Money(-amounts.filter { it < 0 }.sum()) }
 
     /**
      * Le solde du compte courant décomposé : reste du mois, charges à payer, épargne à virer,

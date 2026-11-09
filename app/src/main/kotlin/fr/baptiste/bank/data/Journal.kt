@@ -41,7 +41,7 @@ fun ruleKey(pattern: String) = "rule:" + fr.baptiste.bank.domain.bank.normalizeL
 fun aliasKey(pattern: String) = "alias:" + fr.baptiste.bank.domain.bank.normalizeLabel(pattern)
 
 /** Une catégorie et sa mère, avant un changement ; [id] est absent des entrées d'avant la v18. */
-data class CategoryState(val name: String, val parent: String?, val id: Long? = null, val position: Int = 0)
+data class CategoryState(val name: String, val parent: String?, val id: Long? = null, val position: Int = 0, val parentId: Long? = null)
 
 /** Une saisie manuelle supprimée : de quoi la remettre telle quelle. */
 data class ManualState(val transaction: TransactionEntity, val imputations: List<ImputationEntity>)
@@ -175,7 +175,7 @@ data class JournalPayload(
         put("allocationsBefore", JSONArray(allocationsBefore.map { it.toJson() }))
         put("envelopesCreated", JSONArray(envelopesCreated))
         put("manualCreated", JSONArray(manualCreated))
-        put("categoriesBefore", JSONArray(categoriesBefore.map { JSONObject().put("name", it.name).putNullable("parent", it.parent).putNullable("id", it.id).put("position", it.position) }))
+        put("categoriesBefore", JSONArray(categoriesBefore.map { JSONObject().put("name", it.name).putNullable("parent", it.parent).putNullable("id", it.id).put("position", it.position).putNullable("parentId", it.parentId) }))
         put("categoriesCreated", JSONArray(categoriesCreated))
         put("manualDeleted", JSONArray(manualDeleted.map { m -> JSONObject().put("transaction", m.transaction.toJson()).put("imputations", JSONArray(m.imputations.map { it.toJson() })) }))
         put("datesBefore", JSONArray(datesBefore.map { JSONObject().put("id", it.transactionId).put("date", it.date.toString()) }))
@@ -202,7 +202,7 @@ data class JournalPayload(
                 allocationsBefore = json.objects("allocationsBefore").map { it.toAllocation() },
                 envelopesCreated = json.longs("envelopesCreated"),
                 manualCreated = json.longs("manualCreated"),
-                categoriesBefore = json.objects("categoriesBefore").map { CategoryState(it.getString("name"), it.stringOrNull("parent"), it.longOrNull("id"), it.optInt("position")) },
+                categoriesBefore = json.objects("categoriesBefore").map { CategoryState(it.getString("name"), it.stringOrNull("parent"), it.longOrNull("id"), it.optInt("position"), it.longOrNull("parentId")) },
                 categoriesCreated = json.optJSONArray("categoriesCreated")?.let { array -> (0 until array.length()).map { array.getString(it) } }.orEmpty(),
                 manualDeleted = json.objects("manualDeleted").map { ManualState(it.getJSONObject("transaction").toTransaction(), it.objects("imputations").map { i -> i.toImputation() }) },
                 datesBefore = json.objects("datesBefore").map { DateState(it.getLong("id"), LocalDate.parse(it.getString("date"))) },

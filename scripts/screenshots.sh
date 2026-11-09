@@ -178,7 +178,8 @@ shot_budget glass-budget-arbre --es tab BUDGET
 adb shell input swipe 900 1236 250 1236 300
 sleep 2
 adb exec-out screencap -p > "$OUT/glass-glisser.png"
-adb shell input tap 886 1236
+# Trois actions de 84 dp sur une catégorie : « Déplacer » est celle du milieu.
+adb shell input tap 720 1236
 sleep 3
 adb exec-out screencap -p > "$OUT/glass-deplacer.png"
 shot_budget glass-sous-categorie --es tab OPERATIONS --es expand Bars

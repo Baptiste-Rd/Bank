@@ -477,6 +477,20 @@ class JournalTest {
     }
 
     @Test
+    fun undoingADeletedCategoryPutsItBackInItsRealEnvelope() = runBlocking {
+        val outings = repository.saveEnvelope(envelope("Sorties", 80))
+        val film = repository.saveEnvelope(envelope("Film", 20))
+        repository.moveEnvelope(film, "Ciné")
+        val cine = database.categoryDao().byName("Ciné")!!.id
+        repository.moveInTree(cine, fr.baptiste.bank.domain.model.TreeDrop.Into(outings))
+        assertTrue(repository.deleteCategory("Ciné"))
+        assertEquals(outings, database.envelopeDao().byId(film)?.parentId)
+        repository.undo(lastEntry().id)
+        assertEquals(outings, database.categoryDao().byName("Ciné")?.parentId)
+        assertEquals("Ciné", categoryOf(film))
+    }
+
+    @Test
     fun savingAChildOfARealEnvelopeKeepsItsParent() = runBlocking {
         val parent = repository.saveEnvelope(envelope("Sorties", 80))
         repository.moveEnvelope(parent, "Loisirs")

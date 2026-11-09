@@ -118,7 +118,6 @@ fun GlassMainScreen(
     // Même instance que celle des fenêtres (portée de l'activité) : les opérations en attente.
     val bankViewModel: BankViewModel = androidx.lifecycle.viewmodel.compose.viewModel(factory = BankViewModel.Factory)
     val bankConnection by bankViewModel.connection.collectAsStateWithLifecycle()
-    val currentAccount by viewModel.currentAccount.collectAsStateWithLifecycle()
     val savingsState by viewModel.savingsState.collectAsStateWithLifecycle()
     val trackingStart by viewModel.trackingStart.collectAsStateWithLifecycle()
     val firstOperationDate by viewModel.firstOperationDate.collectAsStateWithLifecycle()
@@ -617,9 +616,9 @@ fun GlassMainScreen(
             val month = YearMonth.now()
             val tree = fr.baptiste.bank.domain.budget.treeOf(envelopes + archived, treeGroups, month, trackingStart)
             val allIds = (envelopes.map { it.id } + treeGroups.map { it.id }).toSet()
-            // Une somme mise à part ne contient rien : elle n'est pas proposée comme destination.
+            // Les mêmes destinations que le glissement.
             val destinations = fr.baptiste.bank.domain.budget.budgetRows(envelopes + archived, treeGroups, month, trackingStart, allIds)
-                .filter { row -> row.envelope?.type != fr.baptiste.bank.domain.model.EnvelopeType.LUMP && (subjectId == null || tree.canMoveInto(subjectId, row.id)) }
+                .filter { row -> subjectId == null || tree.canMoveInto(subjectId, row.id) }
                 .map { fr.baptiste.bank.ui.components.MoveDestination(it.id, it.name, it.depth, fr.baptiste.bank.ui.theme.categoryColor(it.rootName)) }
             val currentParent = subjectId?.let { id -> (envelopes + archived).firstOrNull { it.id == id }?.parentId ?: treeGroups.firstOrNull { it.id == id }?.parentId }
             GlassSurfaceColors(onBackground = false) {
@@ -629,7 +628,8 @@ fun GlassMainScreen(
                     currentParent = currentParent,
                     onPick = { target ->
                         moveSubject = null
-                        subjectId?.let { dropInTree(it, fr.baptiste.bank.domain.model.TreeDrop.Into(target)) }
+                        // La ligne cochée : rien ne change, le panneau se ferme.
+                        if (target != currentParent) subjectId?.let { dropInTree(it, fr.baptiste.bank.domain.model.TreeDrop.Into(target)) }
                     },
                     onCreate = { name ->
                         moveSubject = null
@@ -641,6 +641,7 @@ fun GlassMainScreen(
                             is fr.baptiste.bank.ui.components.MoveSubject.CategorySubject ->
                                 viewModel.moveCategory(subject.name, name) { done ->
                                     if (done) controller.notify("${subject.name} rangée dans $name", "Annuler") { viewModel.undoLast() }
+                                    else controller.notify("Impossible : une catégorie ne va pas dans ses sous-catégories.")
                                 }
                         }
                     },

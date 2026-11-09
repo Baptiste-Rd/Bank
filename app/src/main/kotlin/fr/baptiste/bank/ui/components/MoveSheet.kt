@@ -46,7 +46,7 @@ data class MoveDestination(val id: Long, val name: String, val depth: Int, val c
 
 /**
  * « Déplacer » : l'arbre de Budget (catégories et vraies enveloppes), sans ce que contient la ligne
- * déplacée ni elle-même, et une nouvelle enveloppe. Toucher une ligne range tout de suite dedans
+ * déplacée ni elle-même, et une nouvelle catégorie. Toucher une ligne range tout de suite dedans
  * (un message permet d'annuler), comme un glissement.
  *
  * @param currentParent le parent actuel, coché ; null : en haut.
@@ -79,7 +79,7 @@ fun MoveSheet(
                     OutlinedTextField(
                         value = newName,
                         onValueChange = { newName = it },
-                        label = { Text("Nouvelle enveloppe") },
+                        label = { Text("Nouvelle catégorie") },
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                     )

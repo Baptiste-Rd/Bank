@@ -34,7 +34,7 @@ Il couvre douze mois glissants au plus, depuis le début du suivi.
 | Champ | Sens |
 | --- | --- |
 | `envelopes[].family` | `quotidien` (budget du jour), `charge` (prélèvement fixe), `rare` (budget rare ou ponctuel, avec remise à zéro), `épargne`. |
-| `envelopes[].amount` | Montant par période du rythme (`rhythm` : « chaque mois », « tous les 3 mois »…). |
+| `envelopes[].amount` | Montant saisi par période du rythme (`rhythm` : « chaque mois », « tous les 3 mois »…). Pour un parent, il peut inclure ses enfants : additionner les `budget` des périodes, pas les `amount`. |
 | `envelopes[].start` | Départ : une dépense antérieure peut y être rangée mais ne compte pas dans son reste. |
 | `envelopes[].reset` | Remise à zéro du premier budget (budget rare). `repeats: false` : ponctuel. |
 | `envelopes[].stopped` | Date d'arrêt (ou « oui » si arrêtée sans date connue) ; `null` si active. |

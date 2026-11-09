@@ -413,7 +413,7 @@ private fun CountedLine(month: YearMonth, counted: Boolean, onChange: (Boolean) 
     }
 }
 
-/** Ce que proposent les lignes glissées de Dépenses › Catégories. */
+/** Ce que proposent les lignes glissées de l'arbre de Budget. */
 data class CategoryRowActions(
     val onMoveEnvelope: (fr.baptiste.bank.domain.model.Envelope) -> Unit = {},
     val onEditEnvelope: (fr.baptiste.bank.domain.model.Envelope) -> Unit = {},
@@ -421,11 +421,6 @@ data class CategoryRowActions(
     val onRenameCategory: (String) -> Unit = {},
 )
 
-/**
- * Une catégorie et, dépliée, ses sous-catégories puis ses enveloppes, décalées d'un cran par
- * niveau. Chaque ligne se glisse : « Déplacer » et « Renommer » pour une catégorie (pas pour
- * « Autres »), « Déplacer » et « Modifier » pour une enveloppe.
- */
 /** « 65,19 € encore à trier » : le total du mois n'est pas complet. */
 @Composable
 private fun UnsortedLine(amount: Money, onSort: () -> Unit) {
