@@ -429,7 +429,9 @@ private fun SpendingBranchRow(row: SpendingRow, open: Boolean, savings: Boolean,
             modifier = Modifier.weight(1f),
         )
         // Hors du filtre Épargne, une épargne seule montre aussi sa part du mois, pas un dépensé à 0 €.
-        val amount = if (savings) row.line?.takeIf { !row.hasChildren }?.monthlyShare ?: row.spent else row.spent
+        // Une somme mise à part qui contient des enveloppes : ses propres dépenses s'ajoutent (le mois ne les compte pas).
+        val lumpSpent = row.line?.takeIf { it.envelope.type == EnvelopeType.LUMP }?.spent ?: Money.ZERO
+        val amount = if (savings) row.line?.takeIf { !row.hasChildren }?.monthlyShare ?: row.spent else row.spent + lumpSpent
         Column(horizontalAlignment = Alignment.End) {
             Text(amount.summary(), style = MaterialTheme.typography.titleMedium)
             Text(
