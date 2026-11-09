@@ -77,6 +77,17 @@ fun EnvelopeRow(
             caption = "ce mois",
             ratio = null,
         )
+        // Une seule longue période : pas de dates de période, ce qui reste sur la somme de départ.
+        EnvelopeType.LUMP -> RowDisplay(
+            detail = "${line.spent.summary()} sur ${line.available.summary()}",
+            value = line.remaining,
+            caption = "reste",
+            ratio = when {
+                line.available.isPositive -> (line.spent.cents.toFloat() / line.available.cents).coerceIn(0f, 1f)
+                line.spent.isPositive -> 1f
+                else -> 0f
+            },
+        )
         EnvelopeType.PLANNED -> {
             val saved = line.envelope.savedSoFar(today)
             RowDisplay(

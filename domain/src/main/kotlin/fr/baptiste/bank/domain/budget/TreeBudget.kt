@@ -137,7 +137,7 @@ enum class SpendFilter(val label: String) {
     fun accepts(type: EnvelopeType): Boolean = when (this) {
         ALL -> true
         MONTHLY -> type == EnvelopeType.DAILY || type == EnvelopeType.FIXED
-        OCCASIONAL -> type == EnvelopeType.RECURRING || type == EnvelopeType.ANNUAL || type == EnvelopeType.PLANNED
+        OCCASIONAL -> type == EnvelopeType.RECURRING || type == EnvelopeType.ANNUAL || type == EnvelopeType.PLANNED || type == EnvelopeType.LUMP
         SAVINGS -> type == EnvelopeType.SAVINGS
     }
 }

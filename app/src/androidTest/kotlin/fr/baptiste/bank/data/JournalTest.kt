@@ -588,6 +588,25 @@ class JournalTest {
         assertEquals(Money.euros(200).cents, database.envelopeDao().byId(id)!!.amountCents)
     }
 
+    @Test
+    fun finishingALumpPutsWhatIsLeftInAGoalAndUndoBringsItBack() = runBlocking {
+        val goal = repository.saveEnvelope(envelope("Projets", 100).copy(type = fr.baptiste.bank.domain.model.EnvelopeType.SAVINGS))
+        val start = java.time.LocalDate.now().withDayOfMonth(1)
+        val lump = repository.saveEnvelope(
+            envelope("Vacances", 600).copy(
+                type = fr.baptiste.bank.domain.model.EnvelopeType.LUMP,
+                frequency = fr.baptiste.bank.domain.model.EnvelopeType.LUMP.defaultFrequency,
+                start = start, anchor = start, repeats = false,
+            ),
+        )
+        repository.finishLump(lump, goal)
+        assertTrue(database.envelopeDao().byId(lump)!!.archived)
+        assertEquals(Money.euros(600), repository.savingsState.first().goals.first { it.envelope.id == goal }.held)
+        repository.undo(lastEntry().id)
+        assertTrue(!database.envelopeDao().byId(lump)!!.archived)
+        assertEquals(Money.ZERO, repository.savingsState.first().goals.first { it.envelope.id == goal }.held)
+    }
+
     /** Nom du groupe qui contient l'enveloppe [id]. */
     private suspend fun categoryOf(id: Long): String? =
         database.envelopeDao().byId(id)?.parentId?.let { database.envelopeDao().byId(it)?.name }

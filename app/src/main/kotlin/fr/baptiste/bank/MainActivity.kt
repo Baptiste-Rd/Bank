@@ -63,6 +63,8 @@ class MainActivity : ComponentActivity() {
             "PLAN" -> OpenDialog.TryPlan("Voyage", Money.euros(2000))
             // Mettre de côté sur l'épargne de la démo : la réserve est proposée en premier.
             "PLACE" -> OpenDialog.PlaceSavings(true)
+            "LUMP" -> OpenDialog.NamedEnvelope("Week-end à Lisbonne") { OpenDialog.EnvelopeDetail(it) }
+            "FINISH" -> OpenDialog.NamedEnvelope("Week-end à Lisbonne") { OpenDialog.FinishLump(it) }
             "RESERVE" -> OpenDialog.NamedEnvelope("Précaution") { OpenDialog.Move(it, incoming = true) }
             // « Ajouter de l'argent » sur Sorties, en dépassement dans la démo : la source se choisit.
             "COVER" -> OpenDialog.NamedEnvelope("Sorties") { OpenDialog.Cover(it) }

@@ -25,12 +25,19 @@ enum class EnvelopeType {
 
     /** Achat prévu à une date : son prix est réparti sur les mois qui la précèdent. */
     PLANNED,
+
+    /**
+     * Somme mise à part : de l'argent déjà là (sur le compte, sur un livret), mis à part d'un coup
+     * pour des dépenses qui viendront (des vacances). Pas de part du mois : elle s'épuise avec ses
+     * dépenses, et « Terminer » rend ce qui reste. Une seule période, longue de [LUMP_MONTHS] mois.
+     */
+    LUMP,
     ;
 
     /** Statut proposé à la création : on ne prélève jamais automatiquement sur un engagement. */
     val defaultStatus: EnvelopeStatus
         get() = when (this) {
-            FIXED, SAVINGS, PLANNED -> EnvelopeStatus.PROTECTED
+            FIXED, SAVINGS, PLANNED, LUMP -> EnvelopeStatus.PROTECTED
             DAILY, RECURRING, ANNUAL -> EnvelopeStatus.FLEXIBLE
         }
 
@@ -40,8 +47,12 @@ enum class EnvelopeType {
             DAILY, FIXED, SAVINGS -> Frequency.MONTHLY
             RECURRING, ANNUAL -> Frequency.YEARLY
             PLANNED -> Frequency(6, Scale.MONTH)
+            LUMP -> Frequency(LUMP_MONTHS, Scale.MONTH)
         }
 }
+
+/** Durée de la période unique d'une somme mise à part : elle ne se remet jamais à zéro d'elle-même. */
+const val LUMP_MONTHS = 1200
 
 /** Une enveloppe flexible peut servir de source à un transfert ; une enveloppe protégée jamais automatiquement. */
 enum class EnvelopeStatus { FLEXIBLE, PROTECTED }

@@ -317,7 +317,11 @@ private fun BudgetTreeRow(row: BudgetRow, open: Boolean, onToggle: () -> Unit, o
             if (envelope != null) {
                 // Son but, puis son rythme s'il n'est pas mensuel.
                 Text(
-                    envelope.type.family.label + if (envelope.frequency == Frequency.MONTHLY) "" else " · ${envelope.frequency.shortLabel()}",
+                    when {
+                        envelope.type == EnvelopeType.LUMP -> "Somme mise à part"
+                        envelope.frequency == Frequency.MONTHLY -> envelope.type.family.label
+                        else -> envelope.type.family.label + " · ${envelope.frequency.shortLabel()}"
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -326,6 +330,14 @@ private fun BudgetTreeRow(row: BudgetRow, open: Boolean, onToggle: () -> Unit, o
             }
         }
         // Un budget d'un autre rythme garde son montant, avec sa part du mois en dessous.
+        // Une somme mise à part n'a pas de part du mois : son montant, « mis à part ».
+        if (envelope?.type == EnvelopeType.LUMP && !row.hasChildren) {
+            Column(horizontalAlignment = Alignment.End) {
+                Text(envelope.amount.summary(), style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.End)
+                Text("mis à part", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            return@Row
+        }
         val monthly = envelope == null || envelope.frequency == Frequency.MONTHLY || row.hasChildren
         Column(horizontalAlignment = Alignment.End) {
             Text(if (monthly) row.covered.summary() else envelope!!.amount.summary(), style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.End)

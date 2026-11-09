@@ -157,6 +157,7 @@ fun envelopeTypeColor(type: fr.baptiste.bank.domain.model.EnvelopeType): Color =
     fr.baptiste.bank.domain.model.EnvelopeType.FIXED -> Color(0xFFCBD5E1)
     fr.baptiste.bank.domain.model.EnvelopeType.SAVINGS -> Color(0xFF6EE7B7)
     fr.baptiste.bank.domain.model.EnvelopeType.PLANNED -> Color(0xFFF0ABFC)
+    fr.baptiste.bank.domain.model.EnvelopeType.LUMP -> Color(0xFFFDBA74)
 }
 
 /** Couleurs de statut qui n'existent pas dans le schéma Material. */

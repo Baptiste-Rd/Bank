@@ -188,6 +188,43 @@ class BudgetRepository(
         record(label, JournalPayload(placementsCreated = created, placementsRemoved = removed))
     }
 
+    /**
+     * Termine une somme mise à part : un reste va dans l'objectif [goalId] (sinon il reste sur le
+     * compte) ; un dépassement est pris sur l'objectif [goalId] (sinon sur le mois en cours). Une
+     * seule entrée d'Historique, qui rétablit tout.
+     */
+    suspend fun finishLump(id: Long, goalId: Long?) {
+        val left = dashboard().first().envelopes.firstOrNull { it.envelope.id == id }?.remaining ?: Money.ZERO
+        database.withTransaction {
+            val today = LocalDate.now()
+            val name = envelopeDao.byId(id)?.name ?: return@withTransaction
+            val before = envelopeState(id)
+            val missing = Money(-left.cents)
+            val placements = mutableListOf<fr.baptiste.bank.data.local.PlacementEntity>()
+            val transfers = mutableListOf<TransferEntity>()
+            if (left.isPositive && goalId != null) {
+                placements += fr.baptiste.bank.data.local.PlacementEntity(envelopeId = goalId, date = today, amountCents = left.cents)
+            }
+            if (left.isNegative) {
+                // Couvert par un objectif : l'argent sort de l'épargne, le mois n'est pas touché (réserve).
+                if (goalId != null) placements += fr.baptiste.bank.data.local.PlacementEntity(envelopeId = goalId, date = today, amountCents = -missing.cents)
+                transfers += TransferEntity(
+                    effectiveDate = today,
+                    sourceEnvelopeId = null,
+                    targetEnvelopeId = id,
+                    amountCents = missing.cents,
+                    reason = "Fin de $name",
+                    fromReserve = goalId != null,
+                )
+            }
+            val placementIds = if (placements.isEmpty()) emptyList() else placementDao.insertAll(placements)
+            val transferIds = if (transfers.isEmpty()) emptyList() else transferDao.insertAll(transfers)
+            envelopeDao.archive(id, today)
+            syncCoverage(today)
+            record("$name terminée", before + JournalPayload(placementsCreated = placementIds, transfersCreated = transferIds))
+        }
+    }
+
     /** Les groupes de l'arbre. */
     val treeGroups: Flow<List<fr.baptiste.bank.domain.budget.GroupNode>> = categoryDao.observeAll().map { rows -> rows.map { it.toGroupNode() } }
 

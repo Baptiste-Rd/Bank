@@ -405,6 +405,8 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
 
     fun placeSavings(parts: Map<Long, Money>, start: Boolean) = perform { repository.placeSavings(parts, start) }
 
+    fun finishLump(id: Long, goalId: Long?) = perform { repository.finishLump(id, goalId) }
+
     /** Virements vers mes comptes, mois par mois, pour le bilan. */
     fun transfersToAccounts(month: YearMonth): Flow<Money> = repository.transfersToAccounts(month)
 

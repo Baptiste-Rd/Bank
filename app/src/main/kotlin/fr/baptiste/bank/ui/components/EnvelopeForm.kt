@@ -79,12 +79,14 @@ private enum class Use(val label: String) {
     FIXED("Charge fixe"),
     RARE("Rare ou ponctuel"),
     SAVINGS("Épargne"),
+    LUMP("Somme mise à part"),
 }
 
 private fun EnvelopeType.use(): Use = when (this) {
     EnvelopeType.DAILY -> Use.DAILY
     EnvelopeType.FIXED -> Use.FIXED
     EnvelopeType.SAVINGS -> Use.SAVINGS
+    EnvelopeType.LUMP -> Use.LUMP
     EnvelopeType.RECURRING, EnvelopeType.ANNUAL, EnvelopeType.PLANNED -> Use.RARE
 }
 
@@ -116,6 +118,10 @@ fun EnvelopeDialog(
     accounts: List<Pair<Long, String>> = emptyList(),
     /** Le « par jour » d'aujourd'hui et celui qu'il serait avec ce montant réservé en plus, ou null. */
     perDay: (Money) -> Pair<Money, Money>? = { null },
+    /** Somme mise à part : les objectifs où la prendre (identifiant, nom). */
+    goals: List<Pair<Long, String>> = emptyList(),
+    /** Somme mise à part prise sur un objectif : appelé après l'enregistrement. */
+    onTakeFromGoal: (goalId: Long, amount: Money) -> Unit = { _, _ -> },
 ) {
     val today = LocalDate.now()
     // Un modèle (id 0) pré-remplit le formulaire mais reste une création.
@@ -180,7 +186,11 @@ fun EnvelopeDialog(
     val thenAmount = if (thenEdited) parseMoney(thenText) else amount
     val rareEvery = rareEveryText.toIntOrNull()?.takeIf { it in 1..99 }
     val every = everyText.toIntOrNull()?.takeIf { it in 1..999 }
+    // Somme mise à part : d'où vient l'argent (compte, mois en cours, objectif), seulement à la création.
+    var lumpSource by rememberSaveable { mutableStateOf(SOURCE_ACCOUNT) }
+    val monthSource = "À répartir de " + monthLabel(YearMonth.from(today)).substringBefore(' ')
     val frequency: Frequency? = when {
+        use == Use.LUMP -> EnvelopeType.LUMP.defaultFrequency
         // Un objectif se compte au mois : sa part, le versement attendu, l'aperçu.
         use == Use.SAVINGS && goal != null -> Frequency.MONTHLY
         else -> when (use) {
@@ -211,6 +221,7 @@ fun EnvelopeDialog(
             use = use, amount = amount, thenAmount = thenAmount ?: amount, frequency = frequency,
             start = start, reset = reset.takeIf { resetTouched }, repeats = repeats, keep = keep, anchor = anchor, protected = protected,
             goal = goal.takeIf { goalValid }, goalBy = goalMonth.takeIf { goal != null }, accountId = accountId,
+            fromMonth = !isExisting && lumpSource == monthSource,
         )
     } else {
         null
@@ -283,7 +294,13 @@ fun EnvelopeDialog(
                 onCancel = onDismiss,
                 action = "Enregistrer",
                 enabled = draft != null,
-                onAction = { draft?.let(onSave) },
+                onAction = {
+                    draft?.let { saved ->
+                        onSave(saved)
+                        // Prise sur un objectif : l'argent sort de l'épargne, une fois l'enveloppe créée.
+                        if (use == Use.LUMP && !isExisting) goals.firstOrNull { it.second == lumpSource }?.let { onTakeFromGoal(it.first, saved.amount) }
+                    }
+                },
             )
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -373,7 +390,27 @@ fun EnvelopeDialog(
                     }
                 }
 
-                if (use == Use.SAVINGS) {
+                if (use == Use.LUMP) {
+                    MoneyField(value = amountText, onValueChange = { amountText = it }, label = "Combien")
+                    DateField(label = "Départ", date = start ?: today, onDateChange = { start = it })
+                    if (!isExisting) {
+                        ChoiceField(
+                            label = "Pris sur",
+                            selected = lumpSource,
+                            options = listOf(SOURCE_ACCOUNT, monthSource) + goals.map { it.second },
+                            optionLabel = { it },
+                            onSelect = { lumpSource = it },
+                        )
+                    }
+                    // Sans part du mois, le « par jour » ne bouge que si l'argent est pris sur le mois.
+                    val days = if (lumpSource == monthSource && !isExisting) amount?.let(perDay) else null
+                    Text(
+                        days?.let { (now, then) -> "Par jour : ${then.summary()} au lieu de ${now.summary()}." }
+                            ?: "Pas de part du mois : ton « par jour » ne change pas.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else if (use == Use.SAVINGS) {
                     MoneyField(value = goalText, onValueChange = { goalText = it }, label = "Objectif (facultatif)")
                     val months = remember { (0..60).map { YearMonth.from(today).plusMonths(it.toLong()).toString() } }
                     ChoiceField(
@@ -481,8 +518,8 @@ fun EnvelopeDialog(
 
                 draft?.let { Text(summary(it, today, trackingStart), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
 
-                TextButton(onClick = { more = !more }) { Text(if (more) "Moins d'options" else "Plus d'options") }
-                if (more) {
+                if (use != Use.LUMP) TextButton(onClick = { more = !more }) { Text(if (more) "Moins d'options" else "Plus d'options") }
+                if (more && use != Use.LUMP) {
                     val chosenStart = start
                     if (chosenStart == null) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -603,6 +640,7 @@ private fun monthsBetween(start: LocalDate, reset: LocalDate): Int =
     (ChronoUnit.MONTHS.between(YearMonth.from(start), YearMonth.from(reset.minusDays(1))) + 1).coerceAtLeast(1).toInt()
 
 private const val NO_DATE = "Pas de date"
+private const val SOURCE_ACCOUNT = "Compte courant"
 private const val NO_ACCOUNT = "Aucun compte"
 
 private fun monthLabel(month: YearMonth): String =
@@ -629,11 +667,13 @@ private fun buildEnvelope(
     goal: Money?,
     goalBy: YearMonth?,
     accountId: Long?,
+    fromMonth: Boolean,
 ): Envelope {
     val type = when (use) {
         Use.DAILY -> EnvelopeType.DAILY
         Use.FIXED -> EnvelopeType.FIXED
         Use.SAVINGS -> EnvelopeType.SAVINGS
+        Use.LUMP -> EnvelopeType.LUMP
         Use.RARE -> when {
             // Une ancienne provision garde son type ; un nouveau budget sans suite est un achat prévu.
             isExisting && initial != null && initial.type.use() == Use.RARE && (repeats || initial.type != EnvelopeType.PLANNED) ->
@@ -644,6 +684,16 @@ private fun buildEnvelope(
         }
     }
     val base = initial ?: Envelope(id = 0, name = "", type = type, frequency = frequency, amount = Money.ZERO, status = type.defaultStatus)
+    if (use == Use.LUMP) {
+        // Une seule période, du départ choisi (passé possible) ; prise sur le mois : sa part est ce mois-ci.
+        val origin = start ?: today
+        return base.copy(
+            name = name, type = type, frequency = frequency, amount = amount, firstAmount = null, firstReset = null,
+            repeats = false, carryOver = false, start = origin, anchor = origin,
+            fundingStart = if (fromMonth) YearMonth.from(today) else base.fundingStart.takeIf { isExisting },
+            group = category, goal = null, goalBy = null, accountId = null, status = EnvelopeStatus.PROTECTED,
+        )
+    }
     val rare = use == Use.RARE
     // Une ancienne enveloppe sans départ en reçoit un à l'enregistrement si besoin (voir saveEnvelope).
     val origin = if (rare && start == null && !isExisting) today.withDayOfMonth(1) else start

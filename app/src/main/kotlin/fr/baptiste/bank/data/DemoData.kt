@@ -60,6 +60,8 @@ object DemoData {
             envelope("Prêt", EnvelopeType.FIXED, 400).copy(group = "Logement"),
             envelope("Projets", EnvelopeType.ANNUAL, 1200),
             envelope("Vacances", EnvelopeType.ANNUAL, 1800).copy(group = "Voyages"),
+            // Une somme mise à part au début du mois, prise sur le compte : elle ne pèse pas sur le « par jour ».
+            envelope("Week-end à Lisbonne", EnvelopeType.LUMP, 600).copy(start = today.withDayOfMonth(1), anchor = today.withDayOfMonth(1), repeats = false),
             envelope("Précaution", EnvelopeType.SAVINGS, 200).copy(goal = Money.euros(6000)),
             envelope("Voiture", EnvelopeType.SAVINGS, 540).copy(goal = Money.euros(8000), goalBy = YearMonth.from(today).plusMonths(14)),
             // L'achat prévu du scénario : créé ce mois-ci, il ne pèse pas sur les mois passés.
@@ -84,6 +86,8 @@ object DemoData {
         spend("Sorties", 20, 3650L, "Restaurant")
         spend("Bar", 16, 1800L, "Bar du coin")
         spend("Projets", 5, 10000L, "Vélo")
+        spend("Week-end à Lisbonne", 1, 21000L, "TAP AIR PORTUGAL")
+        spend("Week-end à Lisbonne", 2, 18500L, "HOTEL LISBOA")
         spend("Coiffeur", maxOf(1, today.dayOfMonth - 10), 3000L)
         // Les charges fixes sont payées chaque mois : sans elles, leur montant passerait pour un reste.
         spend("Prêt", 5, 40000L, "Échéance prêt")

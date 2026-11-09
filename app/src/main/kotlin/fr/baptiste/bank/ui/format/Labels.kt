@@ -20,6 +20,7 @@ val EnvelopeType.label: String
         EnvelopeType.FIXED -> "Charge fixe"
         EnvelopeType.SAVINGS -> "Épargne"
         EnvelopeType.PLANNED -> "Achat prévu"
+        EnvelopeType.LUMP -> "Somme mise à part"
     }
 
 val EnvelopeType.hint: String
@@ -30,6 +31,7 @@ val EnvelopeType.hint: String
         EnvelopeType.FIXED -> "Prélèvement certain (prêt, loyer)"
         EnvelopeType.SAVINGS -> "Objectif d'épargne (livret A, PEA)"
         EnvelopeType.PLANNED -> "Un achat à une date (vélo, ordinateur) : le prix est réparti sur les mois d'ici là"
+        EnvelopeType.LUMP -> "Une somme déjà là, mise à part d'un coup (vacances) : elle s'épuise avec ses dépenses"
     }
 
 /** Nom de l'unité, accordé : « jour » / « jours », « mois » est invariable. */

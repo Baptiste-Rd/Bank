@@ -308,6 +308,8 @@ fun EnvelopeSheet(
     onMoveOperation: (OperationRow) -> Unit = {},
     /** Accepte le rattrapage proposé (provision suivie depuis moins longtemps que sa période). */
     onCatchUp: ((java.time.YearMonth) -> Unit)? = null,
+    /** Somme mise à part : la terminer et rendre ce qui reste. */
+    onFinish: (() -> Unit)? = null,
     /** Périodes enregistrées, la plus récente en premier : le budget de chacune se corrige ici. */
     periods: List<fr.baptiste.bank.data.BudgetRepository.PeriodLine> = emptyList(),
     onSetPeriodAmount: (key: String, amount: Money) -> Unit = { _, _ -> },
@@ -388,6 +390,7 @@ fun EnvelopeSheet(
                 OutlinedButton(onClick = onAdd, modifier = Modifier.weight(1f)) { Text("Ajouter") }
                 OutlinedButton(onClick = onWithdraw, modifier = Modifier.weight(1f)) { Text("Retirer") }
             }
+            if (onFinish != null) OutlinedButton(onClick = onFinish, modifier = Modifier.fillMaxWidth()) { Text("Terminer") }
             // Les dépenses de la période : on voit d'où vient le chiffre, et on corrige un mauvais rangement.
             if (operations.isNotEmpty()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {

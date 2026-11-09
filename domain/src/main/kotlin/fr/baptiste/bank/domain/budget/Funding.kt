@@ -36,6 +36,8 @@ private fun monthsBetween(from: YearMonth, to: YearMonth): Long = ChronoUnit.MON
  * [since], le début du suivi) se répartit sur les mois restants.
  */
 fun Envelope.monthShare(month: YearMonth, period: Period, allocated: Money, since: YearMonth?): Money {
+    // Une somme mise à part ne prend rien au salaire, sauf si elle a été prise sur le mois de [fundingStart].
+    if (type == EnvelopeType.LUMP) return if (month == fundingStart) allocated else Money.ZERO
     val catchUp = catchUpFrom?.takeIf { type.isProvision && it > period.firstMonth() && it <= period.lastMonth() }
         ?: return baseShare(month, period, allocated)
     if (month < catchUp) return baseShare(month, period, allocated)

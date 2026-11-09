@@ -20,7 +20,7 @@ val EnvelopeType.family: EnvelopeFamily
     get() = when (this) {
         EnvelopeType.DAILY -> EnvelopeFamily.DAILY
         EnvelopeType.FIXED -> EnvelopeFamily.FIXED
-        EnvelopeType.RECURRING, EnvelopeType.ANNUAL, EnvelopeType.PLANNED -> EnvelopeFamily.PROVISIONS
+        EnvelopeType.RECURRING, EnvelopeType.ANNUAL, EnvelopeType.PLANNED, EnvelopeType.LUMP -> EnvelopeFamily.PROVISIONS
         EnvelopeType.SAVINGS -> EnvelopeFamily.SAVINGS
     }
 

@@ -39,6 +39,7 @@ import fr.baptiste.bank.ui.accounts.AccountEditDialog
 import fr.baptiste.bank.ui.plan.PlanSimulatorSheet
 import fr.baptiste.bank.ui.accounts.AccountsDialog
 import fr.baptiste.bank.ui.accounts.CurrentBalanceDialog
+import fr.baptiste.bank.ui.components.FinishLumpDialog
 import fr.baptiste.bank.ui.components.PlaceSavingsDialog
 import fr.baptiste.bank.domain.budget.HoldingLine
 import fr.baptiste.bank.ui.operations.RenameOperationDialog
@@ -111,6 +112,9 @@ sealed interface OpenDialog {
     data object CurrentBalance : OpenDialog
     /** Répartir dans les objectifs ; [start] : la répartition de départ des livrets. */
     data class PlaceSavings(val start: Boolean) : OpenDialog
+
+    /** Terminer une somme mise à part. */
+    data class FinishLump(val envelopeId: Long) : OpenDialog
     data class AccountEdit(val line: HoldingLine?) : OpenDialog
 
     /** Essayer un plan (projet, épargne) sur le plan du mois, sans rien changer. */
@@ -407,6 +411,30 @@ fun AppDialogs(
                 onDismiss = ::close,
             )
         }
+        is OpenDialog.FinishLump -> {
+            val line = dashboard?.envelopes?.firstOrNull { it.envelope.id == current.envelopeId }
+            val goals = viewModel.savingsState.collectAsStateWithLifecycle().value?.goals.orEmpty()
+                .filter { !it.envelope.archived }.map { it.envelope.id to it.envelope.name }
+            if (line != null) {
+                FinishLumpDialog(
+                    name = line.envelope.name,
+                    left = line.remaining,
+                    goals = goals,
+                    onDismiss = ::close,
+                    onFinish = { goalId ->
+                        viewModel.finishLump(line.envelope.id, goalId)
+                        val left = line.remaining
+                        val message = if (left.isPositive && goalId != null) {
+                            "${line.envelope.name} terminée. Vire ${left.summary()} sur ton livret."
+                        } else {
+                            "${line.envelope.name} terminée."
+                        }
+                        controller.notify(message, action = "Annuler") { viewModel.undoLast() }
+                        close()
+                    },
+                )
+            }
+        }
         is OpenDialog.PlaceSavings -> {
             val state = viewModel.savingsState.collectAsStateWithLifecycle().value
             if (state != null) {
@@ -590,6 +618,11 @@ fun AppDialogs(
                     },
                     // Le formulaire part du montant saisi, pas de la part propre vue par les calculs.
                     onEdit = { controller.dialog = OpenDialog.EnvelopeEditor((viewModel.envelopes.value + viewModel.archivedEnvelopes.value).firstOrNull { it.id == line.envelope.id } ?: line.envelope) },
+                    onFinish = if (line.envelope.type == fr.baptiste.bank.domain.model.EnvelopeType.LUMP) {
+                        { controller.dialog = OpenDialog.FinishLump(line.envelope.id) }
+                    } else {
+                        null
+                    },
                     onCatchUp = { from ->
                         viewModel.startFunding(line.envelope.id, from)
                         val share = line.catchUp?.monthlyShare?.summary()
@@ -705,6 +738,9 @@ fun AppDialogs(
             },
             held = viewModel.savingsState.collectAsStateWithLifecycle().value?.goals?.firstOrNull { it.envelope.id == current.envelope?.id }?.held ?: Money.ZERO,
             accounts = viewModel.holdings.collectAsStateWithLifecycle().value?.lines.orEmpty().map { it.account.id to it.account.name },
+            goals = viewModel.savingsState.collectAsStateWithLifecycle().value?.goals.orEmpty()
+                .filter { !it.envelope.archived }.map { it.envelope.id to it.envelope.name },
+            onTakeFromGoal = { goalId, amount -> viewModel.placeSavings(mapOf(goalId to Money(-amount.cents)), start = false) },
             perDay = viewModel.dashboard.collectAsStateWithLifecycle().value.let { board ->
                 { extra: Money -> board?.let { b -> b.perDayWithReserved(extra)?.let { b.dailyAllowance.allowance to it } } }
             },
