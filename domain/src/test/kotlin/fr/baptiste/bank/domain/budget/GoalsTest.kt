@@ -45,8 +45,10 @@ class GoalsTest {
             AccountTransfer(7, LocalDate.of(2026, 11, 4), Money.euros(240)),
         )
         val since = placements.placingSince(LocalDate.of(2026, 7, 1))
-        assertEquals(start, since)
+        assertEquals(start.plusDays(1), since)
         assertEquals(Money.euros(140), toPlace(transfers, placements, since))
+        // Un retrait vers le compte courant fait baisser ce qui reste à ranger.
+        assertEquals(Money.euros(40), toPlace(transfers + AccountTransfer(7, LocalDate.of(2026, 11, 6), Money.euros(-100)), placements, since))
         assertEquals(Money.euros(3100), placements.heldByEnvelope()[1])
     }
 
@@ -54,6 +56,13 @@ class GoalsTest {
     fun aSplitServesLinkedGoalsFirstThenTheFirstUnreachedOne() {
         val goals = listOf(SavingsGoalLine(goal(1, 200, 6000), Money.euros(3000)), SavingsGoalLine(goal(2, 140, account = 9), Money.ZERO))
         assertEquals(mapOf(2L to Money.euros(140), 1L to Money.euros(60)), proposeSplit(goals, mapOf(9L to Money.euros(200)), Money.euros(200)))
+    }
+
+    @Test
+    fun monthsUntilCountsBothEndsAndNeverLessThanOne() {
+        assertEquals(1, monthsUntil(november, november))
+        assertEquals(2, monthsUntil(november, YearMonth.of(2026, 12)))
+        assertEquals(1, monthsUntil(november, YearMonth.of(2026, 1)))
     }
 
     @Test

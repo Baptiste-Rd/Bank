@@ -141,19 +141,26 @@ class BudgetRepository(
     /** Les objectifs d'épargne, ce qu'ils contiennent, et ce qui reste à placer. */
     @OptIn(ExperimentalCoroutinesApi::class)
     val savingsState: Flow<fr.baptiste.bank.domain.budget.SavingsState> by lazy {
-        combine(envelopes, placementDao.observeAll(), trackingStart()) { all, rows, start -> Triple(all, rows, start) }
+        combine(envelopes, archivedEnvelopes, placementDao.observeAll(), trackingStart()) { active, archived, rows, start ->
+            Triple(active + archived, rows, start)
+        }
             .flatMapLatest { (all, rows, start) ->
                 val today = LocalDate.now()
                 val placements = rows.map { it.toPlacement() }
                 val since = placements.placingSince(start.atDay(1))
                 combine(transactionDao.observeTransfersByAccount(since, today), holdings(today)) { transfers, holdings ->
                     val held = placements.heldByEnvelope()
-                    val list = transfers.map { fr.baptiste.bank.domain.budget.AccountTransfer(it.accountId, it.date, Money(it.amountCents)) }
+                    // Un virement vers un compte est un débit du compte courant : son signe s'inverse.
+                    val list = transfers.map { fr.baptiste.bank.domain.budget.AccountTransfer(it.accountId, it.date, Money(-it.amountCents)) }
+                    // Un objectif arrêté reste tant qu'il contient de l'argent : il faut pouvoir le répartir ailleurs.
+                    val goals = all.filter { it.type == EnvelopeType.SAVINGS && (!it.archived || (held[it.id] ?: Money.ZERO) != Money.ZERO) }
+                    val placedByAccount = placements.filter { !it.isStart }.groupBy { p -> goals.firstOrNull { it.id == p.envelopeId }?.accountId }
+                        .mapValues { (_, part) -> part.sumOfMoney { it.amount } }
                     fr.baptiste.bank.domain.budget.SavingsState(
-                        goals = all.filter { it.type == EnvelopeType.SAVINGS }.map { fr.baptiste.bank.domain.budget.SavingsGoalLine(it, held[it.id] ?: Money.ZERO) },
+                        goals = goals.map { fr.baptiste.bank.domain.budget.SavingsGoalLine(it, held[it.id] ?: Money.ZERO) },
                         toPlace = fr.baptiste.bank.domain.budget.toPlace(list, placements, since),
                         since = since,
-                        received = list.groupBy { it.accountId }.mapValues { (_, part) -> part.sumOfMoney { it.amount } },
+                        received = list.groupBy { it.accountId }.mapValues { (account, part) -> part.sumOfMoney { it.amount } - (placedByAccount[account] ?: Money.ZERO) },
                         started = placements.any { it.isStart },
                         livrets = holdings.lines.filter { it.account.type == AccountType.SAVINGS }.sumOfMoney { it.balance ?: Money.ZERO },
                     )
@@ -178,7 +185,7 @@ class BudgetRepository(
         val label = when {
             start -> "Livrets répartis entre les objectifs"
             total.isNegative -> "${Money(-total.cents).formatted()} retirés des objectifs"
-            else -> "${total.formatted()} répartis dans les objectifs"
+            else -> "${total.formatted()} rangés dans les objectifs"
         }
         record(label, JournalPayload(placementsCreated = created, placementsRemoved = removed))
     }
@@ -408,6 +415,7 @@ class BudgetRepository(
         (payload.operations.map { it.transactionId } + payload.manualCreated).distinct().forEach { id ->
             imputationDao.forTransaction(id).forEach { add("${USE_PREFIX}env:${it.envelopeId}") }
         }
+        placementDao.all().filter { it.id in payload.placementsCreated }.forEach { add("${USE_PREFIX}env:${it.envelopeId}") }
         transferDao.byIds(payload.transfersCreated).forEach { t ->
             listOfNotNull(t.sourceEnvelopeId, t.targetEnvelopeId).forEach { add("${USE_PREFIX}env:$it") }
         }
@@ -1477,7 +1485,7 @@ class BudgetRepository(
             val linked = all.filter { it.type == EnvelopeType.SAVINGS && it.accountId != null }
                 .groupBy { it.accountId }.mapValues { (_, list) -> list.sumOfMoney { it.amount } }
             computeHoldings(
-                accounts = accounts.map { account -> linked[account.id]?.let { account.copy(monthlyTarget = it) } ?: account },
+                accounts = accounts.map { account -> linked[account.id]?.let { account.copy(goalsTarget = it) } ?: account },
                 snapshots = balances.map { BalanceSnapshot(it.accountId, it.date, Money(it.balanceCents)) },
                 today = today,
                 months = 12,

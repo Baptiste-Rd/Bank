@@ -105,6 +105,8 @@ data class Dashboard(
     val dailyBudget: Money,
     val dailyAssigned: Money,
     val dailySpent: Money,
+    /** Dépensé au quotidien avant aujourd'hui (rattrapages compris) : la base du « par jour ». */
+    val dailySpentBeforeToday: Money = Money.ZERO,
     val daysRemaining: Int,
     val averageDailyShare: Money,
     val catchUpSpent: Money,
@@ -306,6 +308,7 @@ fun computeDashboard(
         dailyBudget = dailyBudget,
         dailyAssigned = dailyAssigned,
         dailySpent = dailyThisMonth.sumOfMoney { it.amount },
+        dailySpentBeforeToday = catchUps.sumOfMoney { it.amount } + dated.filter { it.date < today }.sumOfMoney { it.amount },
         daysRemaining = month.daysRemainingFrom(today),
         averageDailyShare = dailyBudget.divideFloor(month.lengthInDays.toLong()),
         catchUpSpent = catchUps.sumOfMoney { it.amount },

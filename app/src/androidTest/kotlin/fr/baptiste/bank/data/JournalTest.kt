@@ -559,6 +559,10 @@ class JournalTest {
         database.allocationDao().forEnvelope(id).forEach { database.allocationDao().delete(id, it.periodKey) }
         repository.ensurePeriods()
         assertEquals(Money.euros(100).cents, database.envelopeDao().byId(id)!!.amountCents)
+        // La période a commencé : ranger de l'argent ne change plus la part du mois.
+        repository.placeSavings(mapOf(id to Money.euros(500)), start = false)
+        repository.ensurePeriods()
+        assertEquals(Money.euros(100).cents, database.envelopeDao().byId(id)!!.amountCents)
     }
 
     /** Nom du groupe qui contient l'enveloppe [id]. */

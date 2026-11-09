@@ -168,7 +168,11 @@ fun EnvelopeDialog(
     val goalValid = goalText.isBlank() || (goal != null && goal.isPositive)
     val goalMonth = goalBy?.let { runCatching { YearMonth.parse(it) }.getOrNull() }
     val dated = use == Use.SAVINGS && goal != null && goalMonth != null
+    // Un objectif daté dont la période a commencé garde sa part du mois tant que l'objectif et la date ne changent pas.
+    val frozen = isExisting && initial != null && initial.goal == goal && initial.goalBy == goalMonth &&
+        initial.periods.any { today in it.start..it.endInclusive }
     val amount = when {
+        dated && frozen -> initial!!.amount
         dated -> fr.baptiste.bank.domain.budget.goalMonthly(goal!!, held, goalMonth!!, YearMonth.from(today))
         amountText.isBlank() -> Money.ZERO
         else -> parseMoney(amountText)
@@ -176,13 +180,17 @@ fun EnvelopeDialog(
     val thenAmount = if (thenEdited) parseMoney(thenText) else amount
     val rareEvery = rareEveryText.toIntOrNull()?.takeIf { it in 1..99 }
     val every = everyText.toIntOrNull()?.takeIf { it in 1..999 }
-    val frequency: Frequency? = when (use) {
+    val frequency: Frequency? = when {
+        // Un objectif se compte au mois : sa part, le versement attendu, l'aperçu.
+        use == Use.SAVINGS && goal != null -> Frequency.MONTHLY
+        else -> when (use) {
         Use.RARE -> when {
             !repeats -> Frequency(monthsBetween(start ?: today, reset), Scale.MONTH)
             rareEvery != null -> Frequency(rareEvery, rareScale)
             else -> null
         }
         else -> every?.let { Frequency(it, scale) }
+    }
     }
     val nameTaken = isNameTaken(name, takenNames)
     val resetValid = use != Use.RARE || reset.isAfter(start ?: today.minusDays(1))
@@ -226,7 +234,8 @@ fun EnvelopeDialog(
                 BlurBehindWindow()
                 Text(
                     "Elle disparaît des mois à venir et reste dans les mois qu'elle a couverts, avec ses dépenses. " +
-                        "Tu pourras la reprendre depuis le bas de l'onglet Budget.",
+                        "Tu pourras la reprendre depuis le bas de l'onglet Budget." +
+                        if (held != Money.ZERO) " Elle contient ${held.formatted()} : elle reste dans Épargne jusqu'à ce que tu les répartisses." else "",
                 )
             },
             confirmButton = { TextButton(onClick = { onArchive(initial) }) { Text("Arrêter") } },
@@ -243,6 +252,7 @@ fun EnvelopeDialog(
                 BlurBehindWindow()
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Elle disparaît de tous les mois, comme si elle n'avait jamais existé. Pour une erreur de saisie.")
+                    if (held != Money.ZERO) Text("Les ${held.formatted()} qu'elle contient ne sont plus dans aucun objectif.")
                     if (found.bankCount > 0) {
                         Text("${found.bankCount} dépense(s) de la banque (${found.bankAmount.formatted()}) repartent dans « À trier ».")
                     }
@@ -591,13 +601,13 @@ private fun SwitchRow(title: String, detail: String, checked: Boolean, onChange:
 private fun monthsBetween(start: LocalDate, reset: LocalDate): Int =
     (ChronoUnit.MONTHS.between(YearMonth.from(start), YearMonth.from(reset.minusDays(1))) + 1).coerceAtLeast(1).toInt()
 
-/** L'enveloppe que décrit le formulaire. */
 private const val NO_DATE = "Pas de date"
 private const val NO_ACCOUNT = "Aucun compte"
 
 private fun monthLabel(month: YearMonth): String =
     month.format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy", java.util.Locale.FRANCE))
 
+/** L'enveloppe que décrit le formulaire. */
 private fun buildEnvelope(
     initial: Envelope?,
     isExisting: Boolean,

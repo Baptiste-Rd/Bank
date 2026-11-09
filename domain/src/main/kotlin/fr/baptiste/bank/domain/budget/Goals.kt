@@ -32,10 +32,10 @@ data class SavingsGoalLine(val envelope: Envelope, val held: Money) {
 /** Ce que montre Épargne : les objectifs, ce qui reste à placer, et d'où partir. */
 data class SavingsState(
     val goals: List<SavingsGoalLine>,
-    /** Virés vers les comptes depuis [since], pas encore dans un objectif ; négatif : un retrait. */
+    /** Versés sur les comptes depuis [since], pas encore rangés dans un objectif ; négatif : un retrait. */
     val toPlace: Money,
     val since: LocalDate,
-    /** Ce qu'a reçu chaque compte depuis [since]. */
+    /** Ce que chaque compte a reçu depuis [since] et qui n'est pas encore rangé dans un objectif relié. */
     val received: Map<Long, Money>,
     /** Vrai une fois les livrets répartis entre les objectifs. */
     val started: Boolean,
@@ -66,12 +66,15 @@ fun List<Placement>.heldByEnvelope(): Map<Long, Money> =
 
 /** Les virements comptent dans « à placer » depuis la répartition de départ, sinon depuis [trackingStart]. */
 fun List<Placement>.placingSince(trackingStart: LocalDate): LocalDate =
-    filter { it.isStart }.maxOfOrNull { it.date } ?: trackingStart
+    // Le solde des livrets du jour de la répartition contient déjà les virements de ce jour-là.
+    filter { it.isStart }.maxOfOrNull { it.date }?.plusDays(1) ?: trackingStart
 
-/** Virés vers les comptes depuis [since], moins ce qui a été placé depuis. */
+/**
+ * Versés sur les comptes depuis [since] (un montant positif est un versement, négatif un retrait),
+ * moins ce qui a été rangé dans les objectifs hors répartition de départ.
+ */
 fun toPlace(transfers: List<AccountTransfer>, placements: List<Placement>, since: LocalDate): Money =
-    transfers.filter { !it.date.isBefore(since) }.sumOfMoney { it.amount } -
-        placements.filter { !it.isStart && !it.date.isBefore(since) }.sumOfMoney { it.amount }
+    transfers.filter { !it.date.isBefore(since) }.sumOfMoney { it.amount } - placements.filter { !it.isStart }.sumOfMoney { it.amount }
 
 /**
  * Parts proposées pour [amount] arrivé sur les comptes : chaque objectif relié à un compte qui a
@@ -111,6 +114,11 @@ fun fillInOrder(goals: List<SavingsGoalLine>, amount: Money): Map<Long, Money> {
     return parts
 }
 
-/** Le « par jour » si [extra] était réservé en plus ce mois-ci : le même calcul que le tableau. */
-fun Dashboard.perDayWithReserved(extra: Money): Money =
-    dailyAllowance(dailyBudget - extra, dailySpent - dailyAllowance.spentToday, dailyAllowance.spentToday, today).allowance
+/**
+ * Le « par jour » si [extra] était réservé en plus ce mois-ci : le même calcul que le tableau. Null
+ * sans salaire : le quotidien ne vient pas alors de ce qui reste, une épargne ne le change pas.
+ */
+fun Dashboard.perDayWithReserved(extra: Money): Money? {
+    if (income == null) return null
+    return dailyAllowance(dailyBudget - extra, dailySpentBeforeToday, dailyAllowance.spentToday, today).allowance
+}

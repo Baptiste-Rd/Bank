@@ -24,6 +24,8 @@ data class HoldingAccount(
     val taxWrapper: TaxWrapper? = null,
     /** Versement prévu chaque mois vers ce compte (un rappel s'il n'est pas fait), null sinon. */
     val monthlyTarget: Money? = null,
+    /** Versé sur : la somme des parts du mois des objectifs versés sur ce compte ; remplace [monthlyTarget]. */
+    val goalsTarget: Money? = null,
 )
 
 /** Un virement du compte courant vers un compte d'épargne. */

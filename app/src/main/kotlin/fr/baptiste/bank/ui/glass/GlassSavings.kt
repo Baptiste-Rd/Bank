@@ -425,10 +425,6 @@ private fun HoldingsLineChart(history: List<fr.baptiste.bank.domain.budget.Holdi
 }
 
 /**
- * Deux paliers sur une barre : la précaution (livrets) et le total visé. La barre suit le total ;
- * un repère marque la précaution. Toucher la barre règle les objectifs.
- */
-/**
  * Les objectifs : ce que chacun contient, sa part du mois et ce qui manque. Au-dessus, ce qui reste
  * à faire : répartir les livrets une première fois, puis placer ce qui arrive sur les comptes.
  */
@@ -444,11 +440,12 @@ private fun LazyListScope.goalsSection(
             ActionCard("${state.livrets.summary()} sur tes livrets", "Répartis-les entre tes objectifs pour suivre chacun.") { onPlace(true) }
         }
     }
-    if (state.toPlace != Money.ZERO && state.goals.isNotEmpty()) {
+    // Ranger ce qui arrive n'a de sens qu'une fois les livrets répartis : la répartition remplace tout.
+    if (state.started && state.toPlace != Money.ZERO && state.goals.isNotEmpty()) {
         item(key = "to-place") {
             val since = state.since.format(java.time.format.DateTimeFormatter.ofPattern("d MMMM", Locale.FRANCE))
             if (state.toPlace.isPositive) {
-                ActionCard("${state.toPlace.summary()} à placer", "Virés vers tes comptes depuis le $since, pas encore dans un objectif.") { onPlace(false) }
+                ActionCard("${state.toPlace.summary()} à ranger", "Versés sur tes comptes depuis le $since, pas encore dans un objectif.") { onPlace(false) }
             } else {
                 ActionCard("${Money(-state.toPlace.cents).summary()} retirés", "Sortis de tes comptes depuis le $since : retire-les d'un objectif.") { onPlace(false) }
             }
@@ -456,7 +453,8 @@ private fun LazyListScope.goalsSection(
     }
     val accounts = holdings?.lines.orEmpty().associate { it.account.id to it.account }
     val held = state.goals.fold(Money.ZERO) { sum, it -> sum + it.held }
-    sectionHeader("goals-label", "Objectifs", trailing = if (held.isPositive) "${held.summary()} de côté" else null)
+    // « Répartir » refait la répartition des livrets : déplacer de l'argent d'un objectif à un autre.
+    sectionHeader("goals-label", "Objectifs", action = if (state.started) "Répartir" else null, onAction = { onPlace(true) })
     item(key = "goals") {
         GlassCard(contentPadding = 16.dp, verticalPadding = 4.dp) {
             if (state.goals.isEmpty()) {

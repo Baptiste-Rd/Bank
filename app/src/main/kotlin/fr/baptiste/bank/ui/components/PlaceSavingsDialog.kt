@@ -44,7 +44,9 @@ fun PlaceSavingsDialog(
     val target = if (withdrawal) Money(-total.cents) else total
     val texts = remember { mutableStateMapOf<Long, String>().apply { goals.forEach { put(it.envelope.id, proposal[it.envelope.id]?.toFieldText().orEmpty()) } } }
     val parts = goals.associate { line -> line.envelope.id to (texts[line.envelope.id]?.takeIf { it.isNotBlank() }?.let(::parseMoney)) }
-    val valid = parts.values.all { it == null || !it.isNegative } && texts.values.all { it.isBlank() || parseMoney(it) != null }
+    val valid = parts.values.all { it == null || !it.isNegative } && texts.values.all { it.isBlank() || parseMoney(it) != null } &&
+        // Un retrait ne prend jamais plus que ce que contient l'objectif.
+        (!withdrawal || goals.all { line -> (parts[line.envelope.id] ?: Money.ZERO) <= line.held })
     val placed = parts.values.fold(Money.ZERO) { sum, it -> sum + (it ?: Money.ZERO) }
     val left = target - placed
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
@@ -71,7 +73,7 @@ fun PlaceSavingsDialog(
                 onClick = { onConfirm(parts.mapNotNull { (id, part) -> part?.takeIf { it.isPositive }?.let { id to if (withdrawal) Money(-it.cents) else it } }.toMap()) },
                 enabled = valid && !left.isNegative && placed.isPositive,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-            ) { Text(if (withdrawal) "Retirer" else "Répartir") }
+            ) { Text(if (withdrawal) "Retirer" else if (title.startsWith("Ranger")) "Ranger" else "Répartir") }
         }
     }
 }

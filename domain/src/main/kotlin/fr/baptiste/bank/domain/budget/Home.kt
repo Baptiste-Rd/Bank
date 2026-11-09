@@ -116,7 +116,7 @@ private const val DONE_VISIBLE_DAYS = 3L
  * le versement fait (trois jours), sinon rien.
  */
 fun HoldingLine.reminder(today: LocalDate): SavingReminder? {
-    val target = account.monthlyTarget?.takeIf { it.isPositive } ?: return null
+    val target = (account.goalsTarget ?: account.monthlyTarget)?.takeIf { it.isPositive } ?: return null
     val due = target - transferredThisMonth
     if (due.isPositive) return SavingReminder.Due(due)
     val last = lastTransfer ?: return null

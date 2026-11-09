@@ -412,15 +412,17 @@ fun AppDialogs(
             if (state != null) {
                 val total = if (current.start) state.livrets else state.toPlace
                 PlaceSavingsDialog(
-                    title = if (current.start) "Répartir tes livrets" else if (total.isNegative) "Retirer des objectifs" else "Répartir ${total.summary()}",
+                    title = if (current.start) "Répartir tes livrets" else if (total.isNegative) "Retirer des objectifs" else "Ranger ${total.summary()}",
                     detail = if (current.start) {
-                        "Ce que contient chaque objectif aujourd'hui. Les placements n'en font pas partie."
+                        "Ce que contient chaque objectif aujourd'hui, sur tes livrets. Remplace la répartition précédente."
                     } else {
                         "Ce qui est arrivé sur tes comptes, rangé dans tes objectifs."
                     },
                     goals = state.goals,
                     total = total,
-                    proposal = if (current.start) fr.baptiste.bank.domain.budget.fillInOrder(state.goals, total) else fr.baptiste.bank.domain.budget.proposeSplit(state.goals, state.received, total),
+                    // Refaire la répartition part de ce que contient chaque objectif aujourd'hui.
+                    proposal = if (current.start && state.started) state.goals.associate { it.envelope.id to it.held }
+                    else if (current.start) fr.baptiste.bank.domain.budget.fillInOrder(state.goals, total) else fr.baptiste.bank.domain.budget.proposeSplit(state.goals, state.received, total),
                     onDismiss = ::close,
                     onConfirm = { parts ->
                         viewModel.placeSavings(parts, current.start)
@@ -697,7 +699,7 @@ fun AppDialogs(
             held = viewModel.savingsState.collectAsStateWithLifecycle().value?.goals?.firstOrNull { it.envelope.id == current.envelope?.id }?.held ?: Money.ZERO,
             accounts = viewModel.holdings.collectAsStateWithLifecycle().value?.lines.orEmpty().map { it.account.id to it.account.name },
             perDay = viewModel.dashboard.collectAsStateWithLifecycle().value.let { board ->
-                { extra: Money -> board?.let { it.dailyAllowance.allowance to it.perDayWithReserved(extra) } }
+                { extra: Money -> board?.let { b -> b.perDayWithReserved(extra)?.let { b.dailyAllowance.allowance to it } } }
             },
             suggest = { category, frequency -> viewModel.suggestAmount(current.envelope?.id, category, frequency) },
             usage = { current.envelope?.id?.takeIf { it != 0L }?.let { viewModel.envelopeUsage(it) } },

@@ -225,7 +225,11 @@ fun AccountEditDialog(
                     )
                 }
                 // Un versement que je fais moi-même chaque mois : l'accueil le rappelle tant qu'il n'est pas vu.
-                OutlinedTextField(
+                // Des objectifs versés sur ce compte le décident : leur somme remplace ce champ.
+                val goalsTarget = line?.account?.goalsTarget
+                if (goalsTarget != null) {
+                    Text("Versement prévu : ${goalsTarget.summary()} par mois, la somme des objectifs versés ici.", style = MaterialTheme.typography.bodySmall)
+                } else OutlinedTextField(
                     value = targetText,
                     onValueChange = { targetText = it },
                     label = { Text("Versement prévu chaque mois") },
