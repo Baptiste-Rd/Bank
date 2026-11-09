@@ -140,7 +140,7 @@ class BudgetRepository(
 
     /** Les objectifs d'épargne, ce qu'ils contiennent, et ce qui reste à placer. */
     @OptIn(ExperimentalCoroutinesApi::class)
-    val savingsState: Flow<fr.baptiste.bank.domain.budget.SavingsState> =
+    val savingsState: Flow<fr.baptiste.bank.domain.budget.SavingsState> by lazy {
         combine(envelopes, placementDao.observeAll(), trackingStart()) { all, rows, start -> Triple(all, rows, start) }
             .flatMapLatest { (all, rows, start) ->
                 val today = LocalDate.now()
@@ -159,6 +159,7 @@ class BudgetRepository(
                     )
                 }
             }
+    }
 
     /**
      * Range de l'argent dans les objectifs. [start] : la répartition de départ des livrets, qui
