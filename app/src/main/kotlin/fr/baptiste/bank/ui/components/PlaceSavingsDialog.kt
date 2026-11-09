@@ -37,6 +37,7 @@ fun PlaceSavingsDialog(
     goals: List<SavingsGoalLine>,
     total: Money,
     proposal: Map<Long, Money>,
+    action: String,
     onDismiss: () -> Unit,
     onConfirm: (Map<Long, Money>) -> Unit,
 ) {
@@ -73,7 +74,7 @@ fun PlaceSavingsDialog(
                 onClick = { onConfirm(parts.mapNotNull { (id, part) -> part?.takeIf { it.isPositive }?.let { id to if (withdrawal) Money(-it.cents) else it } }.toMap()) },
                 enabled = valid && !left.isNegative && placed.isPositive,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-            ) { Text(if (withdrawal) "Retirer" else if (title.startsWith("Ranger")) "Ranger" else "Répartir") }
+            ) { Text(action) }
         }
     }
 }

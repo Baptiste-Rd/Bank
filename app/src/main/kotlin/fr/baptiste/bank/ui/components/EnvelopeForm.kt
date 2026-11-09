@@ -502,7 +502,8 @@ fun EnvelopeDialog(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    if (use != Use.RARE) {
+                    // Un objectif se compte au mois : pas de rythme à choisir.
+                    if (use != Use.RARE && !(use == Use.SAVINGS && goal != null)) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(if (scale == Scale.WEEK) "Toutes les" else "Tous les", style = MaterialTheme.typography.bodyLarge)
                             OutlinedTextField(

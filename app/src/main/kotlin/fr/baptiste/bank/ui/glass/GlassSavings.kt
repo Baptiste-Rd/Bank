@@ -441,7 +441,8 @@ private fun LazyListScope.goalsSection(
         }
     }
     // Ranger ce qui arrive n'a de sens qu'une fois les livrets répartis : la répartition remplace tout.
-    if (state.started && state.toPlace != Money.ZERO && state.goals.isNotEmpty()) {
+    // Sans livret connu, il n'y a rien à répartir au départ : ce qui arrive se range directement.
+    if ((state.started || !state.livrets.isPositive) && state.toPlace != Money.ZERO && state.goals.isNotEmpty()) {
         item(key = "to-place") {
             val since = state.since.format(java.time.format.DateTimeFormatter.ofPattern("d MMMM", Locale.FRANCE))
             if (state.toPlace.isPositive) {

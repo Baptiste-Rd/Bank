@@ -59,6 +59,16 @@ class GoalsTest {
     }
 
     @Test
+    fun whatIsAlreadyInALinkedGoalIsNotProposedAgainAndStoppedGoalsGetNothing() {
+        val linked = goal(2, 140, account = 9)
+        val transfers = listOf(AccountTransfer(9, LocalDate.of(2026, 11, 3), Money.euros(200)))
+        val placements = listOf(Placement(2, LocalDate.of(2026, 11, 4), Money.euros(140)))
+        assertEquals(mapOf(9L to Money.euros(60)), unplacedByAccount(transfers, placements, listOf(linked)))
+        val stopped = SavingsGoalLine(goal(1, 100).copy(archived = true), Money.euros(50))
+        assertEquals(mapOf(3L to Money.euros(80)), proposeSplit(listOf(stopped, SavingsGoalLine(goal(3, 100), Money.ZERO)), emptyMap(), Money.euros(80)))
+    }
+
+    @Test
     fun monthsUntilCountsBothEndsAndNeverLessThanOne() {
         assertEquals(1, monthsUntil(november, november))
         assertEquals(2, monthsUntil(november, YearMonth.of(2026, 12)))

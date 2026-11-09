@@ -154,13 +154,11 @@ class BudgetRepository(
                     val list = transfers.map { fr.baptiste.bank.domain.budget.AccountTransfer(it.accountId, it.date, Money(-it.amountCents)) }
                     // Un objectif arrêté reste tant qu'il contient de l'argent : il faut pouvoir le répartir ailleurs.
                     val goals = all.filter { it.type == EnvelopeType.SAVINGS && (!it.archived || (held[it.id] ?: Money.ZERO) != Money.ZERO) }
-                    val placedByAccount = placements.filter { !it.isStart }.groupBy { p -> goals.firstOrNull { it.id == p.envelopeId }?.accountId }
-                        .mapValues { (_, part) -> part.sumOfMoney { it.amount } }
                     fr.baptiste.bank.domain.budget.SavingsState(
                         goals = goals.map { fr.baptiste.bank.domain.budget.SavingsGoalLine(it, held[it.id] ?: Money.ZERO) },
                         toPlace = fr.baptiste.bank.domain.budget.toPlace(list, placements, since),
                         since = since,
-                        received = list.groupBy { it.accountId }.mapValues { (account, part) -> part.sumOfMoney { it.amount } - (placedByAccount[account] ?: Money.ZERO) },
+                        received = fr.baptiste.bank.domain.budget.unplacedByAccount(list, placements, goals),
                         started = placements.any { it.isStart },
                         livrets = holdings.lines.filter { it.account.type == AccountType.SAVINGS }.sumOfMoney { it.balance ?: Money.ZERO },
                     )

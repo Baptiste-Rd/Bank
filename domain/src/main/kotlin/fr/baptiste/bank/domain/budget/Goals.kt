@@ -85,7 +85,9 @@ fun proposeSplit(goals: List<SavingsGoalLine>, received: Map<Long, Money>, amoun
     val parts = linkedMapOf<Long, Money>()
     val left = received.toMutableMap()
     var rest = amount
-    goals.forEach { line ->
+    // Un objectif arrêté garde son argent mais n'en reçoit plus.
+    val open = goals.filter { !it.envelope.archived }
+    open.forEach { line ->
         val account = line.envelope.accountId ?: return@forEach
         val came = left[account]?.takeIf { it.isPositive } ?: return@forEach
         val part = minOf(line.monthly, came, rest)
@@ -94,15 +96,23 @@ fun proposeSplit(goals: List<SavingsGoalLine>, received: Map<Long, Money>, amoun
         left[account] = came - part
         rest -= part
     }
-    if (rest.isPositive) (goals.firstOrNull { !it.reached } ?: goals.firstOrNull())?.let { parts[it.envelope.id] = (parts[it.envelope.id] ?: Money.ZERO) + rest }
+    if (rest.isPositive) (open.firstOrNull { !it.reached } ?: open.firstOrNull())?.let { parts[it.envelope.id] = (parts[it.envelope.id] ?: Money.ZERO) + rest }
     return parts
+}
+
+/** Ce que chaque compte a reçu et qui n'est pas encore rangé dans un objectif versé sur ce compte. */
+fun unplacedByAccount(transfers: List<AccountTransfer>, placements: List<Placement>, goals: List<Envelope>): Map<Long, Money> {
+    val accountOf = goals.associate { it.id to it.accountId }
+    val placed = placements.filter { !it.isStart }.groupBy { accountOf[it.envelopeId] }.mapValues { (_, part) -> part.sumOfMoney { it.amount } }
+    return transfers.groupBy { it.accountId }.mapValues { (account, part) -> part.sumOfMoney { it.amount } - (placed[account] ?: Money.ZERO) }
 }
 
 /** Répartition de départ : chaque objectif dans l'ordre jusqu'à son montant visé, le reste au premier sans montant. */
 fun fillInOrder(goals: List<SavingsGoalLine>, amount: Money): Map<Long, Money> {
     val parts = linkedMapOf<Long, Money>()
     var rest = amount
-    goals.forEach { line ->
+    val open = goals.filter { !it.envelope.archived }
+    open.forEach { line ->
         val goal = line.goal ?: return@forEach
         val part = minOf(goal, rest)
         if (part.isPositive) {
@@ -110,7 +120,7 @@ fun fillInOrder(goals: List<SavingsGoalLine>, amount: Money): Map<Long, Money> {
             rest -= part
         }
     }
-    if (rest.isPositive) (goals.firstOrNull { it.goal == null } ?: goals.lastOrNull())?.let { parts[it.envelope.id] = (parts[it.envelope.id] ?: Money.ZERO) + rest }
+    if (rest.isPositive) (open.firstOrNull { it.goal == null } ?: open.lastOrNull())?.let { parts[it.envelope.id] = (parts[it.envelope.id] ?: Money.ZERO) + rest }
     return parts
 }
 
