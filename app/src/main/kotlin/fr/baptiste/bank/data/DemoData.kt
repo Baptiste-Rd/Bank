@@ -60,7 +60,8 @@ object DemoData {
             envelope("Prêt", EnvelopeType.FIXED, 400).copy(group = "Logement"),
             envelope("Projets", EnvelopeType.ANNUAL, 1200),
             envelope("Vacances", EnvelopeType.ANNUAL, 1800).copy(group = "Voyages"),
-            envelope("Épargne", EnvelopeType.SAVINGS, 300),
+            envelope("Précaution", EnvelopeType.SAVINGS, 200).copy(goal = Money.euros(6000)),
+            envelope("Voiture", EnvelopeType.SAVINGS, 540).copy(goal = Money.euros(8000), goalBy = YearMonth.from(today).plusMonths(14)),
             // L'achat prévu du scénario : créé ce mois-ci, il ne pèse pas sur les mois passés.
             plannedPurchase("Ordinateur", Money.euros(1200), YearMonth.from(today).plusMonths(5), today),
         ).forEach { repository.saveEnvelope(it) }
@@ -143,6 +144,10 @@ object DemoData {
         repository.updateBalance(trading, Money.euros(3000), today.minusMonths(1).withDayOfMonth(15))
         // Montant versé et enveloppe fiscale : l'app en estime le net après impôt.
         repository.setInvestment(trading, Money.euros(3000), fr.baptiste.bank.domain.budget.TaxWrapper.SECURITIES)
+        // Objectifs : Voiture versé sur le livret, et les livrets répartis entre les deux.
+        val goals = repository.envelopes.first().associateBy { it.name }
+        repository.saveEnvelope(goals.getValue("Voiture").copy(accountId = livret))
+        repository.placeSavings(mapOf(goals.getValue("Précaution").id to Money.euros(3000), goals.getValue("Voiture").id to Money.euros(2600)), start = true)
         // Versement de 100 € par mois à faire soi-même : l'accueil le rappelle.
         repository.setMonthlyTarget(trading, Money.euros(100))
         val pea = repository.addManualAccount("PEA", AccountType.INVESTMENT, Money.euros(2400))

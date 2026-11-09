@@ -144,7 +144,7 @@ fun GlassSavingsContent(
                 // L'écart à l'objectif, en une ligne, plutôt que deux tuiles.
                 val gap = outlook.gapToTarget
                 fr.baptiste.bank.ui.components.StatusChip(
-                    "${if (gap.isNegative) "−" else "+"}${(if (gap.isNegative) -gap else gap).summary()} vs objectif ${outlook.target.summary()}",
+                    "${if (gap.isNegative) "−" else "+"}${(if (gap.isNegative) -gap else gap).summary()} vs ${outlook.target.summary()} par mois",
                     if (gap.isNegative) fr.baptiste.bank.ui.components.StatusKind.WARNING else fr.baptiste.bank.ui.components.StatusKind.GAIN,
                     Modifier.padding(top = 4.dp),
                 )
@@ -366,7 +366,7 @@ private fun LazyListScope.holdingsSection(
     }
     // Évolution du total sur douze mois : seuls les mois connus (après le premier relevé) comptent.
     if (holdings.history.size > 1) {
-        sectionHeader("holdings-history-label", "Tes comptes mois par mois", trailing = "fin de mois")
+        sectionHeader("holdings-history-label", "Mois par mois", trailing = "fin de mois")
         item(key = "holdings-history") {
             GlassCard(contentPadding = 16.dp) {
                 HoldingsLineChart(holdings.history)
@@ -437,7 +437,7 @@ private fun LazyListScope.goalsSection(
 ) {
     if (!state.started && state.goals.isNotEmpty() && state.livrets.isPositive) {
         item(key = "start-split") {
-            ActionCard("${state.livrets.summary()} sur tes livrets", "Répartis-les entre tes objectifs pour suivre chacun.") { onPlace(true) }
+            ActionCard("${state.livrets.summary()} sur tes livrets", "Range-les dans tes objectifs.") { onPlace(true) }
         }
     }
     // Ranger ce qui arrive n'a de sens qu'une fois les livrets répartis : la répartition remplace tout.
@@ -477,15 +477,25 @@ private fun LazyListScope.goalsSection(
     }
 }
 
+/** Une chose à faire : un bouton secondaire, le + reste la seule action principale. Empilé quand le texte est grand. */
 @Composable
 private fun ActionCard(title: String, detail: String, onClick: () -> Unit) {
+    val large = androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f
     GlassCard(contentPadding = 16.dp) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
+        val text: @Composable (Modifier) -> Unit = { modifier ->
+            Column(modifier) {
                 Text(title, style = MaterialTheme.typography.titleMedium)
                 Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            GlassPillButton("Répartir", onClick = onClick)
+        }
+        if (large) {
+            text(Modifier)
+            fr.baptiste.bank.ui.components.RowActionButton("Ranger", onClick = onClick, modifier = Modifier.padding(top = 8.dp))
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                text(Modifier.weight(1f))
+                fr.baptiste.bank.ui.components.RowActionButton("Ranger", onClick = onClick)
+            }
         }
     }
 }

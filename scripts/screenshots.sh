@@ -82,7 +82,7 @@ adb exec-out screencap -p > "$OUT/glass-banque-suite.png"
 # Scénario épargne : l'accueil défilé jusqu'au bloc Épargne, la liste des enveloppes avec
 # l'achat prévu, et le formulaire d'un nouvel achat prévu.
 adb shell am force-stop "$PKG"
-adb shell am start -W -n "$PKG/.MainActivity" --ez demo true --es style GLASS --es tab HOME > /dev/null
+adb shell am start -W -n "$PKG/.MainActivity" --ez demo true --es style GLASS --es tab SAVINGS > /dev/null
 sleep 8
 close_dialogs
 adb shell input swipe 540 1900 540 500 900
@@ -122,6 +122,7 @@ shot_budget glass-fiche-enveloppe --es tab BUDGET --es dialog ENVELOPE
 shot_budget glass-fiche-provision --es tab BUDGET --es dialog PROVISION
 shot_budget glass-reserve --es tab SAVINGS --es dialog RESERVE
 shot_budget glass-ajouter-argent --es tab BUDGET --es dialog COVER
+shot_budget glass-repartir-livrets --es tab SAVINGS --es dialog PLACE
 # Une catégorie sans dépense ce mois-ci, dépliée : ses enveloppes à 0 € y sont.
 shot_budget glass-categorie-sans-depense --es tab OPERATIONS --es expand Voyages
 shot_budget glass-essayer-un-plan --es tab BUDGET --es dialog PLAN
