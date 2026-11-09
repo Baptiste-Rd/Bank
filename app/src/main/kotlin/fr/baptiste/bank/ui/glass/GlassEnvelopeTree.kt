@@ -334,7 +334,7 @@ private fun BudgetTreeRow(row: BudgetRow, open: Boolean, onToggle: () -> Unit, o
         if (envelope?.type == EnvelopeType.LUMP && !row.hasChildren) {
             Column(horizontalAlignment = Alignment.End) {
                 Text(envelope.amount.summary(), style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.End)
-                Text("mis à part", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("en tout", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             return@Row
         }

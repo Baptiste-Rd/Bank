@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
@@ -40,14 +41,23 @@ fun FinishLumpDialog(
     val amount = if (over) Money(-left.cents) else left
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Terminer $name") },
+        // Le chiffre d'abord ; le nom de la somme est sur la fiche d'où l'on vient.
+        title = {
+            Text(
+                when {
+                    over -> "${amount.summary()} en trop"
+                    left.isPositive -> "Il reste ${amount.summary()}"
+                    else -> "Tout est dépensé"
+                },
+            )
+        },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     when {
-                        over -> "${amount.summary()} dépensés en trop. Qui les couvre ?"
-                        left.isPositive -> "Il reste ${amount.summary()}. Où vont-ils ?"
-                        else -> "Tout est dépensé."
+                        over -> "Qui les couvre ?"
+                        left.isPositive -> "Où vont-ils ?"
+                        else -> "$name sera terminée."
                     },
                     style = MaterialTheme.typography.bodyMedium,
                 )
@@ -65,8 +75,9 @@ fun FinishLumpDialog(
 @Composable
 private fun Choice(label: String, selected: Boolean, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().selectable(selected = selected, onClick = onClick, role = Role.RadioButton),
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).selectable(selected = selected, onClick = onClick, role = Role.RadioButton),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         RadioButton(selected = selected, onClick = null)
         Text(label, style = MaterialTheme.typography.bodyLarge)
