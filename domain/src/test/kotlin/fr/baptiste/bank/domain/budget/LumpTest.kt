@@ -68,4 +68,13 @@ class LumpTest {
         val child = food.copy(parentId = 2)
         assertEquals(null, childrenAmounts(listOf(lump(start), child), emptyList(), YearMonth.of(2026, 11), null)[2])
     }
+
+    @Test
+    fun theMonthReportLeavesOutALumpBudgetAndSpendingAlike() {
+        val start = LocalDate.of(2026, 11, 1)
+        val fromMonth = lump(start, YearMonth.of(2026, 11))
+        val report = monthSpending(YearMonth.of(2026, 11), listOf(food, fromMonth), listOf(spending(fromMonth, today, 300), spending(food, today, 20)))
+        assertEquals(Money.euros(400), report.budget)
+        assertEquals(Money.euros(20), report.total)
+    }
 }

@@ -107,8 +107,9 @@ fun monthSpending(
     val spentById = countedSpendings(month, envelopes, spendings)
         .groupBy { it.envelopeId }
         .mapValues { (_, list) -> list.sumOfMoney { it.amount } }
+    // Même règle que countedSpendings : ni l'épargne ni les sommes mises à part, budget et dépensé ensemble.
     val lines = envelopes
-        .filter { it.type != EnvelopeType.SAVINGS }
+        .filter { it.type != EnvelopeType.SAVINGS && it.type != EnvelopeType.LUMP }
         .map { envelope ->
             // Une enveloppe retirée garde son budget dans les mois qu'elle a couverts. Une archivée
             // avant que l'app ne retienne la date du retrait n'en a plus : on ne sait pas quand.

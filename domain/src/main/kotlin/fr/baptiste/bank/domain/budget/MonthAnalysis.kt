@@ -79,7 +79,9 @@ fun monthAnalysisPrompt(input: MonthAnalysisInput): String = buildString {
         } else {
             ""
         }
-        val period = if (envelope.type != EnvelopeType.DAILY && envelope.type != EnvelopeType.FIXED) {
+        val period = if (envelope.type == EnvelopeType.LUMP) {
+            " ; somme mise à part de ${euros(envelope.amount)}"
+        } else if (envelope.type != EnvelopeType.DAILY && envelope.type != EnvelopeType.FIXED) {
             val end = envelope.periodContaining(month.month.atEndOfMonth()).endInclusive
             " ; budget de ${euros(envelope.amount)} jusqu'au ${end.dayOfMonth}/${end.monthValue}/${end.year}"
         } else {

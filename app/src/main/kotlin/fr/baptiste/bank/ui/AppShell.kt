@@ -746,8 +746,11 @@ fun AppDialogs(
             goals = viewModel.savingsState.collectAsStateWithLifecycle().value?.goals.orEmpty()
                 .filter { !it.envelope.archived }.map { it.envelope.id to it.envelope.name },
             onSaveFromGoal = { envelope, goalId ->
-                viewModel.saveEnvelope(envelope, takeFromGoal = goalId)
-                close()
+                val operation = current.returnToSort
+                viewModel.saveEnvelope(envelope, takeFromGoal = goalId) { id ->
+                    if (operation != null) controller.dialog = OpenDialog.SortOperation(operation, id)
+                }
+                if (operation == null) close()
             },
             perDay = viewModel.dashboard.collectAsStateWithLifecycle().value.let { board ->
                 { extra: Money -> board?.let { b -> b.perDayWithReserved(extra)?.let { b.dailyAllowance.allowance to it } } }
