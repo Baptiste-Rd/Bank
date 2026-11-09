@@ -6,7 +6,7 @@ fin de chaque lot (et quand une décision est prise).
 
 ## Où en est l'app
 
-- `main` = lot 8b (6 novembre 2026). Base de données v19 (schémas jusqu'à `19.json` dans
+- `main` = lot 8c (9 novembre 2026). Base de données v20 (schémas jusqu'à `20.json` dans
   `app/schemas/`).
 - Derniers lots livrés :
   - **7** : catégories imbriquées, actions en glissant, déplacer et renommer, Historique.
@@ -27,7 +27,12 @@ fin de chaque lot (et quand une décision est prise).
     filtre de Dépenses. La couverture des enfants vit dans `allocation.covered_cents` : le montant
     saisi, le report et les corrections ne sont jamais réécrits, `syncCoverage` est le seul point
     d'écriture, `budgetEnvelopes` donne aux calculs les parts propres.
-- Tests du domaine sans Gradle : `./scripts/domain-tests.sh` (236 au 6 novembre).
+  - **8c** : objectifs d'épargne (`Goals.kt`) : `goal_cents`, `goal_by`, `account_id` sur l'enveloppe,
+    table `savings_placement` (mouvements, annulables). Part d'un objectif daté recalculée au début de
+    chaque période puis figée. Répartition de départ des livrets, « à ranger » (virements depuis la
+    répartition, signe inversé : débit du compte courant), « Versé sur » (`goalsTarget` du compte).
+    Précaution reprise une fois en enveloppe d'épargne, Total retiré.
+- Tests du domaine sans Gradle : `./scripts/domain-tests.sh` (245 au 9 novembre).
 
 ## Lot 8 : décisions prises (prototype testé par l'utilisateur)
 
@@ -73,9 +78,10 @@ Décisions du 6 novembre, qui complètent ou remplacent celles du prototype :
   répartit les livrets entre les objectifs (placements exclus). Les achats prévus restent des
   enveloppes « Rare ou ponctuel ».
 
-Prochaine étape : 8c (objectifs d'épargne, `goal_cents`, `goal_by`, table `savings_placement`), puis
-8d (doc UX, analyse, démo, Claude, skill). Question ouverte pour le 8c : réglage « Versé sur » sur
-une enveloppe d'épargne, pour suivre chaque versement et séparer l'épargne bloquée.
+Plan validé le 9 novembre : 8d somme mise à part (financée d'un coup, sans part du mois, « Pris
+sur » compte, objectif ou À répartir du mois, « Terminer » rend le reste), 8e arbre et cohérence
+(supprimer, défauts ci-dessous, doc UX, démo, export Claude, skill, code mort de l'ancien
+SavingsGoals), 9 revue du tri par Claude (propositions applicables une à une depuis le bilan).
 
 À traiter au 8d, relevé par les relectures du 8b :
 
@@ -88,6 +94,8 @@ une enveloppe d'épargne, pour suivre chaque versement et séparer l'épargne bl
 - Couleurs de famille et de catégorie qui se recoupent, points gris de `glass-declasser`.
 - Report d'un parent après une période entière manquée ; dépôt à côté de l'enfant d'un parent arrêté.
 - `glass-budget-clair` et `glass-home-clair` identiques aux versions sombres.
+- Épargne : verbe de l'en-tête « Répartir » à trancher avec le doc ; couleur propre des objectifs et
+  barre placée comme dans Achats prévus ; captures du formulaire d'objectif et de la carte livrets.
 
 ## Restes connus
 
