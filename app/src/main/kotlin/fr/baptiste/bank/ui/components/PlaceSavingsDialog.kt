@@ -58,15 +58,14 @@ fun PlaceSavingsDialog(
             Text(title, style = MaterialTheme.typography.titleLarge)
             Text(detail, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             goals.forEach { line ->
-                val missing = line.missing?.takeIf { it.isPositive && !withdrawal }?.let { " · il manque ${it.summary()}" }.orEmpty()
                 MoneyField(
                     value = texts[line.envelope.id].orEmpty(),
                     onValueChange = { texts[line.envelope.id] = it },
-                    label = "${line.envelope.name} · ${line.held.summary()}$missing",
+                    label = line.goal?.let { "${line.envelope.name} · sur ${it.summary()}" } ?: line.envelope.name,
                 )
             }
             Text(
-                if (left.isNegative) "${Money(-left.cents).summary()} de trop" else "Reste à répartir : ${left.summary()}",
+                if (left.isNegative) "${Money(-left.cents).summary()} de trop" else "${left.summary()} à ranger",
                 style = MaterialTheme.typography.bodyMedium,
                 color = if (left.isNegative) BankTheme.status.over else MaterialTheme.colorScheme.onSurfaceVariant,
             )

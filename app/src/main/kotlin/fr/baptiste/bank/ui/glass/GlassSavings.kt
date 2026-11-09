@@ -366,7 +366,7 @@ private fun LazyListScope.holdingsSection(
     }
     // Évolution du total sur douze mois : seuls les mois connus (après le premier relevé) comptent.
     if (holdings.history.size > 1) {
-        sectionHeader("holdings-history-label", "Mois par mois", trailing = "fin de mois")
+        sectionHeader("holdings-history-label", "Comptes par mois", trailing = "fin de mois")
         item(key = "holdings-history") {
             GlassCard(contentPadding = 16.dp) {
                 HoldingsLineChart(holdings.history)
@@ -503,10 +503,20 @@ private fun ActionCard(title: String, detail: String, onClick: () -> Unit) {
 @Composable
 private fun GoalRow(line: fr.baptiste.bank.domain.budget.SavingsGoalLine, account: fr.baptiste.bank.domain.budget.HoldingAccount?, onClick: () -> Unit) {
     val goal = line.goal
+    // Comme un achat prévu : rythme, échéance et compte à gauche ; ce que contient l'objectif et le montant visé à droite.
+    val by = line.envelope.goalBy?.format(java.time.format.DateTimeFormatter.ofPattern("MMM yyyy", Locale.FRANCE))
+    val where = account?.let { if (it.type == AccountType.SAVINGS) it.name else "${it.name}, bloqué" }
+    val meta = listOfNotNull("${line.monthly.summary()} par mois", "objectif atteint".takeIf { line.reached } ?: by, where).joinToString(" · ")
     Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(line.envelope.name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-            Text(line.held.summary(), style = MaterialTheme.typography.titleMedium)
+            Column(Modifier.weight(1f)) {
+                Text(line.envelope.name, style = MaterialTheme.typography.bodyLarge)
+                Text(meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(line.held.summary(), style = MaterialTheme.typography.titleMedium)
+                if (goal != null) Text("sur ${goal.summary()}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
         if (goal != null && goal.isPositive) {
             val fraction = (line.held.cents.toFloat() / goal.cents).coerceIn(0f, 1f)
@@ -514,19 +524,6 @@ private fun GoalRow(line: fr.baptiste.bank.domain.budget.SavingsGoalLine, accoun
                 Box(Modifier.fillMaxWidth(fraction).height(6.dp).clip(RoundedCornerShape(3.dp)).background(envelopeTypeColor(EnvelopeType.SAVINGS)))
             }
         }
-        val by = line.envelope.goalBy?.let { " d'ici " + it.format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy", Locale.FRANCE)) }.orEmpty()
-        val target = when {
-            goal == null -> ""
-            line.reached -> " · objectif atteint"
-            else -> " · ${line.missing!!.summary()} pour ${goal.summary()}$by"
-        }
-        val where = account?.let { if (it.type == AccountType.SAVINGS) " · ${it.name}" else " · ${it.name}, bloqué" }.orEmpty()
-        Text(
-            "${line.monthly.summary()} par mois$target$where",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 4.dp),
-        )
     }
 }
 

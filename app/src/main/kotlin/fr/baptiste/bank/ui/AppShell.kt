@@ -420,7 +420,7 @@ fun AppDialogs(
                 PlaceSavingsDialog(
                     title = if (current.start) "Répartir tes livrets" else if (total.isNegative) "Retirer des objectifs" else "Ranger ${total.summary()}",
                     detail = if (current.start) {
-                        "Ce que contient chaque objectif aujourd'hui, sur tes livrets. Remplace la répartition précédente."
+                        "Ce que chaque objectif contient aujourd'hui."
                     } else {
                         "Ce qui est arrivé sur tes comptes, rangé dans tes objectifs."
                     },
