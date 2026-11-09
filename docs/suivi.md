@@ -6,7 +6,7 @@ fin de chaque lot (et quand une décision est prise).
 
 ## Où en est l'app
 
-- `main` = lot 8c (9 novembre 2026). Base de données v20 (schémas jusqu'à `20.json` dans
+- `main` = lot 8d (9 novembre 2026). Base de données v20 (schémas jusqu'à `20.json` dans
   `app/schemas/`).
 - Derniers lots livrés :
   - **7** : catégories imbriquées, actions en glissant, déplacer et renommer, Historique.
@@ -32,7 +32,11 @@ fin de chaque lot (et quand une décision est prise).
     chaque période puis figée. Répartition de départ des livrets, « à ranger » (virements depuis la
     répartition, signe inversé : débit du compte courant), « Versé sur » (`goalsTarget` du compte).
     Précaution reprise une fois en enveloppe d'épargne, Total retiré.
-- Tests du domaine sans Gradle : `./scripts/domain-tests.sh` (245 au 9 novembre).
+  - **8d** : somme mise à part (`EnvelopeType.LUMP`, une période de 1 200 mois). Pas de part du mois
+    sauf prise sur le mois (`fundingStart`), hors du rapport du mois, de l'arbre et du disponible ;
+    prise sur un objectif : mouvement négatif dans la même entrée. « Terminer » (`finishLump`) range
+    le reste ou couvre le dépassement ; type et montant figés après la création.
+- Tests du domaine sans Gradle : `./scripts/domain-tests.sh` (251 au 9 novembre).
 
 ## Lot 8 : décisions prises (prototype testé par l'utilisateur)
 
@@ -94,6 +98,10 @@ SavingsGoals), 9 revue du tri par Claude (propositions applicables une à une de
 - Couleurs de famille et de catégorie qui se recoupent, points gris de `glass-declasser`.
 - Report d'un parent après une période entière manquée ; dépôt à côté de l'enfant d'un parent arrêté.
 - `glass-budget-clair` et `glass-home-clair` identiques aux versions sombres.
+- Somme mise à part : « mis à part » trop proche de « mis de côté » (vocabulaire) ; branche d'une
+  somme qui contient des enveloppes (dépensé total et dépensé du mois mélangés) ; « Retirer » vers
+  À répartir ; bilan d'un mois passé qui ne la mentionne pas ; captures du formulaire et du dépassement.
+- `observeTransfersToAccounts` additionne des valeurs absolues : un retrait du livret compte comme un versement.
 - Épargne : verbe de l'en-tête « Répartir » à trancher avec le doc ; couleur propre des objectifs et
   barre placée comme dans Achats prévus ; captures du formulaire d'objectif et de la carte livrets.
 
