@@ -286,15 +286,16 @@ private val knownCategoryColors = mapOf(
     "santé" to Color(0xFF67E8F9),
     "abonnements" to Color(0xFFF5D0A9),
     "voyages" to Color(0xFFBEF264),
-    "épargne" to Color(0xFFA7F3C8),
+    "épargne" to Color(0xFFC7D2FE),
     "shopping" to Color(0xFFE879F9),
     "cadeaux" to Color(0xFFFDA4AF),
     "autres" to Color(0xFFAEBAD6),
 )
 
+// Ni bleu clair, ni vert menthe, ni rose, ni or : ce sont les couleurs des familles.
 private val otherCategoryColors = listOf(
-    Color(0xFF38BDF8), Color(0xFFA3E635), Color(0xFFC4B5FD), Color(0xFF2DD4BF),
-    Color(0xFFF9A8D4), Color(0xFF93C5FD), Color(0xFFD8B4FE), Color(0xFF86EFAC),
+    Color(0xFFA3E635), Color(0xFFC4B5FD), Color(0xFF2DD4BF),
+    Color(0xFFFB923C), Color(0xFFD8B4FE), Color(0xFFE2E8F0),
 )
 
 /** Mois écartés des moyennes : un bilan les marque « Hors référence ». */

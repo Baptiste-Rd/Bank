@@ -158,7 +158,8 @@ class AppController(
                 message = message,
                 actionLabel = action,
                 withDismissAction = action == null,
-                duration = SnackbarDuration.Short,
+                // Un message qui porte « Annuler » reste le temps de s'en servir.
+                duration = if (action != null) SnackbarDuration.Long else SnackbarDuration.Short,
             )
             if (result == SnackbarResult.ActionPerformed) onAction()
         }

@@ -143,8 +143,13 @@ class TreeBudgetTest {
         val before = EnvelopeTree(listOf(TreeNode(1, null, 0, Money.euros(300)), TreeNode(2, null, 1, Money.euros(400))))
         val after = EnvelopeTree(listOf(TreeNode(1, null, 0, Money.euros(300)), TreeNode(2, 1, 0, Money.euros(400))))
         val result = coverageChanges("C rangée", before, after, mapOf(1L to "A", 2L to "C"))
-        assertEquals(listOf(CoverageChange("A", Money.euros(300), Money.euros(400))), result.changes)
+        assertEquals(listOf(CoverageChange("A", Money.euros(300), Money.euros(400), Money.ZERO)), result.changes)
         assertEquals(Money.euros(-300), result.planDelta)
+        // Le message dit la part propre du parent et ce qui revient à répartir, pas une hausse trompeuse.
+        assertEquals(
+            "C rangée · A passe à 400 €, dont 0 € pour elle · 300 € reviennent à répartir · par jour +10 €",
+            result.copy(perDayDelta = Money.euros(10)).message { "${it.cents / 100} €" },
+        )
     }
 
     @Test

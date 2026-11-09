@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -26,6 +27,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarData
 import androidx.compose.material3.SnackbarHost
+import fr.baptiste.bank.domain.budget.message
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -142,10 +144,7 @@ fun GlassMainScreen(
             if (result == null) {
                 controller.notify("Impossible : une enveloppe ne va pas dans ce qu'elle contient.")
             } else if (result.label.isNotEmpty()) {
-                val moved = result.changes.joinToString("") { " · ${it.name} passe de ${it.before.summary()} à ${it.after.summary()}" }
-                val perDay = result.perDayDelta
-                val detail = moved + if (perDay != fr.baptiste.bank.domain.money.Money.ZERO) " · par jour ${if (perDay.isNegative) "" else "+"}${perDay.summary()}" else ""
-                controller.notify(result.label + detail, "Annuler") { viewModel.undoLast() }
+                controller.notify(result.message { it.summary() }, "Annuler") { viewModel.undoLast() }
             }
         }
     }
@@ -714,10 +713,18 @@ fun GlassMainScreen(
     }
 }
 
-/** Message de confirmation, dans une capsule de verre posée sur un fond plein : il se lit sur n'importe quel écran. */
+/** Message de confirmation, sur un fond plein : il se lit sur n'importe quel écran. */
 @Composable
 private fun GlassSnackbar(data: SnackbarData) {
-    GlassBanner(Modifier.background(Glass.BaseTop, androidx.compose.foundation.shape.RoundedCornerShape(percent = 50))) {
+    // Une capsule pleine, sans verre : le verre est réservé à la barre d'onglets et au bouton Claude.
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(Glass.BaseTop, androidx.compose.foundation.shape.RoundedCornerShape(percent = 50))
+            .border(1.dp, Color.White.copy(alpha = 0.12f), androidx.compose.foundation.shape.RoundedCornerShape(percent = 50))
+            .padding(start = 20.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Text(
             data.visuals.message,
             style = MaterialTheme.typography.bodyMedium,

@@ -1,6 +1,5 @@
 package fr.baptiste.bank.ui.glass
 
-import fr.baptiste.bank.ui.theme.BankTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
@@ -174,18 +173,22 @@ internal fun BudgetTree(
         target = hit?.let { row -> DropTarget(row.id, zoneAt(bounds.getValue(row.id), y)) }
     }
 
-    // Près d'un bord, la liste défile sous la ligne soulevée.
-    val height = with(LocalDensity.current) { LocalConfiguration.current.screenHeightDp.dp.toPx() }
-    val topEdge = with(LocalDensity.current) { 160.dp.toPx() }
-    val bottomEdge = with(LocalDensity.current) { 180.dp.toPx() }
+    // Tout près d'un bord, la liste défile sous la ligne soulevée, d'autant plus vite que le doigt
+    // s'enfonce dans la bande. Les bandes sont étroites (56 dp), juste sous la barre du haut et
+    // au-dessus de la barre d'onglets : un doigt immobile ailleurs ne fait jamais changer la cible.
+    val density = LocalDensity.current
+    val height = androidx.compose.ui.platform.LocalView.current.height.toFloat()
+    val topEdge = with(density) { 120.dp.toPx() }
+    val bottomEdge = height - with(density) { 120.dp.toPx() }
+    val band = with(density) { 56.dp.toPx() }
     LaunchedEffect(dragged) {
         if (dragged == null) return@LaunchedEffect
         while (true) {
             withFrameNanos { }
             val y = startY + finger
             val speed = when {
-                y < topEdge -> -14f
-                y > height - bottomEdge -> 14f
+                y < topEdge + band -> -14f * ((topEdge + band - y) / band).coerceIn(0.25f, 1f)
+                y > bottomEdge - band -> 14f * ((y - bottomEdge + band) / band).coerceIn(0.25f, 1f)
                 else -> 0f
             }
             if (speed != 0f) {
@@ -250,7 +253,6 @@ internal fun BudgetTree(
                                 translationY = finger + scrolled - size.height * 0.75f
                                 scaleX = 1.03f
                                 scaleY = 1.03f
-                                alpha = 0.92f
                                 shadowElevation = 16.dp.toPx()
                             }
                         }
@@ -288,7 +290,7 @@ internal fun BudgetTree(
                             listOf(
                                 SwipeAction("Renommer", SwipeColors.Neutral) { onRenameGroup(row.name) },
                                 SwipeAction("Déplacer", SwipeColors.Accent) { onMoveGroup(row.name) },
-                                SwipeAction("Supprimer", BankTheme.status.over) { onDeleteGroup(row.name) },
+                                SwipeAction("Supprimer", SwipeColors.Destructive) { onDeleteGroup(row.name) },
                             )
                         },
                     ) {

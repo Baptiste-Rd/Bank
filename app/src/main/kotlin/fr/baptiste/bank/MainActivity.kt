@@ -114,11 +114,11 @@ class MainActivity : ComponentActivity() {
                     anchor = null,
                 ),
             )
-            // Nouvel objectif d'épargne : 6 000 € pour une voiture dans deux ans.
+            // Nouvel objectif d'épargne : 6 000 € pour une moto dans deux ans (Voiture existe dans la démo).
             "GOAL" -> OpenDialog.EnvelopeEditor(
                 fr.baptiste.bank.domain.model.Envelope(
                     id = 0,
-                    name = "Voiture",
+                    name = "Moto",
                     type = fr.baptiste.bank.domain.model.EnvelopeType.SAVINGS,
                     frequency = fr.baptiste.bank.domain.model.EnvelopeType.SAVINGS.defaultFrequency,
                     amount = Money.euros(250),

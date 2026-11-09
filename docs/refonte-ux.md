@@ -11,7 +11,7 @@ Onglets, dans l'ordre : **Résumé** (où j'en suis ce mois ?), **Budget** (où 
 - Barre du haut plate, opaque quand le contenu défile dessous : la roue des Réglages à gauche, le
   titre au centre, la loupe et le + (bleu plein) à droite. Le verre est réservé à la barre
   d'onglets et au bouton Claude.
-- Contrôle segmenté unique (mois, Catégories | Opérations, recherche) : fond opaque, coins de
+- Contrôle segmenté unique (mois, Enveloppes | Opérations, recherche) : fond opaque, coins de
   14 dp, choix en blanc à 14 %. La barre des mois montre quatre mois et « Année », à largeur égale.
   Le + ouvre « Ajouter » : Dépense (en premier), Achat prévu, Enveloppe, Mise de côté.
 - Barre des mois en tête de Résumé et Dépenses : un seul mois choisi pour les deux, puis « Année »
@@ -40,7 +40,7 @@ Onglets, dans l'ordre : **Résumé** (où j'en suis ce mois ?), **Budget** (où 
   dit « X rangée dans Y » (message et Historique). Le formulaire d'enveloppe propose les
   catégories ; « Déplacer » propose l'arbre entier, vraies enveloppes comprises. Les en-têtes de famille n'ont
   pas de point (les couleurs des familles restent dans la barre du plan et sa légende).
-- Dépenses : la barre des mois, puis Catégories | Opérations, rien d'autre en en-tête. Opérations :
+- Dépenses : la barre des mois, puis Enveloppes | Opérations, rien d'autre en en-tête. Opérations :
   « N dates d'achat à corriger » (s'il y en a), la file À trier avec « Trier une par une », puis
   les opérations du mois. Le total du mois : le chiffre et une puce signée ; le reste dans ⓘ.
 - Bouton Claude : rond, en verre teinté, à droite de la barre d'onglets.
@@ -201,7 +201,7 @@ Un chiffre affiché à plusieurs endroits vient d'une seule fonction du module `
 | Reste du mois, par jour | `dailyAllowance` (`DailyBudget.kt`) | Accueil ; l'Épargne le reprend dans « Si tu dépenses X € par jour : Y € » |
 | Épargne si l'on dépense exactement sa part du jour | `SavingsOutlook.atDailyAllowance` : l'épargne prévue sans la marge du quotidien | Épargne, sous l'épargne prévue |
 | Dépensé du mois | `countedSpendings` (`SpendingReport.kt`), via `monthPace`, `monthSpending` et `cumulativeByDay` | Accueil (rythme), Analyse (total du mois), Opérations (« Cumul du mois ») |
-| Budget d'une enveloppe dans Dépenses, « Dépassé » | `monthSpending` : la part du mois plus les ajouts, moins les retraits du mois (comme le disponible de Budget) | Dépenses › Catégories |
+| Budget d'une enveloppe dans Dépenses, « Dépassé » | `monthSpending` : la part du mois plus les ajouts, moins les retraits du mois (comme le disponible de Budget) | Dépenses › Enveloppes |
 | Prévu + | `project` (`Projection.kt`) : rien avant le 10, puis rythme du mois mêlé à l'habitude (`dailyHabits`, 12 mois) | Enveloppes, fiche, Claude |
 | Comparaison de début de mois | `MonthPace.previousSameDay` : tout le dépensé, loyer compris | Accueil (Rythme du mois), Analyse du mois en cours |
 | Bilan d'un mois terminé | `monthClosing` (`MonthClosing.kt`) : épargne du mois, virée ou encore sur le compte | Budget, mois passé |

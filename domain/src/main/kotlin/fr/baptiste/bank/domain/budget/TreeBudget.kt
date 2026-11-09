@@ -66,7 +66,7 @@ fun List<Envelope>.withOwnAmounts(groups: List<GroupNode>, month: YearMonth, sin
 }
 
 /** Un budget qui change parce qu'un parent couvre plus, ou moins. */
-data class CoverageChange(val name: String, val before: Money, val after: Money)
+data class CoverageChange(val name: String, val before: Money, val after: Money, val own: Money = Money.ZERO)
 
 /** Ce qu'un déplacement change : les parents touchés, et le plan du mois. */
 data class TreeMoveResult(
@@ -77,6 +77,20 @@ data class TreeMoveResult(
     val perDayDelta: Money = Money.ZERO,
 )
 
+/**
+ * Le message d'un déplacement : ce que devient l'argent. Un parent qui couvre plus dit aussi sa part
+ * propre (« Essence passe à 320 €, dont 0 € pour elle »), et le plan dit ce qui revient à répartir.
+ */
+fun TreeMoveResult.message(summary: (Money) -> String): String = buildString {
+    append(label)
+    changes.forEach { append(" · ${it.name} passe à ${summary(it.after)}, dont ${summary(it.own)} pour elle") }
+    when {
+        planDelta.isNegative -> append(" · ${summary(-planDelta)} reviennent à répartir")
+        planDelta.isPositive -> append(" · ${summary(planDelta)} de plus au budget")
+    }
+    if (perDayDelta != Money.ZERO) append(" · par jour ${if (perDayDelta.isNegative) "" else "+"}${summary(perDayDelta)}")
+}
+
 /** Compare deux états de l'arbre : les enveloppes dont le budget couvert a changé, le plan du mois. */
 fun coverageChanges(label: String, before: EnvelopeTree, after: EnvelopeTree, names: Map<Long, String>): TreeMoveResult =
     TreeMoveResult(
@@ -85,7 +99,7 @@ fun coverageChanges(label: String, before: EnvelopeTree, after: EnvelopeTree, na
             val old = before.covered(id)
             val new = after.covered(id)
             // Un parent seulement : le budget d'une enveloppe sans enfant ne bouge pas avec l'arbre.
-            CoverageChange(name, old, new).takeIf { old != new && after.children(id).isNotEmpty() }
+            CoverageChange(name, old, new, after.ownPart(id)).takeIf { old != new && after.children(id).isNotEmpty() }
         },
         planDelta = after.total - before.total,
     )

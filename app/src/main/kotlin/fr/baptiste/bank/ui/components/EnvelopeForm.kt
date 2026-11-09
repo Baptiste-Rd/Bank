@@ -415,7 +415,7 @@ fun EnvelopeDialog(
                     val days = if (lumpSource == monthSource && !isExisting) amount?.let(perDay) else null
                     Text(
                         days?.let { (now, then) -> "Par jour : ${then.summary()} au lieu de ${now.summary()}." }
-                            ?: "Pas de part du mois : ton « par jour » ne change pas.",
+                            ?: "Ton « par jour » ne change pas.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -443,10 +443,11 @@ fun EnvelopeDialog(
                     amount?.takeIf { it.isPositive }?.let { monthly ->
                         val before = if (isExisting && initial?.type == EnvelopeType.SAVINGS) initial.amount else Money.ZERO
                         val days = perDay(monthly - before)
-                        val until = if (dated) " jusqu'à ${monthLabel(goalMonth!!)}, recalculé chaque mois" else ""
+                        // Une seule ligne : la part, l'échéance et l'effet sur le « par jour ».
+                        val until = if (dated) " d'ici ${monthLabel(goalMonth!!)}" else ""
                         val effect = days?.let { (now, then) ->
-                            if (then.isNegative) "\nTon plan dépasserait ton salaire : repousse la date ou baisse l'objectif."
-                            else "\nPar jour : ${then.summary()} au lieu de ${now.summary()}."
+                            if (then.isNegative) " · dépasse ton salaire : repousse la date ou baisse l'objectif"
+                            else " · par jour ${then.summary()} au lieu de ${now.summary()}"
                         }.orEmpty()
                         Text(
                             "${monthly.summary()} par mois$until$effect",
@@ -525,7 +526,8 @@ fun EnvelopeDialog(
                     )
                 }
 
-                draft?.let { Text(summary(it, today, trackingStart), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                // Une somme mise à part n'a pas de récapitulatif : Combien et la date sont juste au-dessus.
+                draft?.takeIf { it.type != EnvelopeType.LUMP }?.let { Text(summary(it, today, trackingStart), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
 
                 if (use != Use.LUMP) TextButton(onClick = { more = !more }) { Text(if (more) "Moins d'options" else "Plus d'options") }
                 if (more && use != Use.LUMP) {

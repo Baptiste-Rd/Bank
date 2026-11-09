@@ -38,10 +38,12 @@ import kotlin.math.roundToInt
 /** Un bouton qui apparaît en glissant une ligne vers la gauche. */
 data class SwipeAction(val label: String, val color: Color, val onClick: () -> Unit)
 
-/** Couleurs des actions : neutre (Modifier, Renommer) et bleu (Déplacer). */
+/** Couleurs des actions : neutre (Modifier, Renommer), bleu (Déplacer) et rouge (Supprimer). */
 object SwipeColors {
     val Neutral = Color(0xFF3A4A6B)
     val Accent = Color(0xFF2563EB)
+    /** Supprimer : un rouge foncé, texte blanc lisible (contraste supérieur à 4,5:1). */
+    val Destructive = Color(0xFFB91C3C)
 }
 
 /** La ligne ouverte de l'écran : une seule à la fois, comme dans Mail sur iPhone. */
