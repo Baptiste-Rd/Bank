@@ -120,8 +120,8 @@ fun EnvelopeDialog(
     perDay: (Money) -> Pair<Money, Money>? = { null },
     /** Somme mise à part : les objectifs où la prendre (identifiant, nom). */
     goals: List<Pair<Long, String>> = emptyList(),
-    /** Somme mise à part prise sur un objectif : appelé après l'enregistrement. */
-    onTakeFromGoal: (goalId: Long, amount: Money) -> Unit = { _, _ -> },
+    /** Somme mise à part prise sur un objectif : enregistrée avec son mouvement, en une fois. */
+    onSaveFromGoal: (Envelope, goalId: Long) -> Unit = { envelope, _ -> onSave(envelope) },
 ) {
     val today = LocalDate.now()
     // Un modèle (id 0) pré-remplit le formulaire mais reste une création.
@@ -180,6 +180,7 @@ fun EnvelopeDialog(
     val amount = when {
         dated && frozen -> initial!!.amount
         dated -> fr.baptiste.bank.domain.budget.goalMonthly(goal!!, held, goalMonth!!, YearMonth.from(today))
+        use == Use.LUMP && isExisting -> initial!!.amount
         amountText.isBlank() -> Money.ZERO
         else -> parseMoney(amountText)
     }
@@ -296,9 +297,9 @@ fun EnvelopeDialog(
                 enabled = draft != null,
                 onAction = {
                     draft?.let { saved ->
-                        onSave(saved)
-                        // Prise sur un objectif : l'argent sort de l'épargne, une fois l'enveloppe créée.
-                        if (use == Use.LUMP && !isExisting) goals.firstOrNull { it.second == lumpSource }?.let { onTakeFromGoal(it.first, saved.amount) }
+                        // Prise sur un objectif : l'argent sort de l'épargne avec la création, une seule entrée.
+                        val goalId = goals.firstOrNull { it.second == lumpSource }?.first?.takeIf { use == Use.LUMP && !isExisting }
+                        if (goalId != null) onSaveFromGoal(saved, goalId) else onSave(saved)
                     }
                 },
             )
@@ -385,14 +386,22 @@ fun EnvelopeDialog(
                 }
                 Text("C'est pour", style = MaterialTheme.typography.labelMedium)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Use.entries.forEach { option ->
+                    // Le type se choisit à la création : une somme mise à part ne devient pas une enveloppe à périodes, ni l'inverse.
+                    val lumpLocked = isExisting && initial?.type == EnvelopeType.LUMP
+                    Use.entries.filter { if (lumpLocked) it == Use.LUMP else !isExisting || it != Use.LUMP }.forEach { option ->
                         FilterChip(selected = use == option, onClick = { use = option }, label = { Text(option.label) })
                     }
                 }
 
                 if (use == Use.LUMP) {
-                    MoneyField(value = amountText, onValueChange = { amountText = it }, label = "Combien")
-                    DateField(label = "Départ", date = start ?: today, onDateChange = { start = it })
+                    if (isExisting) {
+                        // Le montant de départ est fixé : on ajoute ou retire depuis sa fiche, avec une source.
+                        Text("${initial?.amount?.summary().orEmpty()} mis à part. Ajoute ou retire depuis sa fiche.", style = MaterialTheme.typography.bodyMedium)
+                    } else {
+                        MoneyField(value = amountText, onValueChange = { amountText = it }, label = "Combien")
+                    }
+                    // Les dépenses comptent à partir de cette date, jamais dans le futur : la somme existe dès sa création.
+                    DateField(label = "Dépenses comptées depuis", date = start ?: today, onDateChange = { start = minOf(it, today) })
                     if (!isExisting) {
                         ChoiceField(
                             label = "Pris sur",
@@ -729,6 +738,7 @@ private fun summary(envelope: Envelope, today: LocalDate, trackingStart: YearMon
     val unit = envelope.frequency.scale.unitName(envelope.frequency.every)
     val rhythm = if (envelope.frequency.every == 1) "chaque ${unit}" else "tous les ${envelope.frequency.every} $unit"
     return when (envelope.type) {
+        EnvelopeType.LUMP -> "${envelope.amount.summary()} mis à part, dépenses comptées depuis le ${(envelope.start ?: today).format(day)}"
         EnvelopeType.DAILY, EnvelopeType.FIXED -> "${envelope.amount.summary()} $rhythm"
         EnvelopeType.SAVINGS -> "${envelope.amount.summary()} mis de côté $rhythm"
         else -> {

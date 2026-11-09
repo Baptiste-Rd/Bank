@@ -25,7 +25,10 @@ private fun Envelope.countsIn(month: YearMonth): Boolean = (!archived || retired
 
 /** L'arbre de [month], en parts du mois (enveloppes brutes, avec leur montant saisi). */
 fun treeOf(envelopes: List<Envelope>, groups: List<GroupNode>, month: YearMonth, since: YearMonth?): EnvelopeTree = EnvelopeTree(
-    envelopes.filter { it.countsIn(month) }.map { TreeNode(it.id, it.parentId, it.position, it.monthlyBudget(month, since)) } +
+    envelopes.filter { it.countsIn(month) }.map {
+        // Une somme mise à part ne pèse pas dans l'arbre, même le mois où elle est prise sur le salaire.
+        TreeNode(it.id, it.parentId, it.position, if (it.type == EnvelopeType.LUMP) Money.ZERO else it.monthlyBudget(month, since))
+    } +
         groups.map { TreeNode(it.id, it.parentId, it.position) },
 )
 
@@ -36,7 +39,7 @@ fun treeOf(envelopes: List<Envelope>, groups: List<GroupNode>, month: YearMonth,
  */
 fun childrenAmounts(envelopes: List<Envelope>, groups: List<GroupNode>, month: YearMonth, since: YearMonth?): Map<Long, Money> {
     val tree = treeOf(envelopes, groups, month, since)
-    return envelopes.filter { it.countsIn(month) && tree.children(it.id).isNotEmpty() }.associate { parent ->
+    return envelopes.filter { it.countsIn(month) && it.type != EnvelopeType.LUMP && tree.children(it.id).isNotEmpty() }.associate { parent ->
         val children = tree.children(parent.id).sumOfMoney { tree.covered(it.id) }
         // Même proportion que la part du mois : une provision commencée tard réserve plus d'un douzième.
         val total = parent.amountIn(parent.periodContaining(month.atEndOfMonth()))

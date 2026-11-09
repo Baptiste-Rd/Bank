@@ -64,12 +64,13 @@ fun Envelope.monthlyBudget(month: YearMonth, since: YearMonth?): Money {
 }
 
 /**
- * Les dépenses comptées dans [month] : celles des enveloppes connues, hors épargne. Une seule règle
+ * Les dépenses comptées dans [month] : celles des enveloppes connues, hors épargne et hors sommes
+ * mises à part (payées avec de l'argent déjà là, elles ne sont pas celles du mois). Une seule règle
  * pour le total du mois de l'analyse ([monthSpending]) et le dépensé de l'accueil ([monthPace]) :
  * les deux chiffres ne peuvent pas diverger.
  */
 fun countedSpendings(month: YearMonth, envelopes: List<Envelope>, spendings: List<Spending>): List<Spending> {
-    val counted = envelopes.filter { it.type != EnvelopeType.SAVINGS }.map { it.id }.toSet()
+    val counted = envelopes.filter { it.type != EnvelopeType.SAVINGS && it.type != EnvelopeType.LUMP }.map { it.id }.toSet()
     return spendings.filter { YearMonth.from(it.date) == month && it.envelopeId in counted }
 }
 

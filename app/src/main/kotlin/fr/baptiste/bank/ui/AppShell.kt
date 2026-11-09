@@ -618,7 +618,7 @@ fun AppDialogs(
                     },
                     // Le formulaire part du montant saisi, pas de la part propre vue par les calculs.
                     onEdit = { controller.dialog = OpenDialog.EnvelopeEditor((viewModel.envelopes.value + viewModel.archivedEnvelopes.value).firstOrNull { it.id == line.envelope.id } ?: line.envelope) },
-                    onFinish = if (line.envelope.type == fr.baptiste.bank.domain.model.EnvelopeType.LUMP) {
+                    onFinish = if (line.envelope.type == fr.baptiste.bank.domain.model.EnvelopeType.LUMP && !line.stopped) {
                         { controller.dialog = OpenDialog.FinishLump(line.envelope.id) }
                     } else {
                         null
@@ -731,6 +731,11 @@ fun AppDialogs(
                 }
             },
             onArchive = { archivedEnvelope ->
+                // Une somme mise à part se termine : son reste ou son dépassement doit aller quelque part.
+                if (archivedEnvelope.type == fr.baptiste.bank.domain.model.EnvelopeType.LUMP) {
+                    controller.dialog = OpenDialog.FinishLump(archivedEnvelope.id)
+                    return@EnvelopeDialog
+                }
                 viewModel.archiveEnvelope(archivedEnvelope.id)
                 // Un seul chemin pour annuler : l'Historique (le message en défait la dernière entrée).
                 controller.notify("${archivedEnvelope.name} arrêtée.", action = "Annuler") { viewModel.undoLast() }
@@ -740,7 +745,10 @@ fun AppDialogs(
             accounts = viewModel.holdings.collectAsStateWithLifecycle().value?.lines.orEmpty().map { it.account.id to it.account.name },
             goals = viewModel.savingsState.collectAsStateWithLifecycle().value?.goals.orEmpty()
                 .filter { !it.envelope.archived }.map { it.envelope.id to it.envelope.name },
-            onTakeFromGoal = { goalId, amount -> viewModel.placeSavings(mapOf(goalId to Money(-amount.cents)), start = false) },
+            onSaveFromGoal = { envelope, goalId ->
+                viewModel.saveEnvelope(envelope, takeFromGoal = goalId)
+                close()
+            },
             perDay = viewModel.dashboard.collectAsStateWithLifecycle().value.let { board ->
                 { extra: Money -> board?.let { b -> b.perDayWithReserved(extra)?.let { b.dailyAllowance.allowance to it } } }
             },

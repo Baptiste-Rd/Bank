@@ -71,6 +71,9 @@ fun Dashboard.explainCurrentAccount(
             val held = funded + line.fromReserve - line.spent
             if (held.isPositive) sum + held else sum
         }
+    // Une somme mise à part : son reste est déjà pris, il n'est pas disponible.
+    val lumpsHeld = envelopes.filter { it.envelope.type == EnvelopeType.LUMP && !it.stopped }
+        .fold(Money.ZERO) { sum, line -> if (line.remaining.isPositive) sum + line.remaining else sum }
     // L'épargne à virer comprend ce qui a été mis de côté depuis la réserve ce mois-ci.
     val pending = savings.secured + reserveToSavings - transferredToAccounts
     return CurrentAccountExplained(
@@ -80,7 +83,7 @@ fun Dashboard.explainCurrentAccount(
         chargesDue = chargesDue,
         savingsPending = if (pending.isPositive) pending else Money.ZERO,
         unsortedOut = unsortedOut,
-        provisionsHeld = provisionsHeld,
+        provisionsHeld = provisionsHeld + lumpsHeld,
         nextMonthSalary = nextMonthSalary,
     )
 }

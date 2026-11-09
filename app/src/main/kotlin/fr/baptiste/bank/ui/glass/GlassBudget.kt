@@ -296,12 +296,13 @@ private fun LazyListScope.monthContent(
                         // Arrêtée ce mois-ci : ce qu'elle garde encore dans le mois, pour retrouver le total de sa famille.
                         val kept = dashboard.envelopes.firstOrNull { it.envelope.id == envelope.id }?.monthlyShare?.takeIf { it.isPositive }
                         Text(
-                            kept?.let { "${it.summary()} gardés ce mois-ci" } ?: "${envelope.amount.summary()} ${envelope.frequency.label}",
+                            kept?.let { "${it.summary()} gardés ce mois-ci" } ?: if (envelope.type == EnvelopeType.LUMP) "Somme mise à part, terminée" else "${envelope.amount.summary()} ${envelope.frequency.label}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    TextButton(onClick = { onRestore(envelope) }) { Text("Restaurer") }
+                    // Une somme terminée se rétablit par l'Historique, qui défait aussi ce qui a été fait de son reste.
+                    if (envelope.type != EnvelopeType.LUMP) TextButton(onClick = { onRestore(envelope) }) { Text("Restaurer") }
                 }
             }
         }

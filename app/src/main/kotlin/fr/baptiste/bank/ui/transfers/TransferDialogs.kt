@@ -368,6 +368,7 @@ fun EnvelopeSheet(
                 line.period.endInclusive.isAfter(line.period.start.plusMonths(1))
             Text(
                 if (isProvision) "${line.funded.summary()} mis de côté sur ${line.allocated.summary()} · ${line.period.label}"
+                else if (line.envelope.type == fr.baptiste.bank.domain.model.EnvelopeType.LUMP) "${line.spent.summary()} sur ${line.available.summary()} · depuis le ${line.period.start.format(java.time.format.DateTimeFormatter.ofPattern("d MMM", java.util.Locale.FRANCE))}"
                 else "${line.spent.summary()} sur ${line.available.summary()} · ${line.period.label}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

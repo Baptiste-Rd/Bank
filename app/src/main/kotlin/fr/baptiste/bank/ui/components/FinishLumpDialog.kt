@@ -52,7 +52,7 @@ fun FinishLumpDialog(
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 if (left != Money.ZERO) {
-                    Choice(if (over) "Le mois en cours" else "Sur le compte", choice == null) { choice = null }
+                    Choice(if (over) "À répartir ce mois-ci" else "Disponible sur le compte", choice == null) { choice = null }
                     goals.forEach { (id, goal) -> Choice(if (over) "Pris sur $goal" else "Dans $goal", choice == id) { choice = id } }
                 }
             }

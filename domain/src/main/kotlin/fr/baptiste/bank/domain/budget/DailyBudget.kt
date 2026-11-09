@@ -17,7 +17,7 @@ import java.time.YearMonth
  * compté deux fois, dans l'enveloppe et dans le budget quotidien.
  */
 fun Envelope.monthlyReservation(): Money =
-    if (archived) Money.ZERO else amount.convert(from = frequency, to = Frequency.MONTHLY)
+    if (archived || type == fr.baptiste.bank.domain.model.EnvelopeType.LUMP) Money.ZERO else amount.convert(from = frequency, to = Frequency.MONTHLY)
 
 /**
  * Budget quotidien suggéré pour le mois : le revenu moins tout ce qui est réservé

@@ -197,7 +197,10 @@ class BudgetRepository(
         val left = dashboard().first().envelopes.firstOrNull { it.envelope.id == id }?.remaining ?: Money.ZERO
         database.withTransaction {
             val today = LocalDate.now()
-            val name = envelopeDao.byId(id)?.name ?: return@withTransaction
+            val row = envelopeDao.byId(id) ?: return@withTransaction
+            // Déjà terminée : rien à refaire (le reste serait rangé deux fois).
+            if (row.archived) return@withTransaction
+            val name = row.name
             val before = envelopeState(id)
             val missing = Money(-left.cents)
             val placements = mutableListOf<fr.baptiste.bank.data.local.PlacementEntity>()
@@ -751,13 +754,17 @@ class BudgetRepository(
         transactionDao.observeOperationsBetween(month.atDay(1), month.atEndOfMonth())
 
     /** Crée ou met à jour une enveloppe ; renvoie son identifiant. */
-    suspend fun saveEnvelope(envelope: Envelope): Long = database.withTransaction {
+    /** [takeFromGoal] : une somme mise à part prise sur cet objectif, dans la même entrée d'Historique. */
+    suspend fun saveEnvelope(envelope: Envelope, takeFromGoal: Long? = null): Long = database.withTransaction {
         val before = if (envelope.id != 0L) envelopeState(envelope.id) else null
         val id = saveEnvelopeUnrecorded(envelope)
         if (before != null) {
             record("${envelope.name} modifiée", before)
         } else {
-            record("Nouvelle enveloppe ${envelope.name}", JournalPayload(envelopesCreated = listOf(id)))
+            val taken = takeFromGoal?.let {
+                placementDao.insertAll(listOf(fr.baptiste.bank.data.local.PlacementEntity(envelopeId = it, date = LocalDate.now(), amountCents = -envelope.amount.cents)))
+            }.orEmpty()
+            record("Nouvelle enveloppe ${envelope.name}", JournalPayload(envelopesCreated = listOf(id), placementsCreated = taken))
         }
         id
     }

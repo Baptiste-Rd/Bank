@@ -75,7 +75,7 @@ class ClaudeBridge(
                             .put("category", envelope.category)
                             .put("family", familyWord(envelope.type))
                             .put("amount", euros(envelope.amount.cents))
-                            .put("rhythm", rhythm(envelope.frequency))
+                            .put("rhythm", if (envelope.type == fr.baptiste.bank.domain.model.EnvelopeType.LUMP) "somme mise à part" else rhythm(envelope.frequency))
                             .put("repeats", envelope.repeats)
                             .put("keeps_leftover", envelope.carryOver)
                             .put("start", envelope.start?.toString() ?: JSONObject.NULL)
@@ -87,7 +87,7 @@ class ClaudeBridge(
                                     envelope.periods.filter { !it.start.isBefore(from) }.map { period ->
                                         JSONObject()
                                             .put("start", period.start.toString())
-                                            .put("end", period.endInclusive.toString())
+                                            .put("end", if (envelope.type == fr.baptiste.bank.domain.model.EnvelopeType.LUMP) JSONObject.NULL else period.endInclusive.toString())
                                             .put("budget", euros(period.amount.cents))
                                             .put("spent", euros(spent[envelope.id]?.get(period.key) ?: 0))
                                     },

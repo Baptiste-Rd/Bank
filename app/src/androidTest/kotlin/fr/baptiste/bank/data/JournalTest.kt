@@ -607,6 +607,40 @@ class JournalTest {
         assertEquals(Money.ZERO, repository.savingsState.first().goals.first { it.envelope.id == goal }.held)
     }
 
+    @Test
+    fun aLumpTakenFromAGoalIsOneEntryThatUndoesBoth() = runBlocking {
+        val goal = repository.saveEnvelope(envelope("Projets", 100).copy(type = fr.baptiste.bank.domain.model.EnvelopeType.SAVINGS))
+        val start = java.time.LocalDate.now().withDayOfMonth(1)
+        val lump = repository.saveEnvelope(
+            envelope("Vacances", 600).copy(
+                type = fr.baptiste.bank.domain.model.EnvelopeType.LUMP,
+                frequency = fr.baptiste.bank.domain.model.EnvelopeType.LUMP.defaultFrequency,
+                start = start, anchor = start, repeats = false,
+            ),
+            takeFromGoal = goal,
+        )
+        assertEquals(Money.euros(-600), repository.savingsState.first().goals.first { it.envelope.id == goal }.held)
+        repository.undo(lastEntry().id)
+        assertNull(database.envelopeDao().byId(lump))
+        assertEquals(Money.ZERO, repository.savingsState.first().goals.first { it.envelope.id == goal }.held)
+    }
+
+    @Test
+    fun finishingALumpTwiceDoesNothingTheSecondTime() = runBlocking {
+        val goal = repository.saveEnvelope(envelope("Projets", 100).copy(type = fr.baptiste.bank.domain.model.EnvelopeType.SAVINGS))
+        val start = java.time.LocalDate.now().withDayOfMonth(1)
+        val lump = repository.saveEnvelope(
+            envelope("Vacances", 600).copy(
+                type = fr.baptiste.bank.domain.model.EnvelopeType.LUMP,
+                frequency = fr.baptiste.bank.domain.model.EnvelopeType.LUMP.defaultFrequency,
+                start = start, anchor = start, repeats = false,
+            ),
+        )
+        repository.finishLump(lump, goal)
+        repository.finishLump(lump, goal)
+        assertEquals(Money.euros(600), repository.savingsState.first().goals.first { it.envelope.id == goal }.held)
+    }
+
     /** Nom du groupe qui contient l'enveloppe [id]. */
     private suspend fun categoryOf(id: Long): String? =
         database.envelopeDao().byId(id)?.parentId?.let { database.envelopeDao().byId(it)?.name }

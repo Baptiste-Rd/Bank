@@ -277,8 +277,8 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
         perform { repository.addReserveTransfer(envelopeId, amount, reason) }
 
     /** Enregistre l'enveloppe ; [onSaved] reçoit son identifiant (utile juste après une création). */
-    fun saveEnvelope(envelope: Envelope, onSaved: (Long) -> Unit = {}) {
-        viewModelScope.launch { onSaved(repository.saveEnvelope(envelope)) }
+    fun saveEnvelope(envelope: Envelope, takeFromGoal: Long? = null, onSaved: (Long) -> Unit = {}) {
+        viewModelScope.launch { onSaved(repository.saveEnvelope(envelope, takeFromGoal)) }
     }
 
     fun archiveEnvelope(id: Long) = perform { repository.archiveEnvelope(id) }

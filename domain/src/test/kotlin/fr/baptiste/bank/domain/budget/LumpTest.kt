@@ -48,4 +48,24 @@ class LumpTest {
         val with = computeDashboard(listOf(food, lump(LocalDate.of(2026, 11, 1), YearMonth.of(2026, 11))), emptyMap(), emptyList(), income, today)
         assertEquals(without.perDayWithReserved(Money.euros(1200)), with.dailyAllowance.allowance)
     }
+
+    @Test
+    fun whatIsLeftInALumpIsNotFreeOnTheAccount() {
+        val income = Money.euros(2400)
+        val without = computeDashboard(listOf(food), emptyMap(), emptyList(), income, today)
+        val with = computeDashboard(listOf(food, lump(LocalDate.of(2026, 11, 1))), emptyMap(), listOf(spending(lump(LocalDate.of(2026, 11, 1)), today, 200)), income, today)
+        val free = without.explainCurrentAccount(Money.euros(3000), today, transferredToAccounts = Money.ZERO).free
+        assertEquals(free - Money.euros(1000), with.explainCurrentAccount(Money.euros(3000), today, transferredToAccounts = Money.ZERO).free)
+    }
+
+    @Test
+    fun lumpSpendingsAreNotTheMonthsAndALumpWeighsNothingInTheTree() {
+        val start = LocalDate.of(2026, 11, 1)
+        val fromMonth = lump(start, YearMonth.of(2026, 11)).copy(parentId = 10)
+        val parent = Envelope(10, "Loisirs", EnvelopeType.DAILY, Frequency.MONTHLY, Money.euros(150), EnvelopeStatus.FLEXIBLE)
+        assertEquals(emptyList<Spending>(), countedSpendings(YearMonth.of(2026, 11), listOf(fromMonth), listOf(spending(fromMonth, today, 50))))
+        assertEquals(Money.ZERO, childrenAmounts(listOf(parent, fromMonth), emptyList(), YearMonth.of(2026, 11), null)[10] ?: Money.ZERO)
+        val child = food.copy(parentId = 2)
+        assertEquals(null, childrenAmounts(listOf(lump(start), child), emptyList(), YearMonth.of(2026, 11), null)[2])
+    }
 }
