@@ -19,8 +19,15 @@ import java.time.LocalDate
 /**
  * Périodes de [envelope] à enregistrer entre [from] et [today] (celles qui manquent, dans l'ordre).
  * [spentByKey] : dépensé par clé de période, pour le report d'un budget qui garde son reste.
+ * [coveredOn] : ce que ses enfants couvrent sur une période ; une période rattrapée le garde, pour
+ * qu'un parent ne reporte pas sur la suivante la part de ses enfants.
  */
-fun Envelope.missingPeriods(from: LocalDate, today: LocalDate, spentByKey: Map<String, Money> = emptyMap()): List<BudgetPeriod> {
+fun Envelope.missingPeriods(
+    from: LocalDate,
+    today: LocalDate,
+    spentByKey: Map<String, Money> = emptyMap(),
+    coveredOn: (BudgetPeriod) -> Money = { Money.ZERO },
+): List<BudgetPeriod> {
     var date = listOfNotNull(from, start, if (frequency.isCalendar) null else anchor).max()
     if (date.isAfter(today)) return emptyList()
     val added = mutableListOf<BudgetPeriod>()
@@ -39,7 +46,7 @@ fun Envelope.missingPeriods(from: LocalDate, today: LocalDate, spentByKey: Map<S
                     if (left.isPositive) amount += left
                 }
             }
-            val row = BudgetPeriod(period.key, period.start, period.endInclusive, amount)
+            val row = BudgetPeriod(period.key, period.start, period.endInclusive, amount).let { it.copy(covered = coveredOn(it)) }
             added += row
             known = known.copy(periods = (known.periods + row).sortedBy { it.start })
         }

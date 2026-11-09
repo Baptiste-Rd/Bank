@@ -313,6 +313,10 @@ fun EnvelopeSheet(
     /** Périodes enregistrées, la plus récente en premier : le budget de chacune se corrige ici. */
     periods: List<fr.baptiste.bank.data.BudgetRepository.PeriodLine> = emptyList(),
     onSetPeriodAmount: (key: String, amount: Money) -> Unit = { _, _ -> },
+    /** Enveloppe qui en contient d'autres : son budget dans Budget, enfants couverts ; null sinon. */
+    coveredBudget: Money? = null,
+    /** Sa part propre, celle sur laquelle porte le reste. */
+    ownBudget: Money = Money.ZERO,
 ) {
     var editing by remember { mutableStateOf<fr.baptiste.bank.data.BudgetRepository.PeriodLine?>(null) }
     editing?.let { line ->
@@ -373,6 +377,14 @@ fun EnvelopeSheet(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            // Le même mot que l'onglet Budget : le budget couvre ce qu'elle contient, le reste porte sur sa part.
+            if (coveredBudget != null) {
+                Text(
+                    "Budget ${coveredBudget.summary()} par mois avec ce qu'elle contient, dont ${ownBudget.summary()} pour elle",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             when {
                 line.remaining.isNegative -> fr.baptiste.bank.ui.components.StatusChip("Dépassé ${(-line.remaining).summary()}", fr.baptiste.bank.ui.components.StatusKind.OVER)
                 line.projection.isAlert -> fr.baptiste.bank.ui.components.StatusChip("Prévu +${line.projection.overrun.summary()}", fr.baptiste.bank.ui.components.StatusKind.WARNING)

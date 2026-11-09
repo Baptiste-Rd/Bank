@@ -73,6 +73,8 @@ class ClaudeBridge(
                             .put("id", envId[envelope.id])
                             .put("name", envelope.name)
                             .put("category", envelope.category)
+                            // Rangée dans une autre enveloppe (l'arbre de Budget) ; null en haut ou dans une catégorie.
+                            .put("parent", envelope.parentId?.let(envId::get) ?: JSONObject.NULL)
                             .put("family", familyWord(envelope.type))
                             .put("amount", euros(envelope.amount.cents))
                             .put("rhythm", if (envelope.type == fr.baptiste.bank.domain.model.EnvelopeType.LUMP) "somme mise à part" else rhythm(envelope.frequency))
@@ -88,7 +90,9 @@ class ClaudeBridge(
                                         JSONObject()
                                             .put("start", period.start.toString())
                                             .put("end", if (envelope.type == fr.baptiste.bank.domain.model.EnvelopeType.LUMP) JSONObject.NULL else period.endInclusive.toString())
-                                            .put("budget", euros(period.amount.cents))
+                                            // La part propre : un parent couvre ses enfants, leurs budgets ne se comptent qu'une fois.
+                                            .put("budget", euros(maxOf(0, period.amount.cents - period.covered.cents)))
+                                            .apply { if (period.covered.isPositive) put("children_cover", euros(period.covered.cents)) }
                                             .put("spent", euros(spent[envelope.id]?.get(period.key) ?: 0))
                                     },
                                 ),

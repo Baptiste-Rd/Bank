@@ -125,7 +125,6 @@ fun GlassMainScreen(
     val salaryCandidates by viewModel.salaryCandidates.collectAsStateWithLifecycle()
     val salaryKeyConfirmed by viewModel.salary.collectAsStateWithLifecycle()
     // Catégories imbriquées : glisser une ligne, « Déplacer » et « Renommer ».
-    val categoryNodes by viewModel.categories.collectAsStateWithLifecycle()
     val categoryParents by viewModel.categoryParents.collectAsStateWithLifecycle()
     val treeGroups by viewModel.treeGroups.collectAsStateWithLifecycle()
     var moveSubject by remember { mutableStateOf<fr.baptiste.bank.ui.components.MoveSubject?>(null) }
@@ -137,6 +136,19 @@ fun GlassMainScreen(
     }
     val moveEnvelope: (fr.baptiste.bank.domain.model.Envelope) -> Unit = { envelope ->
         moveSubject = fr.baptiste.bank.ui.components.MoveSubject.EnvelopeSubject(envelope.id, envelope.name, envelope.category)
+    }
+    // Ranger dans l'arbre, par glissement ou depuis « Déplacer » : un seul chemin, un seul message.
+    val dropInTree: (Long, fr.baptiste.bank.domain.model.TreeDrop) -> Unit = { id, drop ->
+        viewModel.moveInTree(id, drop) { result ->
+            if (result == null) {
+                controller.notify("Impossible : une enveloppe ne va pas dans ce qu'elle contient.")
+            } else if (result.label.isNotEmpty()) {
+                val moved = result.changes.joinToString("") { " · ${it.name} passe de ${it.before.summary()} à ${it.after.summary()}" }
+                val perDay = result.perDayDelta
+                val detail = moved + if (perDay != fr.baptiste.bank.domain.money.Money.ZERO) " · par jour ${if (perDay.isNegative) "" else "+"}${perDay.summary()}" else ""
+                controller.notify(result.label + detail, "Annuler") { viewModel.undoLast() }
+            }
+        }
     }
     val rowActions = CategoryRowActions(
         onMoveEnvelope = moveEnvelope,
@@ -308,18 +320,12 @@ fun GlassMainScreen(
                             groups = treeGroups,
                             onRenameGroup = { renaming = it },
                             onMoveGroup = rowActions.onMoveCategory,
-                            onDrop = { id, drop ->
-                                viewModel.moveInTree(id, drop) { result ->
-                                    if (result == null) {
-                                        controller.notify("Impossible : une enveloppe ne va pas dans ce qu'elle contient.")
-                                    } else if (result.label.isNotEmpty()) {
-                                        val moved = result.changes.joinToString("") { " · ${it.name} passe de ${it.before.summary()} à ${it.after.summary()}" }
-                                        val perDay = result.perDayDelta
-                                        val detail = moved + if (perDay != fr.baptiste.bank.domain.money.Money.ZERO) " · par jour ${if (perDay.isNegative) "" else "+"}${perDay.summary()}" else ""
-                                        controller.notify(result.label + detail, "Annuler") { viewModel.undoLast() }
-                                    }
+                            onDeleteGroup = { name ->
+                                viewModel.deleteCategory(name) { done ->
+                                    if (done) controller.notify("Catégorie $name supprimée, son contenu remonte", "Annuler") { viewModel.undoLast() }
                                 }
                             },
+                            onDrop = dropInTree,
                         )
                     }
                     // Épargne couvre tous les mois : elle reste sur le mois en cours.
@@ -604,26 +610,37 @@ fun GlassMainScreen(
             }
         }
         moveSubject?.let { subject ->
-            val known = categoryNodes.map { it.name } + (envelopes + archived).map { it.category }
+            val subjectId = when (subject) {
+                is fr.baptiste.bank.ui.components.MoveSubject.EnvelopeSubject -> subject.envelopeId
+                is fr.baptiste.bank.ui.components.MoveSubject.CategorySubject -> treeGroups.firstOrNull { it.name.equals(subject.name, ignoreCase = true) }?.id
+            }
+            val month = YearMonth.now()
+            val tree = fr.baptiste.bank.domain.budget.treeOf(envelopes + archived, treeGroups, month, trackingStart)
+            val allIds = (envelopes.map { it.id } + treeGroups.map { it.id }).toSet()
+            // Une somme mise à part ne contient rien : elle n'est pas proposée comme destination.
+            val destinations = fr.baptiste.bank.domain.budget.budgetRows(envelopes + archived, treeGroups, month, trackingStart, allIds)
+                .filter { row -> row.envelope?.type != fr.baptiste.bank.domain.model.EnvelopeType.LUMP && (subjectId == null || tree.canMoveInto(subjectId, row.id)) }
+                .map { fr.baptiste.bank.ui.components.MoveDestination(it.id, it.name, it.depth, fr.baptiste.bank.ui.theme.categoryColor(it.rootName)) }
+            val currentParent = subjectId?.let { id -> (envelopes + archived).firstOrNull { it.id == id }?.parentId ?: treeGroups.firstOrNull { it.id == id }?.parentId }
             GlassSurfaceColors(onBackground = false) {
                 fr.baptiste.bank.ui.components.MoveSheet(
                     subject = subject,
-                    known = known,
-                    parents = categoryParents,
-                    onPick = { destination ->
+                    destinations = destinations,
+                    currentParent = currentParent,
+                    onPick = { target ->
+                        moveSubject = null
+                        subjectId?.let { dropInTree(it, fr.baptiste.bank.domain.model.TreeDrop.Into(target)) }
+                    },
+                    onCreate = { name ->
                         moveSubject = null
                         when (subject) {
-                            is fr.baptiste.bank.ui.components.MoveSubject.EnvelopeSubject -> {
-                                val target = destination ?: fr.baptiste.bank.domain.model.DEFAULT_CATEGORY
-                                viewModel.moveEnvelope(subject.envelopeId, target) {
-                                    // « dans la catégorie » : une catégorie peut porter le nom d'une enveloppe (Cadeaux).
-                                    controller.notify("${subject.name} rangée dans la catégorie $target", "Annuler") { viewModel.undoLast() }
+                            is fr.baptiste.bank.ui.components.MoveSubject.EnvelopeSubject ->
+                                viewModel.moveEnvelope(subject.envelopeId, name) {
+                                    controller.notify("${subject.name} rangée dans $name", "Annuler") { viewModel.undoLast() }
                                 }
-                            }
                             is fr.baptiste.bank.ui.components.MoveSubject.CategorySubject ->
-                                viewModel.moveCategory(subject.name, destination) { done ->
-                                    if (done) controller.notify(destination?.let { "${subject.name} rangée dans la catégorie $it" } ?: "${subject.name} devient une catégorie principale", "Annuler") { viewModel.undoLast() }
-                                    else controller.notify("Impossible : une catégorie ne va pas dans ses sous-catégories.")
+                                viewModel.moveCategory(subject.name, name) { done ->
+                                    if (done) controller.notify("${subject.name} rangée dans $name", "Annuler") { viewModel.undoLast() }
                                 }
                         }
                     },
@@ -696,10 +713,10 @@ fun GlassMainScreen(
     }
 }
 
-/** Message de confirmation, dans une capsule de verre. */
+/** Message de confirmation, dans une capsule de verre posée sur un fond plein : il se lit sur n'importe quel écran. */
 @Composable
 private fun GlassSnackbar(data: SnackbarData) {
-    GlassBanner {
+    GlassBanner(Modifier.background(Glass.BaseTop, androidx.compose.foundation.shape.RoundedCornerShape(percent = 50))) {
         Text(
             data.visuals.message,
             style = MaterialTheme.typography.bodyMedium,

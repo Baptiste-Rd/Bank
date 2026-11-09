@@ -14,20 +14,27 @@ Onglets, dans l'ordre : **Résumé** (où j'en suis ce mois ?), **Budget** (où 
 - Contrôle segmenté unique (mois, Catégories | Opérations, recherche) : fond opaque, coins de
   14 dp, choix en blanc à 14 %. La barre des mois montre quatre mois et « Année », à largeur égale.
   Le + ouvre « Ajouter » : Dépense (en premier), Achat prévu, Enveloppe, Mise de côté.
-- Barre des mois en tête de Résumé, Budget et Dépenses : un seul mois choisi pour les trois, puis
-  « Année » (sheet de l'année : toucher un mois y mène). Glisser horizontalement change de mois.
-  Épargne reste sur le mois en cours.
+- Barre des mois en tête de Résumé et Dépenses : un seul mois choisi pour les deux, puis « Année »
+  (sheet de l'année : toucher un mois y mène). Glisser horizontalement change de mois. Budget
+  (le plan) et Épargne restent sur le mois en cours ; le bilan d'un mois et le compte courant sont
+  dans Résumé.
 - Résumé du mois en cours : deux grands chiffres (Reste du mois, Par jour) ; « N à trier » ; À surveiller (trois enveloppes au plus, celles qui
   dépassent ou vont dépasser) ; Compte courant (et salaire reçu) et Autres comptes en deux lignes ;
   Dernières dépenses (trois) ; Rythme du mois (et, dessous, l'écart à la même date du mois précédent).
 - Résumé d'un mois terminé : ce qu'il a coûté, son bilan d'épargne, le chemin vers le détail.
-- Épargne : épargne prévue et « Mettre de côté » ; Mes comptes (livrets et placements) ; Mis de
-  côté ; Achats prévus (« Ajouter ») ; Essayer un plan ; Mois par mois.
-- Catégories imbriquées : une catégorie peut en contenir d'autres, les totaux remontent. Une
-  sous-catégorie sans couleur propre prend celle de sa catégorie principale. On glisse une ligne vers
-  la gauche (Dépenses › Catégories, Budget) : « Déplacer » et « Renommer » pour une catégorie,
-  « Déplacer » et « Modifier » pour une enveloppe ; le rangement est immédiat, même dans une
-  catégorie encore vide, et s'annule depuis le message ou l'Historique.
+- Épargne : épargne prévue et « Mettre de côté » ; Objectifs (« Répartir » partage une fois ce qui
+  est déjà sur les livrets, « Ranger » place ensuite ce qui y a été viré) ; Mes comptes (livrets et
+  placements) ; Mis de côté ; Achats prévus (« Ajouter ») ; Essayer un plan ; Mois par mois.
+- L'arbre : une enveloppe ou une catégorie peut en contenir d'autres. Budget montre l'arbre et les
+  montants de budget seulement, jamais de dépense ; Dépenses montre le même arbre avec le dépensé du
+  mois, recalculé à chaque branche, et le filtre Tout | Mensuel | Ponctuel | Épargne. Un parent
+  couvre ses enfants : son budget vaut au moins la somme des leurs, le montant saisi n'est jamais
+  réécrit, et le message dit l'effet sur le « par jour ». Un appui long soulève une ligne : déposée
+  sur le haut ou le bas d'une autre (trait avec pastille), elle se range avant ou après ; au milieu
+  (ligne cerclée), elle va dedans. On glisse une ligne vers la gauche : « Renommer », « Déplacer »
+  et « Supprimer » pour une catégorie (son contenu remonte d'un niveau), « Modifier » et
+  « Déplacer » pour une enveloppe. « Déplacer » ouvre le même arbre. Tout s'annule depuis le
+  message ou l'Historique. Une sous-catégorie sans couleur propre prend celle de sa branche.
 - Une catégorie se repère à son point de couleur (plus d'initiale) ; une catégorie qui contient
   une enveloppe (même sans dépense du mois) porte un chevron et se déplie. Ranger une enveloppe
   dit « X rangée dans la catégorie Y ». Le formulaire d'enveloppe propose le même arbre que « Déplacer ». Les en-têtes de famille n'ont
@@ -61,6 +68,11 @@ La fiche d'une enveloppe liste les dépenses de sa période ; toucher une dépen
 | Défaire un rangement | Remettre à trier |
 | Chiffre de synthèse / opération | sans centimes / avec centimes |
 | Ce qui réunit des enveloppes pour les statistiques | Catégorie (« Autres » par défaut) ; jamais « groupe » |
+| Le type d'une dépense (filtre de Dépenses) | Tout · Mensuel · Ponctuel · Épargne |
+| Une ligne posée dans une autre | « X rangée dans Y » ; vers le haut, « X sortie de Y » ; à la même place, « X déplacée » |
+| Budget d'un parent, enfants compris | « Budget X par mois avec ce qu'elle contient, dont Y pour elle » (fiche) |
+| Ce que l'on veut réunir sur un livret | Objectif ; ce qui a été viré et pas encore placé est « à ranger », l'action « Ranger » |
+| Argent pris une fois sur le compte, qui s'épuise | Somme mise à part (jamais « mis de côté », réservé aux provisions) ; on la « Termine » |
 | Ce qu'une provision a déjà réuni pour sa période | Mis de côté (« 900 € mis de côté sur 1 800 € ») |
 | Répartir une provision sur les mois restants | « Mettre X € de côté par mois » (action) ; une provision qui n'y suffit pas est « en retard » |
 | Ce qui est sur le compte courant hors budget du mois | Disponible sur le compte |
@@ -73,8 +85,8 @@ La fiche d'une enveloppe liste les dépenses de sa période ; toucher une dépen
 Les six types du calcul (`EnvelopeType`) restent dans les données et le formulaire ; l'écran les
 regroupe en quatre familles (`ui/envelopes/Families.kt`). Famille et catégorie ne se mélangent pas :
 la famille dit comment l'argent se dépense (onglet Budget), la catégorie dit à quoi il sert (onglet
-Dépenses). Dans Budget, les enveloppes sont en lignes plates dans leur famille, avec la couleur de
-leur catégorie.
+Dépenses). Dans Budget, l'arbre porte la couleur de sa branche du haut ; aucune couleur de catégorie n'est
+celle d'une famille.
 
 ## Grammaire visuelle
 

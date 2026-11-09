@@ -76,5 +76,8 @@ class LumpTest {
         val report = monthSpending(YearMonth.of(2026, 11), listOf(food, fromMonth), listOf(spending(fromMonth, today, 300), spending(food, today, 20)))
         assertEquals(Money.euros(400), report.budget)
         assertEquals(Money.euros(20), report.total)
+        // Sa ligne garde le dépensé du mois seulement : une dépense d'octobre n'y figure pas.
+        val october = monthSpending(YearMonth.of(2026, 11), listOf(food, fromMonth), listOf(spending(fromMonth, today, 300), spending(fromMonth, LocalDate.of(2026, 10, 30), 50)))
+        assertEquals(mapOf(fromMonth.id to Money.euros(300)), october.lumpSpent)
     }
 }

@@ -601,7 +601,16 @@ fun AppDialogs(
                 val periods by remember(line.envelope.id) { viewModel.envelopePeriods(line.envelope.id) }
                     .collectAsStateWithLifecycle(emptyList())
                 val loadedOperations = periodOperations
+                val tree = fr.baptiste.bank.domain.budget.treeOf(
+                    viewModel.envelopes.value + viewModel.archivedEnvelopes.value,
+                    viewModel.treeGroups.value,
+                    java.time.YearMonth.now(),
+                    viewModel.trackingStart.value,
+                )
+                val isParent = tree.children(line.envelope.id).isNotEmpty()
                 if (loadedOperations != null) EnvelopeSheet(
+                    coveredBudget = tree.covered(line.envelope.id).takeIf { isParent },
+                    ownBudget = tree.ownPart(line.envelope.id),
                     periods = periods,
                     onSetPeriodAmount = { key, amount -> viewModel.setPeriodAmount(line.envelope.id, key, amount) },
                     line = line,

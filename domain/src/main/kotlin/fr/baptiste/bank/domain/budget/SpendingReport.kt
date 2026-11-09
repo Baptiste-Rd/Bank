@@ -49,6 +49,8 @@ data class MonthSpending(
     val outOfBudget: Money = Money.ZERO,
     /** Virements vers mes comptes (positif) : de l'épargne, pas des dépenses. */
     val toAccounts: Money = Money.ZERO,
+    /** Dépensé du mois sur chaque somme mise à part : hors du total du mois, montré sur sa ligne. */
+    val lumpSpent: Map<Long, Money> = emptyMap(),
 ) {
     val total: Money get() = categories.sumOfMoney { it.spent }
     val budget: Money get() = categories.sumOfMoney { it.budget }
@@ -125,7 +127,11 @@ fun monthSpending(
         .filter { it.spent != Money.ZERO || it.budget != Money.ZERO || (!it.envelope.archived && it.envelope.existedDuring(month)) }
     val direct = lines.groupBy { it.envelope.category }
     val categories = categoryTree(direct, parents)
-    return MonthSpending(month, tracked = true, categories = categories, unsorted = unsorted, outOfBudget = outOfBudget, toAccounts = toAccounts)
+    val lumps = envelopes.filter { it.type == EnvelopeType.LUMP }.map { it.id }.toSet()
+    val lumpSpent = spendings.filter { it.envelopeId in lumps && YearMonth.from(it.date) == month }
+        .groupBy { it.envelopeId }
+        .mapValues { (_, list) -> list.sumOfMoney { it.amount } }
+    return MonthSpending(month, tracked = true, categories = categories, unsorted = unsorted, outOfBudget = outOfBudget, toAccounts = toAccounts, lumpSpent = lumpSpent)
 }
 
 /**

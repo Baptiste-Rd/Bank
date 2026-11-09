@@ -1,5 +1,6 @@
 package fr.baptiste.bank.ui.glass
 
+import fr.baptiste.bank.ui.theme.BankTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
@@ -146,6 +147,8 @@ internal fun BudgetTree(
     onMoveEnvelope: (Envelope) -> Unit,
     onRenameGroup: (String) -> Unit,
     onMoveGroup: (String) -> Unit,
+    /** Supprimer une catégorie : son contenu monte d'un niveau (annulable). */
+    onDeleteGroup: (String) -> Unit = {},
     onDrop: (Long, TreeDrop) -> Unit,
 ) {
     var closed by rememberSaveable { mutableStateOf(listOf<Long>()) }
@@ -243,7 +246,8 @@ internal fun BudgetTree(
                         }
                         .graphicsLayer {
                             if (lifted) {
-                                translationY = finger + scrolled
+                                // Au-dessus du doigt : la ligne visée reste visible sous lui.
+                                translationY = finger + scrolled - size.height * 0.75f
                                 scaleX = 1.03f
                                 scaleY = 1.03f
                                 alpha = 0.92f
@@ -252,11 +256,22 @@ internal fun BudgetTree(
                         }
                         .then(if (lifted) Modifier.background(LiftedRowColor, RoundedCornerShape(12.dp)) else Modifier)
                         .drawBehind {
-                            val stroke = 2.dp.toPx()
+                            // Avant / après : un trait d'insertion avec une pastille, comme les listes d'iOS.
+                            // Dedans : la ligne entière teintée et cerclée, bien distincte d'un trait.
+                            val stroke = 3.dp.toPx()
+                            val dot = 5.dp.toPx()
+                            fun insertion(y: Float) {
+                                drawCircle(accent, dot, Offset(dot, y))
+                                drawLine(accent, Offset(dot, y), Offset(size.width, y), stroke)
+                            }
                             when (hovered) {
-                                DropZone.BEFORE -> drawLine(accent, Offset(0f, 0f), Offset(size.width, 0f), stroke)
-                                DropZone.AFTER -> drawLine(accent, Offset(0f, size.height), Offset(size.width, size.height), stroke)
-                                DropZone.INTO -> drawRect(accent.copy(alpha = 0.14f))
+                                DropZone.BEFORE -> insertion(0f)
+                                DropZone.AFTER -> insertion(size.height)
+                                DropZone.INTO -> {
+                                    val corner = androidx.compose.ui.geometry.CornerRadius(12.dp.toPx())
+                                    drawRoundRect(accent.copy(alpha = 0.22f), cornerRadius = corner)
+                                    drawRoundRect(accent, cornerRadius = corner, style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx()))
+                                }
                                 null -> Unit
                             }
                         },
@@ -273,6 +288,7 @@ internal fun BudgetTree(
                             listOf(
                                 SwipeAction("Renommer", SwipeColors.Neutral) { onRenameGroup(row.name) },
                                 SwipeAction("Déplacer", SwipeColors.Accent) { onMoveGroup(row.name) },
+                                SwipeAction("Supprimer", BankTheme.status.over) { onDeleteGroup(row.name) },
                             )
                         },
                     ) {
@@ -362,6 +378,8 @@ internal fun SpendingTree(
     groups: List<GroupNode>,
     /** Le nom d'une branche à montrer dépliée : la recherche y mène. */
     reveal: String?,
+    /** Dépensé du mois sur les sommes mises à part, que [monthSpent] ne compte pas. */
+    lumpSpent: Map<Long, Money> = emptyMap(),
     onOpen: (Envelope) -> Unit,
 ) {
     var filterIndex by rememberSaveable { mutableStateOf(0) }
@@ -400,6 +418,7 @@ internal fun SpendingTree(
                             row = row,
                             open = row.id !in closed,
                             onToggle = toggle,
+                            lumpMonth = lumpSpent[row.id] ?: Money.ZERO,
                             savings = filter == SpendFilter.SAVINGS || row.envelope?.type == EnvelopeType.SAVINGS && !row.hasChildren,
                             onClick = row.envelope?.let { envelope -> { onOpen(envelope) } } ?: toggle,
                         )
@@ -411,7 +430,7 @@ internal fun SpendingTree(
 }
 
 @Composable
-private fun SpendingBranchRow(row: SpendingRow, open: Boolean, savings: Boolean, onToggle: () -> Unit, onClick: () -> Unit) {
+private fun SpendingBranchRow(row: SpendingRow, open: Boolean, savings: Boolean, lumpMonth: Money, onToggle: () -> Unit, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -429,9 +448,9 @@ private fun SpendingBranchRow(row: SpendingRow, open: Boolean, savings: Boolean,
             modifier = Modifier.weight(1f),
         )
         // Hors du filtre Épargne, une épargne seule montre aussi sa part du mois, pas un dépensé à 0 €.
-        // Une somme mise à part qui contient des enveloppes : ses propres dépenses s'ajoutent (le mois ne les compte pas).
-        val lumpSpent = row.line?.takeIf { it.envelope.type == EnvelopeType.LUMP }?.spent ?: Money.ZERO
-        val amount = if (savings) row.line?.takeIf { !row.hasChildren }?.monthlyShare ?: row.spent else row.spent + lumpSpent
+        // Une somme mise à part qui contient des enveloppes : ses propres dépenses du mois s'ajoutent
+        // (le total du mois ne les compte pas, mais c'est bien le mois, pas tout ce qu'elle a payé).
+        val amount = if (savings) row.line?.takeIf { !row.hasChildren }?.monthlyShare ?: row.spent else row.spent + lumpMonth
         Column(horizontalAlignment = Alignment.End) {
             Text(amount.summary(), style = MaterialTheme.typography.titleMedium)
             Text(

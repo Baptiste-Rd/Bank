@@ -38,7 +38,8 @@ Il couvre douze mois glissants au plus, depuis le début du suivi.
 | `envelopes[].start` | Départ : une dépense antérieure peut y être rangée mais ne compte pas dans son reste. |
 | `envelopes[].reset` | Remise à zéro du premier budget (budget rare). `repeats: false` : ponctuel. |
 | `envelopes[].stopped` | Date d'arrêt (ou « oui » si arrêtée sans date connue) ; `null` si active. |
-| `envelopes[].periods` | Budgets enregistrés (le passé est figé) et ce qui y a été dépensé, en euros positifs. |
+| `envelopes[].parent` | Identifiant de l'enveloppe qui la contient (arbre de Budget) ; `null` en haut. Un parent couvre ses enfants : son budget vaut au moins la somme des leurs. |
+| `envelopes[].periods` | Budgets enregistrés (le passé est figé) et ce qui y a été dépensé, en euros positifs. `budget` est la part propre de l'enveloppe : les budgets s'additionnent sans compter deux fois un enfant. `children_cover`, présent pour un parent, est ce que ses enfants couvrent sur la période. |
 | `operations[].date` | Jour de l'achat ; `booking_date` : jour d'inscription par la banque (débit différé : jusqu'à 45 jours après). |
 | `operations[].amount` | Négatif pour une sortie, positif pour une rentrée. |
 | `operations[].label` | Libellé nettoyé, ou le nom choisi dans l'app. Virements entre personnes : « Virement reçu · émetteur N » / « Virement émis · destinataire N » (N stable pour un même émetteur) ; le salaire reconnu : « Salaire ». |

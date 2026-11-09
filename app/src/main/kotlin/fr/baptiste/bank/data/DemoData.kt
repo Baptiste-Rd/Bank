@@ -29,6 +29,13 @@ object DemoData {
         repository.setMonthlyIncome(Money.euros(2400))
         database.withTransaction { seed(repository, today) }
         repository.moveCategory("Bars", "Nourriture")
+        // Une vraie enveloppe dans une autre : Cinéma dans Sorties, qui la couvre (80 € dont 30 €).
+        val all = repository.envelopes.first()
+        val cinema = all.firstOrNull { it.name == "Cinéma" }
+        val outings = all.firstOrNull { it.name == "Sorties" }
+        if (cinema != null && outings != null && cinema.parentId != outings.id) {
+            repository.moveInTree(cinema.id, fr.baptiste.bank.domain.model.TreeDrop.Into(outings.id))
+        }
         // L'installation de la démo n'est pas un changement de l'utilisateur : l'historique part vide.
         database.journalDao().clear()
     }
@@ -55,6 +62,7 @@ object DemoData {
             envelope("Bar", EnvelopeType.DAILY, 60).copy(group = "Bars"),
             envelope("Essence", EnvelopeType.DAILY, 120).copy(group = "Transports"),
             envelope("Sorties", EnvelopeType.DAILY, 80).copy(group = "Loisirs"),
+            envelope("Cinéma", EnvelopeType.DAILY, 30).copy(group = "Loisirs"),
             envelope("Coiffeur", EnvelopeType.RECURRING, 30, Frequency(6, Scale.WEEK)).copy(group = "Santé"),
             envelope("Abonnements", EnvelopeType.FIXED, 45).copy(group = "Abonnements"),
             envelope("Prêt", EnvelopeType.FIXED, 400).copy(group = "Logement"),

@@ -109,6 +109,7 @@ fun GlassBudgetContent(
     groups: List<fr.baptiste.bank.domain.budget.GroupNode> = emptyList(),
     onRenameGroup: (String) -> Unit = {},
     onMoveGroup: (String) -> Unit = {},
+    onDeleteGroup: (String) -> Unit = {},
     onDrop: (Long, fr.baptiste.bank.domain.model.TreeDrop) -> Unit = { _, _ -> },
 ) {
     val listState = rememberTabListState()
@@ -142,6 +143,7 @@ fun GlassBudgetContent(
                         listState = listState,
                         onRenameGroup = onRenameGroup,
                         onMoveGroup = onMoveGroup,
+                        onDeleteGroup = onDeleteGroup,
                         onDrop = onDrop,
                         trackingStart = trackingStart,
                     )
@@ -185,6 +187,7 @@ private fun LazyListScope.monthContent(
     listState: androidx.compose.foundation.lazy.LazyListState,
     onRenameGroup: (String) -> Unit,
     onMoveGroup: (String) -> Unit,
+    onDeleteGroup: (String) -> Unit,
     onDrop: (Long, fr.baptiste.bank.domain.model.TreeDrop) -> Unit,
     trackingStart: YearMonth?,
 ) {
@@ -237,6 +240,7 @@ private fun LazyListScope.monthContent(
                 onMoveEnvelope = onMoveEnvelope,
                 onRenameGroup = onRenameGroup,
                 onMoveGroup = onMoveGroup,
+                onDeleteGroup = onDeleteGroup,
                 onDrop = onDrop,
             )
         }

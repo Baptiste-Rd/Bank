@@ -24,7 +24,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,46 +33,36 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import fr.baptiste.bank.domain.bank.envelopeNameKey
-import fr.baptiste.bank.domain.model.DEFAULT_CATEGORY
-import fr.baptiste.bank.domain.model.categoryTreeRows
-import fr.baptiste.bank.ui.theme.categoryColor
 
-/** Ce que l'on déplace : une enveloppe (vers une catégorie) ou une catégorie (dans une autre). */
+/** Ce que l'on déplace : une enveloppe ou une catégorie, toutes deux des lignes de l'arbre. */
 sealed interface MoveSubject {
     val name: String
     data class EnvelopeSubject(val envelopeId: Long, override val name: String, val current: String) : MoveSubject
     data class CategorySubject(override val name: String, val currentParent: String?) : MoveSubject
 }
 
+/** Une ligne de l'arbre où l'on peut ranger ; [color] : celle de sa branche du haut. */
+data class MoveDestination(val id: Long, val name: String, val depth: Int, val color: androidx.compose.ui.graphics.Color)
+
 /**
- * « Déplacer » : l'arbre des catégories, celles de départ jamais utilisées comprises, et une
- * nouvelle catégorie. Toucher une ligne range tout de suite (un message permet d'annuler). Une
- * catégorie ne peut pas aller dans elle-même ni dans ses sous-catégories : ces lignes n'y sont pas.
+ * « Déplacer » : l'arbre de Budget (catégories et vraies enveloppes), sans ce que contient la ligne
+ * déplacée ni elle-même, et une nouvelle enveloppe. Toucher une ligne range tout de suite dedans
+ * (un message permet d'annuler), comme un glissement.
  *
- * @param known noms de catégories connus (enregistrés et portés par les enveloppes).
- * @param onPick la destination : un nom de catégorie, « Autres » pour une enveloppe, null pour
- *   remettre une catégorie en catégorie principale.
+ * @param currentParent le parent actuel, coché ; null : en haut.
+ * @param onPick la destination ; null pour ranger en haut.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MoveSheet(
     subject: MoveSubject,
-    known: Collection<String>,
-    parents: Map<String, String>,
-    onPick: (String?) -> Unit,
+    destinations: List<MoveDestination>,
+    currentParent: Long?,
+    onPick: (Long?) -> Unit,
+    onCreate: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var newName by rememberSaveable { mutableStateOf("") }
-    val isCategory = subject is MoveSubject.CategorySubject
-    val rows = remember(known, parents, subject) {
-        categoryTreeRows(known, parents, without = subject.name.takeIf { isCategory })
-    }
-    val current = when (subject) {
-        is MoveSubject.EnvelopeSubject -> subject.current
-        is MoveSubject.CategorySubject -> subject.currentParent
-    }
-
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = onDismiss) { Text("Fermer") }
@@ -81,13 +70,9 @@ fun MoveSheet(
             Spacer(Modifier.width(72.dp))
         }
         LazyColumn(Modifier.navigationBarsPadding().imePadding().padding(bottom = 16.dp)) {
-            // « En haut » pour tous : une enveloppe y part par « Autres », qui n'est plus un groupe.
-            item(key = "root") {
-                val top = current == null || envelopeNameKey(current) == envelopeNameKey(DEFAULT_CATEGORY)
-                DestinationRow("En haut", null, 0, top) { onPick(if (isCategory) null else DEFAULT_CATEGORY) }
-            }
-            items(rows, key = { it.first }) { (name, depth) ->
-                DestinationRow(name, categoryColor(name), depth, current?.let(::envelopeNameKey) == envelopeNameKey(name)) { onPick(name) }
+            item(key = "root") { DestinationRow("En haut", null, 0, currentParent == null) { onPick(null) } }
+            items(destinations, key = { it.id }) { row ->
+                DestinationRow(row.name, row.color, row.depth, row.id == currentParent) { onPick(row.id) }
             }
             item(key = "new") {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -98,7 +83,7 @@ fun MoveSheet(
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                     )
-                    TextButton(enabled = newName.isNotBlank(), onClick = { onPick(newName.trim()) }) { Text("Créer") }
+                    TextButton(enabled = newName.isNotBlank(), onClick = { onCreate(newName.trim()) }) { Text("Créer") }
                 }
             }
         }

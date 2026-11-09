@@ -275,16 +275,17 @@ fun BankTheme(
 /**
  * Couleur d'une catégorie, la même partout (Budget, Dépenses, recherche) : celles du prototype pour
  * les catégories de départ, puis une palette fixe choisie d'après le nom pour les autres. Aucune
- * n'est l'ambre ou le rouge des statuts, et le nom est toujours écrit à côté (WCAG 1.4.1).
+ * n'est l'ambre ou le rouge des statuts, ni la couleur d'une famille (barre du plan), et le nom
+ * est toujours écrit à côté (WCAG 1.4.1).
  */
 private val knownCategoryColors = mapOf(
     "nourriture" to Color(0xFFF6A04D),
     "transports" to Color(0xFF5EC8C0),
     "loisirs" to Color(0xFF9B87F5),
-    "logement" to Color(0xFF7DB4FF),
-    "santé" to Color(0xFFF28DB2),
-    "abonnements" to Color(0xFFC9B47C),
-    "voyages" to Color(0xFF6EE7A0),
+    "logement" to Color(0xFF818CF8),
+    "santé" to Color(0xFF67E8F9),
+    "abonnements" to Color(0xFFF5D0A9),
+    "voyages" to Color(0xFFBEF264),
     "épargne" to Color(0xFFA7F3C8),
     "shopping" to Color(0xFFE879F9),
     "cadeaux" to Color(0xFFFDA4AF),

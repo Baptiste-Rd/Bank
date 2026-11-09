@@ -461,6 +461,35 @@ class JournalTest {
     }
 
     @Test
+    fun deletingACategoryMovesItsContentUpAndUndoes() = runBlocking {
+        val id = repository.saveEnvelope(envelope("Bar", 60))
+        repository.moveEnvelope(id, "Bars")
+        repository.moveCategory("Bars", "Nourriture")
+        repository.moveCategory("Apéros", "Bars")
+        assertTrue(repository.deleteCategory("Bars"))
+        assertNull(database.categoryDao().byName("Bars"))
+        assertEquals("Nourriture", categoryOf(id))
+        assertEquals("Nourriture", parentOf("Apéros"))
+        repository.undo(lastEntry().id)
+        assertEquals("Bars", categoryOf(id))
+        assertEquals("Bars", parentOf("Apéros"))
+        assertEquals("Nourriture", parentOf("Bars"))
+    }
+
+    @Test
+    fun savingAChildOfARealEnvelopeKeepsItsParent() = runBlocking {
+        val parent = repository.saveEnvelope(envelope("Sorties", 80))
+        repository.moveEnvelope(parent, "Loisirs")
+        val child = repository.saveEnvelope(envelope("Cinéma", 30))
+        repository.moveInTree(child, fr.baptiste.bank.domain.model.TreeDrop.Into(parent))
+        val saved = repository.envelopes.first().single { it.id == child }
+        // L'enfant porte la catégorie de son parent, et l'enregistrer ne le sort pas de Sorties.
+        assertEquals("Loisirs", saved.group)
+        repository.saveEnvelope(saved.copy(amount = fr.baptiste.bank.domain.money.Money.euros(35)))
+        assertEquals(parent, repository.envelopes.first().single { it.id == child }.parentId)
+    }
+
+    @Test
     fun groupsStayOutOfTheEnvelopeLists() = runBlocking {
         val id = repository.saveEnvelope(envelope("Courses", 300))
         repository.moveEnvelope(id, "Nourriture")

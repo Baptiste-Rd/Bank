@@ -35,12 +35,12 @@ shoot() {
   echo "capture : ${style} ${tab} ${theme}"
 }
 
-for theme in clair sombre; do
-  if [ "$theme" = sombre ]; then adb shell cmd uimode night yes; else adb shell cmd uimode night no; fi
-  sleep 2
-  for tab in HOME BUDGET SAVINGS OPERATIONS; do
-    shoot GLASS "$tab" "$theme"
-  done
+# L'interface verre est toujours sombre (bleu nuit) : le thème du système ne la change pas,
+# une seule série suffit.
+adb shell cmd uimode night yes
+sleep 2
+for tab in HOME BUDGET SAVINGS OPERATIONS; do
+  shoot GLASS "$tab" sombre
 done
 
 # Mouvement : une courte vidéo de l'interface verre (changement d'onglet, défilement), pour
@@ -125,6 +125,8 @@ shot_budget glass-ajouter-argent --es tab BUDGET --es dialog COVER
 shot_budget glass-repartir-livrets --es tab SAVINGS --es dialog PLACE
 shot_budget glass-somme-fiche --es tab BUDGET --es dialog LUMP
 shot_budget glass-somme-terminer --es tab BUDGET --es dialog FINISH
+shot_budget glass-objectif-formulaire --es tab SAVINGS --es dialog GOAL
+shot_budget glass-somme-formulaire --es tab BUDGET --es dialog LUMP_FORM
 # Une catégorie sans dépense ce mois-ci, dépliée : ses enveloppes à 0 € y sont.
 shot_budget glass-categorie-sans-depense --es tab OPERATIONS --es expand Voyages
 shot_budget glass-essayer-un-plan --es tab BUDGET --es dialog PLAN

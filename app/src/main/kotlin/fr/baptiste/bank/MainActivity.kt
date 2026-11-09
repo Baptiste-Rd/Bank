@@ -114,6 +114,30 @@ class MainActivity : ComponentActivity() {
                     anchor = null,
                 ),
             )
+            // Nouvel objectif d'épargne : 6 000 € pour une voiture dans deux ans.
+            "GOAL" -> OpenDialog.EnvelopeEditor(
+                fr.baptiste.bank.domain.model.Envelope(
+                    id = 0,
+                    name = "Voiture",
+                    type = fr.baptiste.bank.domain.model.EnvelopeType.SAVINGS,
+                    frequency = fr.baptiste.bank.domain.model.EnvelopeType.SAVINGS.defaultFrequency,
+                    amount = Money.euros(250),
+                    status = fr.baptiste.bank.domain.model.EnvelopeType.SAVINGS.defaultStatus,
+                    goal = Money.euros(6000),
+                    goalBy = java.time.YearMonth.now().plusYears(2),
+                ),
+            )
+            // Nouvelle somme mise à part : 900 € pris une fois sur le compte pour les vacances d'août.
+            "LUMP_FORM" -> OpenDialog.EnvelopeEditor(
+                fr.baptiste.bank.domain.model.Envelope(
+                    id = 0,
+                    name = "Vacances d'août",
+                    type = fr.baptiste.bank.domain.model.EnvelopeType.LUMP,
+                    frequency = fr.baptiste.bank.domain.model.EnvelopeType.LUMP.defaultFrequency,
+                    amount = Money.euros(900),
+                    status = fr.baptiste.bank.domain.model.EnvelopeType.LUMP.defaultStatus,
+                ),
+            )
             else -> null
         }
         val initialTuningOpen = intent.getBooleanExtra(EXTRA_TUNING, false)

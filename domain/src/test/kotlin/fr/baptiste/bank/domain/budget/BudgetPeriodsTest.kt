@@ -118,4 +118,17 @@ class BudgetPeriodsTest {
         val period = Period.Fixed(LocalDate.of(2026, 10, 30), LocalDate.of(2026, 12, 31))
         assertEquals(period, Period.parse(period.key))
     }
+
+    @Test
+    fun `a parent caught up after a missed month does not carry over what its children cover`() {
+        // Loisirs garde son reste : 300 € par mois, dont 200 € couverts par ses enfants. Octobre n'a pas
+        // été enregistré ; en novembre, le report ne porte que sur sa part propre non dépensée.
+        val leisure = groceries.copy(id = 9, name = "Loisirs", amount = Money.euros(300), carryOver = true, start = LocalDate.of(2026, 9, 1))
+            .copy(periods = listOf(BudgetPeriod("2026-09", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), Money.euros(300), Money.euros(200))))
+        val added = leisure.missingPeriods(LocalDate.of(2026, 9, 1), today, mapOf("2026-10" to Money.euros(40))) { Money.euros(200) }
+        assertEquals(listOf("2026-10", "2026-11"), added.map { it.key })
+        assertEquals(Money.euros(200), added.first().covered)
+        // 300 − 200 couverts − 40 dépensés = 60 € reportés.
+        assertEquals(Money.euros(360), added.last().amount)
+    }
 }

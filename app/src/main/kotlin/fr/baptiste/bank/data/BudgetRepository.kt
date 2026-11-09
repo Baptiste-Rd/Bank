@@ -277,6 +277,7 @@ class BudgetRepository(
         if (changes.isEmpty()) return@withTransaction fr.baptiste.bank.domain.budget.TreeMoveResult("", emptyList(), Money.ZERO)
         // La déplacée peut garder sa position et son parent : seules ses voisines changent alors.
         val movedNode = changes.firstOrNull { it.id == id }
+        val oldParentId = envelopeDao.byId(id)?.parentId
         val parentId = if (movedNode != null) movedNode.parentId else envelopeDao.byId(id)?.parentId
         val touched = (changes.map { it.id } + ancestorIds(id) + parentId?.let { listOf(it) + ancestorIds(it) }.orEmpty()).distinct()
         val state = touched.map { envelopeState(it) }.fold(JournalPayload()) { sum, part -> sum + part }
@@ -285,7 +286,11 @@ class BudgetRepository(
         val after = fr.baptiste.bank.domain.budget.treeOf(allEnvelopes(), groupNodes(), month, since)
         val names = groups.associate { it.id to it.name } + all.associate { it.id to it.name }
         val name = names[id].orEmpty()
-        val label = parentId?.let { "$name rangée dans ${names[it].orEmpty()}" } ?: "$name rangée en haut"
+        val label = when {
+            parentId == oldParentId -> "$name déplacée"
+            parentId != null -> "$name rangée dans ${names[parentId].orEmpty()}"
+            else -> "$name sortie de ${names[oldParentId].orEmpty()}"
+        }
         record(label, state)
         // Le message parle des enveloppes qui couvrent : le total d'un groupe suit de lui-même.
         fr.baptiste.bank.domain.budget.coverageChanges(label, before, after, all.associate { it.id to it.name })
@@ -386,6 +391,29 @@ class BudgetRepository(
                 categoriesBefore = (listOfNotNull(oldRow, existing.takeIf { targetInside }) + children).distinctBy { it.id }
                     .map { CategoryState(it.name, it.parentId?.let(names::get), it.id, it.position) },
                 categoriesCreated = listOfNotNull(target.takeIf { existing == null }),
+            ),
+        )
+        true
+    }
+
+    /**
+     * Supprime une catégorie : ce qu'elle contient (enveloppes et sous-catégories) monte d'un niveau.
+     * Rien n'est perdu et cela s'annule depuis l'Historique. Faux pour « Autres ».
+     */
+    suspend fun deleteCategory(name: String): Boolean = database.withTransaction {
+        val stored = fr.baptiste.bank.domain.model.storedCategory(name) ?: return@withTransaction false
+        val row = categoryDao.byName(stored) ?: return@withTransaction false
+        val rows = categoryDao.all()
+        val names = rows.associate { it.id to it.name }
+        val inside = envelopeDao.inGroup(row.id).map { envelopeState(it.id) }
+        val children = rows.filter { it.parentId == row.id }
+        envelopeDao.reparentChildren(row.id, row.parentId)
+        categoryDao.delete(row.id)
+        syncCoverage()
+        record(
+            "Catégorie $stored supprimée",
+            inside.fold(JournalPayload()) { all, part -> all + part } + JournalPayload(
+                categoriesBefore = (listOf(row) + children).map { CategoryState(it.name, it.parentId?.let(names::get), it.id, it.position) },
             ),
         )
         true
@@ -798,9 +826,12 @@ class BudgetRepository(
             }
         }
         ensureCategory(adjusted.group)
-        // Une catégorie choisie range dans ce groupe ; sinon, un parent qui est une vraie enveloppe reste.
+        // Une catégorie choisie range dans ce groupe. Un parent qui est une vraie enveloppe reste tant que
+        // la catégorie n'a pas changé (l'enfant porte celle de son parent).
         val kept = adjusted.parentId?.takeIf { envelopeDao.byId(it)?.isGroup == false }
-        val rowId = envelopeDao.upsert(adjusted.copy(parentId = categoryId(adjusted.group) ?: kept).toEntity())
+        val inherited = kept?.let { allEnvelopes().firstOrNull { e -> e.id == envelope.id }?.group }
+        val parentId = if (kept != null && (adjusted.group == null || adjusted.group == inherited)) kept else categoryId(adjusted.group) ?: kept
+        val rowId = envelopeDao.upsert(adjusted.copy(parentId = parentId).toEntity())
         // Upsert renvoie -1 pour une mise à jour : l'identifiant est alors celui qu'on avait.
         val id = if (envelope.id != 0L) envelope.id else rowId
         ensurePeriods(today)
@@ -827,16 +858,18 @@ class BudgetRepository(
         val rows = all
             .filter { !it.archived || it.retiredOn != null }
             .flatMap { envelope ->
-                envelope.missingPeriods(from, today, spent[envelope.id].orEmpty()).map {
+                val coveredOn = { period: fr.baptiste.bank.domain.model.BudgetPeriod ->
+                    val month = YearMonth.from(minOf(period.endInclusive, today))
+                    coverage.getOrPut(month) { fr.baptiste.bank.domain.budget.childrenAmounts(all, groups, month, since) }[envelope.id] ?: Money.ZERO
+                }
+                envelope.missingPeriods(from, today, spent[envelope.id].orEmpty(), coveredOn).map {
                     AllocationEntity(
                         envelopeId = envelope.id,
                         periodKey = it.key,
                         amountCents = it.amount.cents,
                         startDate = it.start,
                         endDate = it.endInclusive,
-                        coveredCents = coverage.getOrPut(YearMonth.from(minOf(it.endInclusive, today))) {
-                            fr.baptiste.bank.domain.budget.childrenAmounts(all, groups, YearMonth.from(minOf(it.endInclusive, today)), since)
-                        }[envelope.id]?.cents ?: 0,
+                        coveredCents = it.covered.cents,
                     )
                 }
             }
@@ -1720,10 +1753,13 @@ class BudgetRepository(
         balanceDao.upsert(BalanceEntity(accountId = currentAccountId(), date = LocalDate.now(), balanceCents = balance.cents))
     }
 
-    /** Virements vers mes livrets et placements sur un mois (total positif). */
+    /**
+     * Viré vers mes livrets et placements sur un mois, net : un versement (débit du compte courant)
+     * compte en plus, un retrait vers le compte courant en moins.
+     */
     fun transfersToAccounts(month: YearMonth): Flow<Money> =
         transactionDao.observeTransfersToAccounts(month.atDay(1), month.atEndOfMonth())
-            .map { amounts -> Money(amounts.sumOf { kotlin.math.abs(it) }) }
+            .map { amounts -> Money(-amounts.sum()) }
 
     /**
      * Le solde du compte courant décomposé : reste du mois, charges à payer, épargne à virer,
@@ -1945,7 +1981,11 @@ private fun EnvelopeEntity.toDomain(allocations: List<AllocationEntity> = emptyL
 private fun List<EnvelopeEntity>.withPeriods(allocations: List<AllocationEntity>, groups: List<EnvelopeEntity>): List<Envelope> {
     val byEnvelope = allocations.groupBy { it.envelopeId }
     val groupNames = groups.associate { it.id to it.name }
-    return map { it.toDomain(byEnvelope[it.id].orEmpty(), groupNames) }
+    // La catégorie d'un enfant d'une vraie enveloppe est celle de son parent (le premier groupe au-dessus).
+    val parentOf = associate { it.id to it.parentId }
+    fun category(parentId: Long?): Long? =
+        generateSequence(parentId) { id -> if (id in groupNames) null else parentOf[id] }.take(size + 1).firstOrNull { it in groupNames }
+    return map { it.toDomain(byEnvelope[it.id].orEmpty(), groupNames).copy(group = category(it.parentId)?.let(groupNames::get)) }
 }
 
 private fun Envelope.toEntity() = EnvelopeEntity(

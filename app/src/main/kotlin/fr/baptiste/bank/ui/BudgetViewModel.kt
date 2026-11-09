@@ -391,6 +391,10 @@ class BudgetViewModel(private val repository: BudgetRepository) : ViewModel() {
         viewModelScope.launch { onDone(repository.moveCategory(name, parent)) }
     }
 
+    fun deleteCategory(name: String, onDone: (Boolean) -> Unit = {}) {
+        viewModelScope.launch { onDone(repository.deleteCategory(name)) }
+    }
+
     fun renameCategory(oldName: String, newName: String, onDone: (Boolean) -> Unit = {}) {
         viewModelScope.launch { onDone(repository.renameCategory(oldName, newName)) }
     }
