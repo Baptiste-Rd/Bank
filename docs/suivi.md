@@ -6,8 +6,14 @@ fin de chaque lot (et quand une décision est prise).
 
 ## Où en est l'app
 
-- `main` = lot 8e (9 novembre 2026). Base de données v20 (schémas jusqu'à `20.json` dans
-  `app/schemas/`).
+- `main` = lot 8e, commit `4c898ec`, release `build-245` (10 novembre 2026). Base de données v20
+  (schémas jusqu'à `20.json` dans `app/schemas/`). CI verte : 250 tests du domaine, 57 sur
+  l'émulateur ; relectures logique et UX passées.
+- Rien en attente de fusion : aucune branche n'a de commit absent de `main` (la seule,
+  `feature/schema-v7`, porte un changement de CI déjà présent autrement). Les anciennes branches
+  `feature/...` sont fusionnées et peuvent être supprimées.
+- En pause depuis le 10 novembre, à la demande de l'utilisateur : le lot 9 n'est pas commencé.
+  Retours de l'utilisateur sur `build-245` attendus avant de reprendre.
 - Derniers lots livrés :
   - **7** : catégories imbriquées, actions en glissant, déplacer et renommer, Historique.
   - **7b (1)** : un seul calcul du tableau d'un mois (`dashboardAt` : salaire de ce mois-là,
@@ -44,7 +50,7 @@ fin de chaque lot (et quand une décision est prise).
     de dépôt distinctes ; couleurs de catégorie hors de celles des familles ; captures du thème
     clair retirées (l'interface est toujours sombre) ; code mort de l'ancien SavingsGoals et de la
     vue année de Budget retiré ; doc UX à jour (arbre, objectifs, somme mise à part).
-- Tests du domaine sans Gradle : `./scripts/domain-tests.sh` (250 au 9 novembre).
+- Tests du domaine sans Gradle : `./scripts/domain-tests.sh` (250 au 10 novembre).
 
 ## Lot 8 : décisions prises (prototype testé par l'utilisateur)
 
@@ -95,7 +101,7 @@ sur » compte, objectif ou À répartir du mois, « Terminer » rend le reste), 
 (supprimer, défauts ci-dessous, doc UX, démo, export Claude, skill, code mort de l'ancien
 SavingsGoals), 9 revue du tri par Claude (propositions applicables une à une depuis le bilan).
 
-Suite : lot 9, revue du tri par Claude, lancée depuis le bilan d'un mois dans Résumé. Sept
+Suite (en pause, rien de codé) : lot 9, revue du tri par Claude, lancée depuis le bilan d'un mois dans Résumé. Sept
 propositions au plus (renommer, ranger dans, fusionner, arrêter, ajuster, créer une somme mise à
 part, reclasser des opérations), chacune applicable et annulable, avec son effet sur le « par
 jour ». Données envoyées : celles de l'export (règles d'anonymisation du CLAUDE.md).
