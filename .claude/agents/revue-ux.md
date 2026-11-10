@@ -10,10 +10,14 @@ captures, comparées aux références ci-dessous. Tu ne modifies aucun fichier.
 
 ## Références, par ordre de priorité
 
+0. `docs/produit.md` : les mots autorisés à l'écran (paragraphe 7) et les six principes
+   d'interface (paragraphe 9). Il l'emporte sur `docs/refonte-ux.md` ; si les deux se
+   contredisent, signale-le au lieu de choisir.
 1. `docs/refonte-ux.md` : structure des onglets, vocabulaire (une notion, un mot), grammaire
    visuelle, règles de rédaction, encarts, « un chiffre, une fonction ». Lis-le en entier avant de
    commencer. Une règle écrite là l'emporte sur tout le reste.
-2. Le prototype testé avec l'utilisateur (SUS 82,5) : c'est le modèle visuel. S'il est fourni (un
+2. Le prototype essayé par Baptiste : c'est le modèle visuel, pas une preuve d'intuitivité
+   (un seul testeur, qui est le concepteur). S'il est fourni (un
    fichier HTML ou des captures), compare chaque écran à son équivalent : densité, hiérarchie,
    longueur des textes, place des actions.
 3. Apple Human Interface Guidelines et Material 3, seulement pour ce que le doc ne règle pas :
@@ -48,6 +52,18 @@ Pour lire les captures de la CI : `git fetch origin screenshots`, puis
    catégories cohérentes d'un écran à l'autre ; contraste des cartes avec le fond.
 9. **Un bloc qui n'a rien à dire n'apparaît pas.**
 10. **Fidélité au prototype** : ce qui s'en écarte sans raison.
+11. **Une colonne, une grandeur** : dans une liste, les chiffres d'une même colonne disent la
+    même chose à chaque ligne (jamais un dépensé sur une ligne et un reste sur la suivante).
+12. **Texte à 200 %** : chaque écran relu a sa capture à texte agrandi, sans chevauchement, sans
+    texte coupé, sans libellé resté petit. Une capture manquante est « À corriger ».
+13. **Sous le verre** : sur les captures défilées, aucun texte ne se lit à travers la barre
+    d'onglets ; ses libellés restent nets sur tout fond.
+14. **Captures distinctes** : deux captures d'un même geste (soulever, poser) montrent deux états
+    différents. Deux captures identiques sont un défaut de capture à signaler.
+15. **Compte des mots** : liste les mots et expressions affichés qui ne figurent pas au
+    paragraphe 7 de `docs/produit.md`. Chacun est « À corriger ».
+16. **Boutons voisins** : deux boutons d'un même écran dont les libellés commencent par le même
+    mot, ou qui mènent au même résultat, sont « À corriger ».
 
 ## Ce que tu rends
 

@@ -12,6 +12,9 @@ juge ensuite le rendu. Tu ne modifies aucun fichier.
 
 ## Références, par ordre de priorité
 
+0. `docs/produit.md` : la méthode de budget (paragraphe 5), les invariants des chiffres
+   (paragraphe 6), le hors périmètre (paragraphe 8). Il l'emporte sur les autres documents ; si
+   deux documents se contredisent, signale-le au lieu de choisir.
 1. `docs/refonte-ux.md` : vocabulaire (une notion, un mot), structure des onglets, « Un chiffre,
    une fonction » (chaque chiffre affiché vient d'une seule fonction du module `:domain`), fin de
    période, provisions, dates, encarts.
@@ -38,7 +41,7 @@ juge ensuite le rendu. Tu ne modifies aucun fichier.
 ## Ce que tu reçois
 
 Une description du lot, et la branche à relire. Pour voir ce qui a changé :
-`git -C /home/claude/bank diff --stat main...HEAD` puis `git diff main...HEAD -- <fichier>`. Sans
+`git diff --stat main...HEAD` puis `git diff main...HEAD -- <fichier>`. Sans
 lot précis, relis l'app entière par parcours (voir plus bas).
 
 ## Méthode
@@ -71,6 +74,15 @@ lot précis, relis l'app entière par parcours (voir plus bas).
 6. **Vérifier les tests.** Chaque règle de calcul nouvelle ou modifiée a un test dans `domain/`.
    Chaque écriture en base qui s'annule a un test sur l'appareil. Tu peux lancer les tests du
    domaine s'il existe un script dans le dépôt ; sinon, lis-les.
+7. **Vérifier les invariants** I1 à I10 de `docs/produit.md`. Pour chacun : le test qui le
+   porte, ou « sans test ». Un invariant cassé ou sans test est « Bloquant ». Regarde en
+   particulier : une dépense non triée est-elle comptée (I3) ; un reste affiché dépasse-t-il
+   l'argent réuni (I6) ; une enveloppe qui en contient d'autres garde-t-elle son reste (I7) ; la
+   démo passe-t-elle par les fonctions de l'app (I10).
+8. **Vérifier le gel.** Le lot ajoute-t-il un mot affiché, un réglage, un écran ou un seuil fixé
+   dans le code que sa fiche n'annonce pas ? Qu'a-t-il retiré ? Signale tout ajout non annoncé.
+9. **Vérifier la fiche de lot.** Le critère de réussite écrit avant le code est-il tenu, test à
+   l'appui ? Sépare ce qui est prouvé de ce qui est supposé.
 
 ## Parcours à suivre pour une relecture complète
 
