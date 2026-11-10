@@ -526,8 +526,8 @@ fun EnvelopeDialog(
                     )
                 }
 
-                // Une somme mise à part n'a pas de récapitulatif : Combien et la date sont juste au-dessus.
-                draft?.takeIf { it.type != EnvelopeType.LUMP }?.let { Text(summary(it, today, trackingStart), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                // Une somme mise à part et un objectif ont déjà leur ligne juste au-dessus : pas de récapitulatif.
+                draft?.takeIf { it.type != EnvelopeType.LUMP && it.type != EnvelopeType.SAVINGS }?.let { Text(summary(it, today, trackingStart), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
 
                 if (use != Use.LUMP) TextButton(onClick = { more = !more }) { Text(if (more) "Moins d'options" else "Plus d'options") }
                 if (more && use != Use.LUMP) {
@@ -742,7 +742,7 @@ private fun summary(envelope: Envelope, today: LocalDate, trackingStart: YearMon
     return when (envelope.type) {
         EnvelopeType.LUMP -> "${envelope.amount.summary()} mis à part, dépenses comptées depuis le ${(envelope.start ?: today).format(day)}"
         EnvelopeType.DAILY, EnvelopeType.FIXED -> "${envelope.amount.summary()} $rhythm"
-        EnvelopeType.SAVINGS -> "${envelope.amount.summary()} mis de côté $rhythm"
+        EnvelopeType.SAVINGS -> "${envelope.amount.summary()} $rhythm"
         else -> {
             val first = envelope.amountIn(period)
             // Le même calcul que la fiche et Budget (rattrapage compris : il dépend du début du suivi).

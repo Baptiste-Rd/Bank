@@ -111,7 +111,9 @@ jour ». Données envoyées : celles de l'export (règles d'anonymisation du CLA
   affiché au même niveau) ; « Retirer » d'une somme mise à part vers À répartir ; bilan d'un mois
   passé qui ne cite pas ses sommes mises à part ; points gris de `glass-declasser` (couleur
   « Autres ») ; catégorie héritée cherchée dans la seule liste reçue (un enfant actif d'un parent
-  arrêté retombe en « Autres » dans l'export).
+  arrêté retombe en « Autres » dans l'export) ; captures manquantes : trait avant/après, champ
+  « Nouvelle catégorie », message long d'une enveloppe posée dans une enveloppe ; couleurs de
+  secours proches de certaines catégories (nom toujours écrit).
 - À étudier : « Prévoir une dépense » ; séance de test SUS sur la vraie app (quatre tâches).
 
 ## Liens
