@@ -128,7 +128,7 @@ class BackupTest {
     }
 
     @Test
-    fun savingThenRestoringGivesBackEveryRowAndTheSameFigures() = runBlocking {
+    fun savingThenRestoringGivesBackEveryRowAndTheSameFigures() = runBlocking<Unit> {
         fill()
         val rowsBefore = rows()
         val figuresBefore = figures()
@@ -153,7 +153,7 @@ class BackupTest {
     }
 
     @Test
-    fun aRestoreReachesTheScreensAlreadyOpen() = runBlocking {
+    fun aRestoreReachesTheScreensAlreadyOpen() = runBlocking<Unit> {
         fill()
         val scope = CoroutineScope(Dispatchers.Default)
         try {
@@ -171,7 +171,7 @@ class BackupTest {
     }
 
     @Test
-    fun aBackupOfThePreviousSchemaIsRestored() = runBlocking {
+    fun aBackupOfThePreviousSchemaIsRestored() = runBlocking<Unit> {
         fill()
         // Une base du schéma 19 (avant les objectifs d'épargne), comme l'app d'alors l'aurait sauvegardée.
         val old = "$work-old.db"
@@ -225,7 +225,7 @@ class BackupTest {
     }
 
     @Test
-    fun aWrongPasswordOrADamagedFileChangesNothing() = runBlocking {
+    fun aWrongPasswordOrADamagedFileChangesNothing() = runBlocking<Unit> {
         fill()
         val sealed = backup.sealedBackup(password.toCharArray(), fast)
         change()
@@ -249,7 +249,7 @@ class BackupTest {
     }
 
     @Test
-    fun undoingARestoreGivesBackTheStateBefore() = runBlocking {
+    fun undoingARestoreGivesBackTheStateBefore() = runBlocking<Unit> {
         fill()
         val sealed = backup.sealedBackup(password.toCharArray(), fast)
         change()
@@ -271,7 +271,7 @@ class BackupTest {
     }
 
     @Test
-    fun theStateKeptByARestoreIsForgottenAtTheNextLaunch() = runBlocking {
+    fun theStateKeptByARestoreIsForgottenAtTheNextLaunch() = runBlocking<Unit> {
         fill()
         val kept = BackupRepository(context, database, settings, demo = false, build = 1)
         try {
@@ -286,7 +286,7 @@ class BackupTest {
     }
 
     @Test
-    fun aDemoFileNeverReplacesRealDataAndTheReverse() = runBlocking {
+    fun aDemoFileNeverReplacesRealDataAndTheReverse() = runBlocking<Unit> {
         fill()
         val demo = backupRepository(demo = true)
         val fromDemo = demo.sealedBackup(password.toCharArray(), fast)
@@ -297,7 +297,7 @@ class BackupTest {
     }
 
     @Test
-    fun aFileFromALaterSchemaAsksForAnUpdate() = runBlocking {
+    fun aFileFromALaterSchemaAsksForAnUpdate() = runBlocking<Unit> {
         fill()
         val entries = BackupFile.unpack(BackupFile.open(backup.sealedBackup(password.toCharArray(), fast), password.toCharArray()))
         val manifest = BackupManifest.decode(entries.getValue(BackupFile.MANIFEST))
@@ -307,7 +307,7 @@ class BackupTest {
     }
 
     @Test
-    fun theFileHoldsNothingOfTheBankConnection() = runBlocking {
+    fun theFileHoldsNothingOfTheBankConnection() = runBlocking<Unit> {
         fill()
         // Une connexion bancaire complète à côté : identifiant d'application, et clé privée dans le coffre.
         val vault = KeyVault(context, "$work-key.bin")
@@ -339,7 +339,7 @@ class BackupTest {
     }
 
     @Test
-    fun whatFollowsARestoreKnowsWhenTheFileWasSaved() = runBlocking {
+    fun whatFollowsARestoreKnowsWhenTheFileWasSaved() = runBlocking<Unit> {
         fill()
         var told: Long? = null
         val watched = backupRepository(afterRestore = { told = it })
