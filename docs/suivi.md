@@ -16,7 +16,17 @@ compris. Ce qu'il reste à faire est dans `docs/backlog.md`, les décisions de p
   (vérifié le 11 novembre ; le seul commit propre à `feature/schema-v7`, les schémas publiés avec
   les captures, est déjà dans `screenshots.yml`). Leur suppression est demandée.
 - Cadrage du 10 novembre : produit, backlog, décisions D1 à D5 prises (option A), gel des
-  fonctions. Le lot 9 est gelé. Prochain lot : lot A, F1 (sauvegarde et restauration).
+  fonctions. Le lot 9 est gelé.
+- Lot A, F1 (sauvegarde et restauration) : développé le 12 novembre, en attente de la recette de
+  Baptiste (F1 reste ouvert dans le backlog jusque-là). Décisions D6 et D7.
+  - `BackupFile.kt` : le fichier (archive zip chiffrée, PBKDF2-HMAC-SHA256 puis AES-GCM), sans
+    rien d'Android, testé dans `app/src/test`.
+  - `Backup.kt` : `copyTables` recopie toutes les tables d'une base vers une autre, dans les deux
+    sens. Restaurer ouvre d'abord le fichier avec Room (migrations), puis remplace dans une seule
+    transaction ; les réglages suivent. Pas de redémarrage de l'app.
+  - La connexion bancaire n'est ni sauvegardée ni touchée ; après une restauration,
+    `BankSyncRepository.rewindTo` fait repartir la synchronisation d'avant la sauvegarde.
+  - « Restaurer » d'une enveloppe arrêtée est devenu « Reprendre ».
 - `ci.yml` ne publie pas de release quand un push sur `main` ne touche que `docs/`, `.claude/` ou
   des fichiers `.md` ; les tests tournent toujours.
 - Derniers lots livrés :
@@ -107,10 +117,15 @@ sur » compte, objectif ou À répartir du mois, « Terminer » rend le reste), 
 SavingsGoals), 9 revue du tri par Claude (propositions applicables une à une depuis le bilan).
 
 Suite : le lot 9 (revue du tri par Claude) est gelé, voir « Idées » de `docs/backlog.md`. Le
-prochain lot est le lot A, F1 (sauvegarde et restauration), premier élément ouvert du backlog.
+lot A continue avec F2 (clé de signature hors du dépôt) une fois F1 recetté.
 
 ## Restes connus
 
+- Lot A : pas de capture de « Reprendre » (la démo n'a pas d'enveloppe arrêtée) ; « Annuler » une
+  restauration n'est proposé que dans le message qui la suit ; base et réglages sont remplacés
+  l'un après l'autre (un arrêt de l'app entre les deux laisserait les anciens réglages) ; sur un
+  nouveau téléphone, les opérations entre la sauvegarde et le début du mois se récupèrent par
+  l'historique de la banque, à la main.
 - Encart du bilan : espace vide sous ses boutons.
 - « mois-ci » s'affiche avec un trait d'union espacé dans « Ajouter de l'argent » (police).
 - Captures qui ne montrent pas encore le lot : une ligne « modifié depuis » (Historique de la démo

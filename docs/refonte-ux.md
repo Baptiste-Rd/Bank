@@ -45,8 +45,8 @@ Onglets, dans l'ordre : **Résumé** (où j'en suis ce mois ?), **Budget** (où 
   les opérations du mois. Le total du mois : le chiffre et une puce signée ; le reste dans ⓘ.
 - Bouton Claude : rond, en verre teinté, à droite de la barre d'onglets.
 - Réglages (sheet) : Salaire, Banque et synchronisation, Comptes, Noms et règles, Historique,
-  Ajouts et retraits, Vérifier les dates, Mises à jour ; les réglages du verre après sept touches
-  sur le numéro de version (menu développeur, rien d'autre).
+  Ajouts et retraits, Vérifier les dates, Sauvegarder, Restaurer, Mises à jour ; les réglages du
+  verre après sept touches sur le numéro de version (menu développeur, rien d'autre).
 - Claude : un seul écran (trier ce qui attend, contrôler les dépenses, coller une réponse) et une
   ligne sur ce qui est partagé.
 
@@ -131,7 +131,7 @@ des moyennes porte « hors référence », dans l'encart comme dans le bilan.
 ## Historique
 
 Tout changement fait à la main s'y inscrit et s'y annule : tri, répartition, remise à trier (du
-mois choisi), hors budget, enveloppe créée, modifiée, arrêtée, restaurée ou déplacée, budget d'une
+mois choisi), hors budget, enveloppe créée, modifiée, arrêtée, reprise ou déplacée, budget d'une
 période corrigé, catégorie déplacée ou renommée, ajout ou retrait et son annulation, saisie
 ajoutée ou supprimée, dates d'achat corrigées, opération renommée, nom ou règle créés ou
 supprimés, mois de référence. Le message qui confirme un changement en défait la dernière entrée ;
@@ -139,6 +139,25 @@ il n'y a pas d'autre chemin. Une entrée ne s'annule pas si une entrée plus ré
 chose, ou utilise l'enveloppe qu'elle a créée : elle porte « modifié depuis », on annule d'abord la
 plus récente (`blockedEntries`). Supprimer définitivement une enveloppe retire de l'Historique les
 changements qui la concernent.
+
+## Sauvegarder et restaurer
+
+Deux lignes des Réglages (décisions D6 et D7). Le code est dans `data/BackupFile.kt` (le fichier)
+et `data/Backup.kt` (la base).
+
+- « Sauvegarder » : un mot de passe tapé deux fois, puis le dossier, dans le sélecteur de fichiers
+  du téléphone. Le fichier (`bank-AAAA-MM-JJ.banksave`) contient la base et les réglages, chiffrés
+  par le mot de passe ; jamais la clé de la banque ni la connexion. Message : « Fichier enregistré. »
+- « Restaurer » : le fichier, son mot de passe, puis une confirmation (« Remplacer tes données ? »)
+  qui dit de quand date le fichier et ce qu'il contient. Rien ne change avant elle. Ensuite tout
+  est remplacé, Historique compris ; le message « Données du … restaurées. » porte « Annuler », et
+  l'état d'avant est gardé jusqu'au prochain lancement.
+- Un fichier d'une version plus ancienne se restaure : il passe par les migrations de la base. Un
+  fichier d'une version plus récente, un mauvais mot de passe ou un fichier de la démo sont refusés
+  avec une phrase, sans rien changer.
+- Sur un nouveau téléphone, la banque se reconnecte à la main (la clé `.pem` se réimporte). Sur le
+  même téléphone, la connexion reste et la synchronisation suivante repart d'avant la sauvegarde.
+- Une enveloppe arrêtée se « Reprend » (bas de Budget) : « Restaurer » ne désigne que la sauvegarde.
 
 ## Autres comptes
 
