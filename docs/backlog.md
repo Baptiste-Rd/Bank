@@ -23,12 +23,12 @@ Sévérité : 4 perte de données ou blocage · 3 gêne majeure sur une tâche �
 
 ## Lot B · Des chiffres justes
 
-- [ ] **L1** (3) Opérations à trier comptées. Décision D2. *Réussi quand :* l'invariant I3 a son
-  test ; une dépense non triée réduit le reste du mois ; la trier ne change pas ce reste si elle
-  va au quotidien.
-- [ ] **L2** (3) « Aujourd'hui » affiché. Décision D3. *Réussi quand :* I4 a son test ; le Résumé
-  montre ce qui reste aujourd'hui, achats du jour déduits. *Recette :* saisir une dépense de
-  10 €, voir le chiffre baisser de 10 €.
+- [ ] **L1** (3) Opérations à trier comptées. Décision D2 prise : option A. *Réussi quand :*
+  l'invariant I3 a son test ; une dépense non triée réduit le reste du mois ; la trier ne change
+  pas ce reste si elle va au quotidien.
+- [ ] **L2** (3) « Aujourd'hui » affiché. Décision D3 prise : option A. *Réussi quand :* I4 a son
+  test ; le Résumé montre ce qui reste aujourd'hui, achats du jour déduits. *Recette :* saisir
+  une dépense de 10 €, voir le chiffre baisser de 10 €.
 - [ ] **L3** (3) Enveloppe parente avec son reste. *Réussi quand :* I7 a son test ; dans la démo,
   Sorties montre « Dépassé » dans Dépenses comme sur le Résumé.
 - [ ] **L4** (3) Reste d'une provision = argent réuni. *Réussi quand :* I6 a son test ; la fiche
@@ -46,7 +46,7 @@ Sévérité : 4 perte de données ou blocage · 3 gêne majeure sur une tâche �
 
 ## Lot C · Lisibilité
 
-- [ ] **E1** (3) Une seule grandeur dans la colonne de Dépenses. Décision D1.
+- [ ] **E1** (3) Une seule grandeur dans la colonne de Dépenses. Décision D1 prise : option A.
 - [ ] **E2** (3) Fiche : « Ajouter » et « Retirer » seulement. *Réussi quand :* « Ajouter de
   l'argent » n'existe plus ; « Ajouter » porte le montant manquant quand l'enveloppe dépasse.
 - [ ] **E4** (3) Barre d'onglets lisible. *Réussi quand :* aucun texte ne se lit à travers la
@@ -65,7 +65,7 @@ Sévérité : 4 perte de données ou blocage · 3 gêne majeure sur une tâche �
 - [ ] **E6** (2) Dépenses : le filtre devient des puces, affichées au-delà de dix enveloppes.
 - [ ] **E7** (2) Épargne : Épargne prévue, Objectifs, Comptes ; le reste derrière un lien.
 - [ ] **L6** (2) Périmètre nommé pour chaque « budget du mois » du Résumé et du bilan.
-- [ ] **L7** (2) Règle du quotidien dite à l'écran. Décision D4.
+- [ ] **L7** (2) Règle du quotidien dite à l'écran. Décision D4 prise : option A.
 - [ ] **E9** (2) Historique : trente jours ou cinquante entrées ; un tri en série = une entrée ;
   accès depuis le message « Annuler ».
 - [ ] **E11** (2) Raccourcis du tri classés : libellé proche, enveloppe la plus utilisée, montant
@@ -79,13 +79,12 @@ Sévérité : 4 perte de données ou blocage · 3 gêne majeure sur une tâche �
 
 - [ ] **L8** (2) Salaire : « finance ce mois » ou « le mois suivant », réglable par revenu.
 - [ ] **F4** (2) Widget « Aujourd'hui », synchronisation de fond, deux notifications au plus.
-- [ ] **F6** (2) Premier lancement en trois étapes. Dépend de D5.
+- [ ] **F6** (1) Premier lancement en trois étapes. D5 = A : finition.
 - [ ] **E12** (2) « Vérifier les dates » en une phrase ; détail derrière ⓘ.
 - [ ] **F5** (2) Aide de Claude : seulement après E11.
 - [ ] **M2** (2) Grille de `revue-ux` complétée (fait dans le fichier de l'agent ; à vérifier au
   premier lot qui touche l'interface).
 - [ ] **E13**, **F8** (1) Finitions : avec le lot qui touche le même écran.
-- [ ] **F7** (2) Connexion à la banque sans profil de développeur. Seulement si D5 = B.
 
 ## Idées (gelées)
 
@@ -94,3 +93,4 @@ que l'app soit aboutie. À la relecture mensuelle, une idée qui ne sert aucune 
 
 - 2026-11-09 · Lot 9, revue du tri par Claude depuis le bilan d'un mois · T2
 - 2026-11-09 · « Prévoir une dépense » · T5
+- 2026-11-10 · Connexion à la banque sans profil de développeur (D5 = A) · aucune tâche

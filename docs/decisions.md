@@ -21,7 +21,7 @@ tu veux nuancer.
 
 ## D5 · Pour qui est l'app ?
 
-- État : proposée
+- État : prise le 2026-11-10 : option A
 - Pourquoi maintenant : fixe la priorité de F6, F7 et E12. À trancher en premier.
 - Option A, pour Baptiste seul : F6 et F7 passent en finition ; l'effort va aux chiffres et à la
   lisibilité · lots courts · l'app reste réglée sur une personne.
@@ -34,7 +34,8 @@ tu veux nuancer.
 
 ## D2 · Que faire d'une dépense pas encore triée ?
 
-- État : proposée
+- État : prise le 2026-11-10 : option A
+- Nuance : une opération reconnue par une règle est rangée d'office.
 - Pourquoi maintenant : L1, premier élément du lot B.
 - Option A, la compter d'office au quotidien : elle réduit tout de suite le reste du mois, le tri
   la déplace ensuite · le chiffre n'est jamais trop optimiste · une grosse charge non triée fait
@@ -47,7 +48,9 @@ tu veux nuancer.
 
 ## D3 · Quel second grand chiffre sur le Résumé ?
 
-- État : proposée
+- État : prise le 2026-11-10 : option A
+- Nuance : un chiffre négatif s'affiche en ambre, avec « rattrapé demain : X € par jour », sans
+  rouge.
 - Pourquoi maintenant : L2.
 - Option A, « Aujourd'hui 9 € » avec « sur 21 € par jour » dessous : baisse à chaque achat du
   jour · répond à la question fondatrice · peut devenir négatif en fin de journée.
@@ -59,7 +62,7 @@ tu veux nuancer.
 
 ## D4 · Le quotidien : pot commun ou enveloppes strictes ?
 
-- État : proposée
+- État : prise le 2026-11-10 : option A
 - Pourquoi maintenant : L7 ; change le sens de « Dépassé » pour une enveloppe du quotidien.
 - Option A, pot commun assumé : une enveloppe du quotidien dépassée devient une information
   ambre, sans bouton de couverture · un seul signal, moins de gestes · ces enveloppes deviennent
@@ -71,7 +74,7 @@ tu veux nuancer.
 
 ## D1 · Quelle grandeur dans la colonne de Dépenses ?
 
-- État : proposée
+- État : prise le 2026-11-10 : option A
 - Pourquoi maintenant : E1, premier élément du lot C. Peut attendre le tour de test 1.
 - Option A, le dépensé partout : « 129 € » à droite, « sur 320 € » et la barre dessous, une puce
   si l'enveloppe dépasse · colonne additionnable, fidèle au nom de l'onglet · le reste demande un

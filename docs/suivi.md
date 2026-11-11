@@ -1,19 +1,24 @@
 # Suivi du projet
 
-Point d'entrée d'une nouvelle conversation : lire `CLAUDE.md`, ce fichier, puis `docs/refonte-ux.md`.
-Ce fichier dit où en est l'app, ce qui a été décidé et ce qui vient ensuite. Il se met à jour à la
-fin de chaque lot (et quand une décision est prise).
+Point d'entrée d'une nouvelle conversation : lire `CLAUDE.md`, qui donne l'ordre de lecture.
+Ce fichier dit où en est le code. Il se met à jour à la fin de chaque lot.
+
+Depuis le 10 novembre 2026, `docs/produit.md` l'emporte sur tous les autres documents, celui-ci
+compris. Ce qu'il reste à faire est dans `docs/backlog.md`, les décisions de produit dans
+`docs/decisions.md` ; les décisions ci-dessous sont celles d'avant ce registre.
 
 ## Où en est l'app
 
 - `main` = lot 8e, commit `4c898ec`, release `build-245` (10 novembre 2026). Base de données v20
   (schémas jusqu'à `20.json` dans `app/schemas/`). CI verte : 250 tests du domaine, 57 sur
   l'émulateur ; relectures logique et UX passées.
-- Rien en attente de fusion : aucune branche n'a de commit absent de `main` (la seule,
-  `feature/schema-v7`, porte un changement de CI déjà présent autrement). Les anciennes branches
-  `feature/...` sont fusionnées et peuvent être supprimées.
-- En pause depuis le 10 novembre, à la demande de l'utilisateur : le lot 9 n'est pas commencé.
-  Retours de l'utilisateur sur `build-245` attendus avant de reprendre.
+- Rien en attente de fusion : aucune branche `feature/...` n'a de contenu absent de `main`
+  (vérifié le 11 novembre ; le seul commit propre à `feature/schema-v7`, les schémas publiés avec
+  les captures, est déjà dans `screenshots.yml`). Leur suppression est demandée.
+- Cadrage du 10 novembre : produit, backlog, décisions D1 à D5 prises (option A), gel des
+  fonctions. Le lot 9 est gelé. Prochain lot : lot A, F1 (sauvegarde et restauration).
+- `ci.yml` ne publie pas de release quand un push sur `main` ne touche que `docs/`, `.claude/` ou
+  des fichiers `.md` ; les tests tournent toujours.
 - Derniers lots livrés :
   - **7** : catégories imbriquées, actions en glissant, déplacer et renommer, Historique.
   - **7b (1)** : un seul calcul du tableau d'un mois (`dashboardAt` : salaire de ce mois-là,
@@ -101,10 +106,8 @@ sur » compte, objectif ou À répartir du mois, « Terminer » rend le reste), 
 (supprimer, défauts ci-dessous, doc UX, démo, export Claude, skill, code mort de l'ancien
 SavingsGoals), 9 revue du tri par Claude (propositions applicables une à une depuis le bilan).
 
-Suite (en pause, rien de codé) : lot 9, revue du tri par Claude, lancée depuis le bilan d'un mois dans Résumé. Sept
-propositions au plus (renommer, ranger dans, fusionner, arrêter, ajuster, créer une somme mise à
-part, reclasser des opérations), chacune applicable et annulable, avec son effet sur le « par
-jour ». Données envoyées : celles de l'export (règles d'anonymisation du CLAUDE.md).
+Suite : le lot 9 (revue du tri par Claude) est gelé, voir « Idées » de `docs/backlog.md`. Le
+prochain lot est le lot A, F1 (sauvegarde et restauration), premier élément ouvert du backlog.
 
 ## Restes connus
 

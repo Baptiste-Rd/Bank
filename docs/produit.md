@@ -4,9 +4,6 @@ Ce document dit ce que l'app doit réussir, pour qui, et quand elle est aboutie.
 et seulement sur décision de Baptiste (`docs/decisions.md`). En cas de conflit, il l'emporte sur
 `docs/refonte-ux.md` (comment l'écran le montre) et sur `docs/suivi.md` (où en est le code).
 
-Les passages marqués **[à confirmer]** sont des recommandations qui attendent la décision de
-Baptiste. Tant qu'ils ne sont pas confirmés, on ne développe pas ce qui en dépend.
-
 ## 1. La promesse
 
 Bank répond en moins de dix secondes à une question : **combien puis-je dépenser aujourd'hui,
@@ -18,7 +15,7 @@ chiffre). Une fonction qui ne sert aucune de ces trois choses n'a pas sa place.
 
 ## 2. Pour qui
 
-- **Aujourd'hui : Baptiste seul** [à confirmer, décision D5]. Salarié, banque CIC, salaire versé
+- **Aujourd'hui : Baptiste seul** (décision D5). Salarié, banque CIC, salaire versé
   en fin de mois pour le mois suivant, plusieurs livrets et placements, pas de formation en
   gestion de budget. Téléphone Android, une main, souvent debout.
 - **L'étalon reste une personne qui n'a jamais vu l'app.** Un écran que seul son concepteur
@@ -67,7 +64,7 @@ mélanger sans le dire produit des signaux contraires à l'écran.
 - **Ce qui est décidé d'avance est strict.** Charges fixes, dépenses rares et épargne sont des
   enveloppes fermées : chaque euro du salaire a une destination, l'épargne se décide en début de
   mois, une dépense irrégulière se prépare un peu chaque mois.
-- **Le quotidien est un pot commun** [à confirmer, décision D4]. Tout ce qui n'est pas décidé
+- **Le quotidien est un pot commun** (décision D4). Tout ce qui n'est pas décidé
   d'avance se dépense au jour le jour. Le chiffre qui pilote est « Aujourd'hui », pas le reste de
   chaque enveloppe du quotidien. Une enveloppe du quotidien est un repère : la dépasser est une
   information, pas une alerte, tant que le pot commun tient.
@@ -76,7 +73,7 @@ Règles qui en découlent, valables pour tous les mois et toutes les enveloppes 
 
 1. Tout euro du salaire est soit dans une enveloppe, soit « à répartir », et « à répartir » fait
    partie du quotidien.
-2. Une dépense compte dès qu'elle est connue, triée ou non [à confirmer, décision D2].
+2. Une dépense compte dès qu'elle est connue, triée ou non (décision D2).
 3. Un reste affiché est de l'argent réellement réuni, jamais une intention.
 4. Un dépassement d'une enveloppe stricte se couvre par un geste explicite, qui dit d'où vient
    l'argent. On ne prend jamais d'office sur une enveloppe elle-même en retard.
@@ -106,7 +103,7 @@ Chaque invariant a un test dans `domain/`. Un lot qui en casse un ne se fusionne
 
 ## 7. Les notions autorisées à l'écran
 
-Douze noms et six verbes [à confirmer]. Ajouter un mot à l'écran demande d'en retirer un et une
+Douze noms et six verbes. Ajouter un mot à l'écran demande d'en retirer un et une
 décision de Baptiste. Le détail d'usage reste dans `docs/refonte-ux.md`, qui doit s'aligner ici.
 
 | Nom | Sens unique |
@@ -137,7 +134,7 @@ Mots à retirer de l'écran et leur remplaçant :
 | à ranger, à verser, à placer, Répartir (épargne) | « à placer », action « Placer » |
 | Achat prévu | Une enveloppe « Rare ou ponctuel » avec une date |
 | Remise à zéro, période | « Se renouvelle le » ; « par mois », « par an » |
-| Par jour (grand chiffre) | « Aujourd'hui », avec « sur X € par jour » dessous [à confirmer, D3] |
+| Par jour (grand chiffre) | « Aujourd'hui », avec « sur X € par jour » dessous (décision D3) |
 | Ajouter de l'argent | « Ajouter », qui porte le montant quand l'enveloppe dépasse |
 
 Provision, famille, réserve, portefeuille, allocation, couverture sont des mots du code. Ils ne

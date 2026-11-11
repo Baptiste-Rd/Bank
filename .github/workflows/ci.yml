@@ -50,10 +50,27 @@ jobs:
           name: bank-debug-apk
           path: app/build/outputs/apk/debug/*.apk
 
-      # Chaque push sur main publie une release « build-N ». L'app compare N à son propre
-      # versionCode (le même numéro d'exécution) pour proposer la mise à jour.
-      - name: Publier la release pour la mise à jour intégrée
+      # Un push qui ne touche que docs/, .claude/ ou des fichiers .md ne change pas l'app : pas de
+      # release. Dans le doute (commit précédent introuvable), on publie.
+      - name: Portée du push
+        id: portee
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          AVANT: ${{ github.event.before }}
+        run: |
+          publier=true
+          if git fetch --quiet --depth=1 origin "$AVANT" 2>/dev/null; then
+            fichiers=$(git -c core.quotepath=false diff --name-only "$AVANT" "$GITHUB_SHA")
+            if [ -n "$fichiers" ] && ! grep -qvE '^(docs/|\.claude/)|\.md$' <<< "$fichiers"; then
+              publier=false
+            fi
+          fi
+          echo "publier=$publier" >> "$GITHUB_OUTPUT"
+
+      # Chaque push sur main qui touche l'app publie une release « build-N ». L'app compare N à son
+      # propre versionCode (le même numéro d'exécution) pour proposer la mise à jour.
+      - name: Publier la release pour la mise à jour intégrée
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.portee.outputs.publier == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
