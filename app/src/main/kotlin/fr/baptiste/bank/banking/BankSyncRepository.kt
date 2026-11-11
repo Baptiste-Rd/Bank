@@ -360,6 +360,17 @@ class BankSyncRepository(
         return HistoryResult(result, requested = from, oldest = oldest, refused = refused)
     }
 
+    /**
+     * Après la restauration d'une sauvegarde faite à [millis] : la prochaine synchronisation repart
+     * d'avant cette sauvegarde, pour retrouver les opérations arrivées depuis.
+     */
+    suspend fun rewindTo(millis: Long) {
+        store.edit { preferences ->
+            val last = preferences[Keys.lastSync] ?: return@edit
+            if (millis < last) preferences[Keys.lastSync] = millis
+        }
+    }
+
     /** Vrai si une synchronisation automatique est due (dernière il y a plus de 6 heures). */
     suspend fun isSyncDue(): Boolean {
         val connection = connection.first()

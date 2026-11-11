@@ -3,6 +3,7 @@ package fr.baptiste.bank
 import android.app.Application
 import fr.baptiste.bank.banking.BankSyncRepository
 import fr.baptiste.bank.banking.KeyVault
+import fr.baptiste.bank.data.BackupRepository
 import fr.baptiste.bank.data.BudgetRepository
 import fr.baptiste.bank.data.SettingsRepository
 import fr.baptiste.bank.data.local.BankDatabase
@@ -19,6 +20,8 @@ class BankApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // L'état gardé par une restauration ne vaut que jusqu'au lancement suivant.
+        BackupRepository.forgetPrevious(this)
         container = AppContainer(this)
     }
 }
@@ -55,6 +58,22 @@ class AppContainer(application: Application) {
             budget = budgetRepository,
             vault = KeyVault(application, if (isDemo) "enable_banking_key_demo.bin" else "enable_banking_key.bin"),
             storeName = if (isDemo) "bank_demo" else "bank",
+        )
+    }
+    /** Sauvegarde et restauration : la base et les réglages du mode en cours, jamais la connexion bancaire. */
+    val backupRepository: BackupRepository by lazy {
+        BackupRepository(
+            context = application,
+            database = database,
+            settings = settingsRepository,
+            demo = isDemo,
+            build = BuildConfig.VERSION_CODE,
+            afterRestore = { savedAt ->
+                // Comme à l'ouverture de l'app : les périodes commencées depuis la sauvegarde s'enregistrent.
+                budgetRepository.ensurePeriods()
+                budgetRepository.realignImputationPeriods()
+                bankSyncRepository?.rewindTo(savedAt)
+            },
         )
     }
     val updateRepository: UpdateRepository by lazy { UpdateRepository(BuildConfig.UPDATE_REPOSITORY) }

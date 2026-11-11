@@ -262,7 +262,7 @@ private fun LazyListScope.monthContent(
                         )
                     }
                     // Une somme terminée se rétablit par l'Historique, qui défait aussi ce qui a été fait de son reste.
-                    if (envelope.type != EnvelopeType.LUMP) TextButton(onClick = { onRestore(envelope) }) { Text("Restaurer") }
+                    if (envelope.type != EnvelopeType.LUMP) TextButton(onClick = { onRestore(envelope) }) { Text("Reprendre") }
                 }
             }
         }

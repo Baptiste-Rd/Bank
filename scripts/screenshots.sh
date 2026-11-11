@@ -163,6 +163,10 @@ shot_budget glass-comptes --es tab SAVINGS --es dialog ACCOUNTS
 shot_budget glass-ajouter --es tab HOME --es sheet ADD
 shot_budget glass-reglages --es tab HOME --es sheet SETTINGS
 shot_budget glass-resume-mois-precedent --es tab HOME --ei monthsBack 1
+# Lot A : sauvegarder (mot de passe), restaurer (mot de passe, puis confirmation avec les données de la démo).
+shot_budget glass-sauvegarder --es tab HOME --es dialog BACKUP
+shot_budget glass-restaurer --es tab HOME --es dialog RESTORE
+shot_budget glass-restaurer-confirmer --es tab HOME --es dialog RESTORE_CONFIRM
 # Lot 5 : la recherche (le formulaire d'enveloppe en sheet : glass-budget-rare).
 shot_budget glass-recherche --es tab OPERATIONS --es sheet SEARCH
 shot_budget glass-epargne-comptes --es tab SAVINGS
@@ -190,6 +194,10 @@ sleep 2
 shot_budget glass-texte-200-resume --es tab HOME
 shot_budget glass-texte-200-depenses --es tab OPERATIONS
 shot_budget glass-texte-200-epargne --es tab SAVINGS
+shot_budget glass-texte-200-reglages --es tab HOME --es sheet SETTINGS
+shot_budget glass-texte-200-sauvegarder --es tab HOME --es dialog BACKUP
+shot_budget glass-texte-200-restaurer --es tab HOME --es dialog RESTORE
+shot_budget glass-texte-200-restaurer-confirmer --es tab HOME --es dialog RESTORE_CONFIRM
 adb shell settings put system font_scale 1.0
 # Lot 8 : rester appuyé sur Courses, la poser dans Transports (en dernier : le déplacement change la démo).
 shot_budget glass-budget-appui --es tab BUDGET

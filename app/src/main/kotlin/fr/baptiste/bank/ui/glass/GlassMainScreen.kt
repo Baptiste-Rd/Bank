@@ -593,6 +593,8 @@ fun GlassMainScreen(
                         SettingsEntry("Historique", plural(journal.count { !it.undone }, "changement", "changements"), onClick = open(OpenDialog.History)),
                         SettingsEntry("Ajouts et retraits", "Mouvements entre enveloppes", onClick = open(OpenDialog.Journal)),
                         SettingsEntry("Vérifier les dates", if (corrections > 0) plural(corrections, "date à corriger", "dates à corriger") else null, badge = corrections > 0, onClick = open(OpenDialog.DateCheck)),
+                        SettingsEntry("Sauvegarder", "Dans un fichier chiffré", onClick = open(OpenDialog.Backup)),
+                        SettingsEntry("Restaurer", "Depuis un fichier sauvegardé", onClick = open(OpenDialog.Restore())),
                         SettingsEntry("Mises à jour", if (updateAvailable) "Nouvelle version disponible" else null, badge = updateAvailable, onClick = open(OpenDialog.Updates)),
                     ),
                     developer = listOf(

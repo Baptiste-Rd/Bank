@@ -103,7 +103,7 @@ Chaque invariant a un test dans `domain/`. Un lot qui en casse un ne se fusionne
 
 ## 7. Les notions autorisées à l'écran
 
-Douze noms et six verbes. Ajouter un mot à l'écran demande d'en retirer un et une
+Douze noms et neuf verbes. Ajouter un mot à l'écran demande d'en retirer un et une
 décision de Baptiste. Le détail d'usage reste dans `docs/refonte-ux.md`, qui doit s'aligner ici.
 
 | Nom | Sens unique |
@@ -123,7 +123,9 @@ décision de Baptiste. Le détail d'usage reste dans `docs/refonte-ux.md`, qui d
 
 Verbes : **Ajouter**, **Retirer** (de l'argent dans une enveloppe), **Ranger** (une opération dans
 une enveloppe, une enveloppe dans une catégorie), **Placer** (de l'épargne sur un compte ou un
-objectif), **Arrêter** (une enveloppe), **Annuler**.
+objectif), **Arrêter** (une enveloppe), **Reprendre** (une enveloppe arrêtée), **Annuler**,
+**Sauvegarder** (toutes les données, dans un fichier protégé par un mot de passe), **Restaurer**
+(les données d'un fichier sauvegardé, à la place de celles du téléphone) (décision D6).
 
 Mots à retirer de l'écran et leur remplaçant :
 
@@ -133,6 +135,7 @@ Mots à retirer de l'écran et leur remplaçant :
 | mis de côté (provision) | « réuni » : « 900 € réunis sur 1 800 € » |
 | à ranger, à verser, à placer, Répartir (épargne) | « à placer », action « Placer » |
 | Achat prévu | Une enveloppe « Rare ou ponctuel » avec une date |
+| Restaurer (une enveloppe arrêtée) | « Reprendre » |
 | Remise à zéro, période | « Se renouvelle le » ; « par mois », « par an » |
 | Par jour (grand chiffre) | « Aujourd'hui », avec « sur X € par jour » dessous (décision D3) |
 | Ajouter de l'argent | « Ajouter », qui porte le montant quand l'enveloppe dépasse |

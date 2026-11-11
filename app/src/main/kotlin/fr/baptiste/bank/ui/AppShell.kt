@@ -30,6 +30,9 @@ import fr.baptiste.bank.domain.money.Money
 import fr.baptiste.bank.ui.components.EnvelopeDialog
 import fr.baptiste.bank.ui.components.ExpenseSheet
 import fr.baptiste.bank.ui.components.SalaryDialog
+import fr.baptiste.bank.ui.components.RestoreBackupDialog
+import fr.baptiste.bank.ui.components.SaveBackupDialog
+import fr.baptiste.bank.ui.components.savedDay
 import fr.baptiste.bank.ui.bank.BankDialog
 import fr.baptiste.bank.ui.format.formatted
 import fr.baptiste.bank.ui.format.label
@@ -96,6 +99,15 @@ sealed interface OpenDialog {
     /** [returnToSort] : création lancée depuis le tri d'une opération, où l'on revient ensuite. */
     data class EnvelopeEditor(val envelope: Envelope?, val returnToSort: OperationRow? = null) : OpenDialog
     data object Bank : OpenDialog
+
+    /** « Sauvegarder » : toutes les données dans un fichier chiffré. */
+    data object Backup : OpenDialog
+
+    /**
+     * « Restaurer ». Pour les captures, sans sélecteur de fichiers : [pickFile] faux montre la
+     * saisie du mot de passe, [confirmCurrent] la confirmation, avec les données actuelles.
+     */
+    data class Restore(val pickFile: Boolean = true, val confirmCurrent: Boolean = false) : OpenDialog
     data class SortOperation(val operation: OperationRow, val preselectedEnvelopeId: Long? = null) : OpenDialog
     data class RenameOperation(val operation: OperationRow, val selectedEnvelopeId: Long? = null) : OpenDialog
     data class SplitOperation(val operation: OperationRow, val selectedEnvelopeId: Long? = null) : OpenDialog
@@ -246,6 +258,48 @@ fun AppDialogs(
         }
         OpenDialog.Updates -> UpdateDialog(viewModel = updateViewModel, onDismiss = ::close)
         OpenDialog.Bank -> BankDialog(viewModel = bankViewModel, onDismiss = ::close)
+        OpenDialog.Backup -> {
+            val backupViewModel: BackupViewModel = viewModel(factory = BackupViewModel.Factory)
+            val state by backupViewModel.ui.collectAsStateWithLifecycle()
+            SaveBackupDialog(
+                state = state,
+                onSave = { uri, password ->
+                    backupViewModel.save(uri, password) {
+                        backupViewModel.reset()
+                        close()
+                        controller.notify("Fichier enregistré.")
+                    }
+                },
+                onDismiss = {
+                    backupViewModel.reset()
+                    close()
+                },
+            )
+        }
+        is OpenDialog.Restore -> {
+            val backupViewModel: BackupViewModel = viewModel(factory = BackupViewModel.Factory)
+            val state by backupViewModel.ui.collectAsStateWithLifecycle()
+            LaunchedEffect(current) { if (current.confirmCurrent) backupViewModel.loadCurrent() }
+            RestoreBackupDialog(
+                state = state,
+                pickAtOpen = current.pickFile && !current.confirmCurrent,
+                onLoad = backupViewModel::load,
+                onRestore = {
+                    backupViewModel.restore { restored ->
+                        backupViewModel.reset()
+                        close()
+                        // L'état d'avant est gardé jusqu'au prochain lancement : le message permet d'y revenir.
+                        controller.notify("Données du ${restored.savedDay()} restaurées.", "Annuler") {
+                            backupViewModel.undoRestore { controller.notify("Restauration annulée.") }
+                        }
+                    }
+                },
+                onDismiss = {
+                    backupViewModel.reset()
+                    close()
+                },
+            )
+        }
         is OpenDialog.SortOperation -> SortOperationDialog(
             operation = current.operation,
             envelopes = envelopes,

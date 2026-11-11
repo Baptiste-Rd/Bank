@@ -26,6 +26,28 @@ class SettingsRepository(context: Context, storeName: String = "settings") {
         produceFile = { context.preferencesDataStoreFile(storeName) },
     )
 
+    /** Tous les réglages, par nom de clé, pour la sauvegarde. */
+    suspend fun exportAll(): Map<String, Any> = settingsStore.data.first().asMap().mapKeys { it.key.name }
+
+    /** Remplace tous les réglages par [values] (restauration d'une sauvegarde) : ce qui n'y est pas disparaît. */
+    suspend fun replaceAll(values: Map<String, Any>) {
+        settingsStore.edit { preferences ->
+            preferences.clear()
+            for ((name, value) in values) {
+                when (value) {
+                    is Boolean -> preferences[androidx.datastore.preferences.core.booleanPreferencesKey(name)] = value
+                    is Int -> preferences[androidx.datastore.preferences.core.intPreferencesKey(name)] = value
+                    is Long -> preferences[longPreferencesKey(name)] = value
+                    is Float -> preferences[androidx.datastore.preferences.core.floatPreferencesKey(name)] = value
+                    is Double -> preferences[androidx.datastore.preferences.core.doublePreferencesKey(name)] = value
+                    is String -> preferences[stringPreferencesKey(name)] = value
+                    is Set<*> -> preferences[androidx.datastore.preferences.core.stringSetPreferencesKey(name)] = value.filterIsInstance<String>().toSet()
+                    is ByteArray -> preferences[androidx.datastore.preferences.core.byteArrayPreferencesKey(name)] = value
+                }
+            }
+        }
+    }
+
     private val monthlyIncomeKey = longPreferencesKey("monthly_income_cents")
 
     /** Salaire mensuel net, ou null tant qu'il n'a pas été renseigné. */

@@ -84,6 +84,11 @@ class MainActivity : ComponentActivity() {
             )
             "SORT_CARDS" -> OpenDialog.SortCards
             "HISTORY" -> OpenDialog.History
+            // Sauvegarde : la saisie du mot de passe, puis « Restaurer » sans sélecteur de fichiers
+            // (mot de passe, et confirmation avec les données de la démo).
+            "BACKUP" -> OpenDialog.Backup
+            "RESTORE" -> OpenDialog.Restore(pickFile = false)
+            "RESTORE_CONFIRM" -> OpenDialog.Restore(confirmCurrent = true)
             "RULES" -> OpenDialog.Rules
             "ASSISTED" -> OpenDialog.AssistedSort()
             "ACCOUNTS" -> OpenDialog.Accounts

@@ -349,29 +349,7 @@ class MigrationTest {
         database.close()
     }
 
-    /** Recrée une base de [version] à partir de son schéma exporté, puis y écrit [fill]. */
-    private fun createDatabase(version: Int, fill: (SQLiteDatabase) -> Unit) {
-        val assets = InstrumentationRegistry.getInstrumentation().context.assets
-        val schema = assets.open("fr.baptiste.bank.data.local.BankDatabase/$version.json")
-            .bufferedReader().use { JSONObject(it.readText()) }
-            .getJSONObject("database")
-        val db = SQLiteDatabase.openOrCreateDatabase(context.getDatabasePath(DB).apply { parentFile?.mkdirs() }, null)
-        val entities = schema.getJSONArray("entities")
-        for (i in 0 until entities.length()) {
-            val entity = entities.getJSONObject(i)
-            val table = entity.getString("tableName")
-            db.execSQL(entity.getString("createSql").replace("\${TABLE_NAME}", table))
-            val indices = entity.optJSONArray("indices") ?: continue
-            for (j in 0 until indices.length()) {
-                db.execSQL(indices.getJSONObject(j).getString("createSql").replace("\${TABLE_NAME}", table))
-            }
-        }
-        val setup = schema.getJSONArray("setupQueries")
-        for (i in 0 until setup.length()) db.execSQL(setup.getString(i))
-        db.version = version
-        fill(db)
-        db.close()
-    }
+    private fun createDatabase(version: Int, fill: (SQLiteDatabase) -> Unit) = createSchemaDatabase(context, DB, version, fill)
 
     private fun open(): BankDatabase = Room.databaseBuilder(context, BankDatabase::class.java, DB)
         .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20)
@@ -380,4 +358,32 @@ class MigrationTest {
     private companion object {
         const val DB = "migration-test.db"
     }
+}
+
+/**
+ * Recrée, dans le fichier [name], une base de [version] à partir de son schéma exporté par Room
+ * (app/schemas, joint aux tests), puis y écrit [fill]. Sert aux tests de migration et à ceux de
+ * la sauvegarde.
+ */
+internal fun createSchemaDatabase(context: Context, name: String, version: Int, fill: (SQLiteDatabase) -> Unit) {
+    val assets = InstrumentationRegistry.getInstrumentation().context.assets
+    val schema = assets.open("fr.baptiste.bank.data.local.BankDatabase/$version.json")
+        .bufferedReader().use { JSONObject(it.readText()) }
+        .getJSONObject("database")
+    val db = SQLiteDatabase.openOrCreateDatabase(context.getDatabasePath(name).apply { parentFile?.mkdirs() }, null)
+    val entities = schema.getJSONArray("entities")
+    for (i in 0 until entities.length()) {
+        val entity = entities.getJSONObject(i)
+        val table = entity.getString("tableName")
+        db.execSQL(entity.getString("createSql").replace("\${TABLE_NAME}", table))
+        val indices = entity.optJSONArray("indices") ?: continue
+        for (j in 0 until indices.length()) {
+            db.execSQL(indices.getJSONObject(j).getString("createSql").replace("\${TABLE_NAME}", table))
+        }
+    }
+    val setup = schema.getJSONArray("setupQueries")
+    for (i in 0 until setup.length()) db.execSQL(setup.getString(i))
+    db.version = version
+    fill(db)
+    db.close()
 }

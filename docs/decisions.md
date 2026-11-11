@@ -84,6 +84,31 @@ tu veux nuancer.
 - Recommandation : A.
 - Comment le vérifier : tâche T6, les deux questions posées sur chaque version à cinq testeurs.
 
+## D6 · Quels mots pour la sauvegarde ?
+
+- État : prise le 2026-11-12 : option A
+- Pourquoi maintenant : F1, lot A. « Sauvegarder » et « Restaurer » ne sont pas au paragraphe 7 de
+  `produit.md`, et « Restaurer » désigne déjà la reprise d'une enveloppe arrêtée.
+- Option A, un sens par mot : « Sauvegarder » et « Restaurer » s'ajoutent aux verbes ; le
+  « Restaurer » des enveloppes arrêtées devient « Reprendre » · un mot garde un seul sens · un
+  libellé change, et la liste compte neuf verbes au lieu de six.
+- Option B, les ajouter sans rien retirer, par exception écrite · plus rapide · première entorse
+  au gel, et « Restaurer » a deux sens.
+- Recommandation : A.
+- Comment le vérifier : relecture `revue-naive` de l'écran Réglages et du bas de Budget.
+
+## D7 · Que fait « Restaurer » des données déjà sur le téléphone ?
+
+- État : prise le 2026-11-12 : option A
+- Pourquoi maintenant : F1, lot A.
+- Option A, elle remplace tout, après confirmation ; une copie de l'état d'avant est gardée
+  jusqu'au prochain lancement, et le message qui suit propose « Annuler » · simple et prévisible ·
+  un fichier ancien efface ce qui a été fait depuis.
+- Option B, elle n'est proposée que sur une app vide · aucun risque d'écraser · il faut
+  désinstaller pour revenir à une sauvegarde.
+- Recommandation : A.
+- Comment le vérifier : recette de F1 ; un test sur l'appareil annule une restauration.
+
 ## Décisions prises avant ce registre
 
 Elles restent dans `docs/suivi.md` (« Lot 8 : décisions prises », « Décisions du 6 novembre »).
