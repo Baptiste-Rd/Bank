@@ -152,6 +152,13 @@ fun operationDate(rawLabel: String, bookingDate: LocalDate, transactionDate: Loc
     operationDateDetail(rawLabel, bookingDate, transactionDate).date
 
 /**
+ * Début commun des clés de dédoublonnage d'un compte bancaire. Quand la banque redonne le même
+ * compte sous un autre identifiant (reconnexion, nouveau téléphone), ce début se réécrit pour que
+ * les opérations déjà importées restent reconnues.
+ */
+fun importKeyPrefix(accountUid: String): String = "eb:$accountUid:"
+
+/**
  * Clé de dédoublonnage de chaque opération : elle doit rester la même d'une synchronisation à
  * l'autre, pour qu'une opération déjà importée soit ignorée. On prend la référence de la banque ;
  * à défaut, la date, le montant et le libellé, numérotés quand plusieurs opérations identiques
@@ -159,12 +166,13 @@ fun operationDate(rawLabel: String, bookingDate: LocalDate, transactionDate: Loc
  */
 fun List<BankOperation>.importKeys(accountUid: String): List<String> {
     val seen = mutableMapOf<String, Int>()
+    val prefix = importKeyPrefix(accountUid)
     return map { operation ->
         val reference = operation.reference?.takeIf { it.isNotBlank() }
         if (reference != null) {
-            "eb:$accountUid:ref:$reference"
+            "${prefix}ref:$reference"
         } else {
-            val base = "eb:$accountUid:${operation.bookingDate}|${operation.amountCents}|${normalizeLabel(operation.rawLabel)}"
+            val base = "$prefix${operation.bookingDate}|${operation.amountCents}|${normalizeLabel(operation.rawLabel)}"
             val index = seen.merge(base, 1, Int::plus)!!
             if (index == 1) base else "$base#$index"
         }

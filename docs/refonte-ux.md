@@ -147,7 +147,7 @@ et `data/Backup.kt` (la base).
 
 - « Sauvegarder » : un mot de passe tapé deux fois, puis le dossier, dans le sélecteur de fichiers
   du téléphone. Le fichier (`bank-AAAA-MM-JJ.banksave`) contient la base et les réglages, chiffrés
-  par le mot de passe ; jamais la clé de la banque ni la connexion. Message : « Fichier enregistré. »
+  par le mot de passe ; jamais la clé de la banque ni la session. Message : « Fichier enregistré. »
 - « Restaurer » : le fichier, son mot de passe, puis une confirmation (« Remplacer tes données ? »)
   qui dit de quand date le fichier et ce qu'il contient. Rien ne change avant elle. Ensuite tout
   est remplacé, Historique compris ; le message « Données du … restaurées. » porte « Annuler », et

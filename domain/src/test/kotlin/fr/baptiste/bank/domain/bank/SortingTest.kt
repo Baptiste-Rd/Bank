@@ -2,6 +2,7 @@ package fr.baptiste.bank.domain.bank
 
 import fr.baptiste.bank.domain.model.RuleMatchType
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 
@@ -96,6 +97,18 @@ class SortingTest {
         val booked = LocalDate.of(2026, 10, 27)
         val keys = listOf(BankOperation(null, LocalDate.of(2026, 10, 25), -5000, "RETRAIT DAB", bookingDate = booked)).importKeys("a")
         assertEquals(listOf("eb:a:2026-10-27|-5000|RETRAIT DAB"), keys)
+    }
+
+    @Test
+    fun `every key of an account starts with its prefix`() {
+        val operations = listOf(
+            BankOperation("ABC", java.time.LocalDate.of(2026, 10, 20), -300, "CAFE"),
+            BankOperation(null, java.time.LocalDate.of(2026, 10, 20), -300, "CAFE"),
+        )
+        for (key in operations.importKeys("uid-1")) assertTrue(key.startsWith(importKeyPrefix("uid-1")))
+        // Réécrire le début d'une clé donne la clé que l'autre identifiant aurait produite.
+        val rewritten = operations.importKeys("old").map { importKeyPrefix("new") + it.removePrefix(importKeyPrefix("old")) }
+        assertEquals(operations.importKeys("new"), rewritten)
     }
 
     @Test

@@ -5,7 +5,9 @@ import android.database.Cursor
 import android.net.Uri
 import androidx.sqlite.db.SupportSQLiteDatabase
 import fr.baptiste.bank.data.local.BankDatabase
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -101,7 +103,10 @@ class BackupRepository(
             previous.parentFile?.mkdirs()
             previous.writeBytes(before)
             try {
-                replace(loaded)
+                replace(loaded, undo = verified(BackupFile.unpack(before)))
+            } catch (error: CancellationException) {
+                previous.delete()
+                throw error
             } catch (error: Exception) {
                 previous.delete()
                 throw error as? BackupError ?: BackupError.Unreadable()
@@ -113,8 +118,12 @@ class BackupRepository(
     suspend fun undoRestore(): Boolean = mutex.withLock {
         withContext(Dispatchers.IO) {
             if (!previous.exists()) return@withContext false
+            val kept = verified(BackupFile.unpack(previous.readBytes()))
+            val now = verified(BackupFile.unpack(archive().second))
             try {
-                replace(verified(BackupFile.unpack(previous.readBytes())))
+                replace(kept, undo = now)
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 throw error as? BackupError ?: BackupError.Unreadable()
             }
@@ -148,7 +157,7 @@ class BackupRepository(
                     val source = database.openHelper.writableDatabase
                     schema = source.version
                     out.runInTransaction(Runnable { copyTables(source, target) })
-                    envelopes = count(source, "SELECT COUNT(*) FROM envelope WHERE is_group = 0 AND archived = 0")
+                    envelopes = count(source, ENVELOPES)
                     operations = count(source, OPERATIONS)
                 },
             )
@@ -169,7 +178,33 @@ class BackupRepository(
         return manifest to archive
     }
 
-    private suspend fun replace(loaded: LoadedBackup) {
+    /**
+     * Remplace la base, puis les réglages. Tout ce qui peut échouer à la lecture se fait avant la
+     * première écriture. Une fois la base remplacée, plus rien ne s'interrompt : les réglages
+     * suivent, et s'ils échouent la base revient à [undo]. Une restauration réussit donc en entier,
+     * ou ne change rien.
+     */
+    private suspend fun replace(loaded: LoadedBackup, undo: LoadedBackup) {
+        val values = BackupFile.decodeSettings(loaded.entries.getValue(BackupFile.SETTINGS))
+        copyIn(loaded)
+        withContext(NonCancellable) {
+            try {
+                settings.replaceAll(values)
+            } catch (error: Exception) {
+                copyIn(undo)
+                database.invalidationTracker.refreshVersionsAsync()
+                throw BackupError.Unreadable()
+            }
+            // Les écritures sont passées hors des DAO : on demande à Room de prévenir les écrans.
+            database.invalidationTracker.refreshVersionsAsync()
+            // La suite (périodes, synchronisation) se refait à chaque ouverture de l'app : son échec
+            // n'annule pas une restauration dont les données sont déjà en place.
+            runCatching { afterRestore(loaded.manifest.savedAt) }
+        }
+    }
+
+    /** La base de [loaded] à la place de la base ouverte, en une transaction. */
+    private fun copyIn(loaded: LoadedBackup) {
         val name = "$workName-in.db"
         context.deleteDatabase(name)
         val file = context.getDatabasePath(name)
@@ -181,21 +216,22 @@ class BackupRepository(
             // sauvegarde d'un schéma plus ancien arrive ici au schéma de l'app, ou échoue sans rien changer.
             val source = candidate.openHelper.writableDatabase
             // Un fichier illisible aurait été remplacé par une base vide : on ne restaure pas du vide à la place des données.
-            if (count(source, OPERATIONS) != loaded.manifest.operations) throw BackupError.Unreadable()
+            if (count(source, OPERATIONS) != loaded.manifest.operations || count(source, ENVELOPES) != loaded.manifest.envelopes) {
+                throw BackupError.Unreadable()
+            }
             database.runInTransaction(Runnable { copyTables(source, database.openHelper.writableDatabase) })
         } finally {
             candidate.close()
             context.deleteDatabase(name)
         }
-        settings.replaceAll(BackupFile.decodeSettings(loaded.entries.getValue(BackupFile.SETTINGS)))
-        // Les écritures sont passées hors des DAO : on demande à Room de prévenir les écrans.
-        database.invalidationTracker.refreshVersionsAsync()
-        afterRestore(loaded.manifest.savedAt)
     }
 
     companion object {
         private const val PREVIOUS = "previous.zip"
         private const val OPERATIONS = "SELECT COUNT(*) FROM transaction_record"
+
+        // Colonnes présentes depuis le schéma 1 : le compte vaut aussi pour un fichier d'un schéma plus ancien.
+        private const val ENVELOPES = "SELECT COUNT(*) FROM envelope WHERE archived = 0"
         private val SQLITE_HEADER = "SQLite format 3\u0000".toByteArray(Charsets.US_ASCII)
 
         private fun workName(demo: Boolean) = if (demo) "backup_demo" else "backup"

@@ -24,8 +24,14 @@ compris. Ce qu'il reste à faire est dans `docs/backlog.md`, les décisions de p
   - `Backup.kt` : `copyTables` recopie toutes les tables d'une base vers une autre, dans les deux
     sens. Restaurer ouvre d'abord le fichier avec Room (migrations), puis remplace dans une seule
     transaction ; les réglages suivent. Pas de redémarrage de l'app.
+  - Une restauration réussit en entier ou ne change rien : tout ce qui se lit se lit avant la
+    première écriture, et une fois la base remplacée, plus rien ne s'interrompt.
   - La connexion bancaire n'est ni sauvegardée ni touchée ; après une restauration,
     `BankSyncRepository.rewindTo` fait repartir la synchronisation d'avant la sauvegarde.
+  - Reconnexion : un compte que la banque redonne sous un autre identifiant, avec la même fin
+    d'IBAN, reprend le compte courant déjà relié et ses clés de dédoublonnage
+    (`BudgetRepository.linkBankAccount`, `importKeyPrefix`). Sans cela, la recette (désinstaller,
+    réinstaller, reconnecter) aurait pu compter les opérations du mois deux fois.
   - « Restaurer » d'une enveloppe arrêtée est devenu « Reprendre ».
 - `ci.yml` ne publie pas de release quand un push sur `main` ne touche que `docs/`, `.claude/` ou
   des fichiers `.md` ; les tests tournent toujours.
@@ -122,10 +128,10 @@ lot A continue avec F2 (clé de signature hors du dépôt) une fois F1 recetté.
 ## Restes connus
 
 - Lot A : pas de capture de « Reprendre » (la démo n'a pas d'enveloppe arrêtée) ; « Annuler » une
-  restauration n'est proposé que dans le message qui la suit ; base et réglages sont remplacés
-  l'un après l'autre (un arrêt de l'app entre les deux laisserait les anciens réglages) ; sur un
-  nouveau téléphone, les opérations entre la sauvegarde et le début du mois se récupèrent par
-  l'historique de la banque, à la main.
+  restauration n'est proposé que dans le message qui la suit, la copie d'avant reste ensuite
+  inutilisée jusqu'au lancement suivant ; sur un nouveau téléphone, les opérations entre la
+  sauvegarde et le début du mois ne reviennent pas seules ; si la banque ne donne pas la fin
+  d'IBAN, une reconnexion sous un autre identifiant crée encore un second compte courant.
 - Encart du bilan : espace vide sous ses boutons.
 - « mois-ci » s'affiche avec un trait d'union espacé dans « Ajouter de l'argent » (police).
 - Captures qui ne montrent pas encore le lot : une ligne « modifié depuis » (Historique de la démo

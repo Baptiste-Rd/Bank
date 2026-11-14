@@ -290,7 +290,7 @@ fun AppDialogs(
                         close()
                         // L'état d'avant est gardé jusqu'au prochain lancement : le message permet d'y revenir.
                         controller.notify("Données du ${restored.savedDay()} restaurées.", "Annuler") {
-                            backupViewModel.undoRestore { controller.notify("Restauration annulée.") }
+                            backupViewModel.undoRestore { failure -> controller.notify(failure ?: "Restauration annulée.") }
                         }
                     }
                 },

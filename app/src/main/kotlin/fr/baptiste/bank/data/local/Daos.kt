@@ -26,6 +26,10 @@ interface AccountDao {
     @Query("SELECT * FROM account WHERE type = 'CURRENT' AND external_uid IS NULL ORDER BY id LIMIT 1")
     suspend fun unlinkedCurrentAccount(): AccountEntity?
 
+    /** Les comptes courants déjà reliés à un autre identifiant de la banque, avec la même fin d'IBAN. */
+    @Query("SELECT * FROM account WHERE type = 'CURRENT' AND archived = 0 AND external_uid IS NOT NULL AND external_uid != :uid AND iban_suffix = :ibanSuffix")
+    suspend fun linkedCurrentAccountsEndingWith(uid: String, ibanSuffix: String): List<AccountEntity>
+
     @Query("UPDATE account SET external_uid = :uid, name = :name, iban_suffix = :ibanSuffix WHERE id = :id")
     suspend fun link(id: Long, uid: String, name: String, ibanSuffix: String?)
 
@@ -530,6 +534,13 @@ interface TransactionDao {
      */
     @Query("UPDATE transaction_record SET booking_date = :bookingDate, bank_date = COALESCE(:bankDate, bank_date) WHERE import_hash = :importHash")
     suspend fun updateBankDates(importHash: String, bookingDate: LocalDate, bankDate: LocalDate?)
+
+    /** Réécrit le début des clés de dédoublonnage d'un compte : [oldPrefix] devient [newPrefix]. */
+    @Query(
+        "UPDATE transaction_record SET import_hash = :newPrefix || substr(import_hash, length(:oldPrefix) + 1) " +
+            "WHERE account_id = :accountId AND substr(import_hash, 1, length(:oldPrefix)) = :oldPrefix",
+    )
+    suspend fun rekeyImports(accountId: Long, oldPrefix: String, newPrefix: String)
 
     /** Opérations bancaires et leurs jours, pour le diagnostic des dates. */
     @Query(

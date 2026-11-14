@@ -38,6 +38,7 @@ import fr.baptiste.bank.domain.bank.DateCorrection
 import fr.baptiste.bank.domain.bank.DateReport
 import fr.baptiste.bank.domain.bank.DatedOperation
 import fr.baptiste.bank.domain.bank.dateReport
+import fr.baptiste.bank.domain.bank.importKeyPrefix
 import fr.baptiste.bank.domain.bank.importKeys
 import fr.baptiste.bank.domain.bank.matching
 import fr.baptiste.bank.domain.bank.normalizeLabel
@@ -982,7 +983,7 @@ class BudgetRepository(
         envelopeDao.restore(id)
         ensurePeriods()
         syncCoverage()
-        record("${before.envelopesBefore.firstOrNull()?.name.orEmpty()} de nouveau active", before)
+        record("${before.envelopesBefore.firstOrNull()?.name.orEmpty()} reprise", before)
     }
 
     suspend fun setMonthlyIncome(income: Money) {
@@ -1050,6 +1051,17 @@ class BudgetRepository(
     suspend fun linkBankAccount(uid: String, name: String, ibanSuffix: String?): Long {
         val accountDao = database.accountDao()
         accountDao.findByExternalUid(uid)?.let { return it.id }
+        // Le même compte, redonné par la banque sous un autre identifiant (reconnexion, nouveau
+        // téléphone après une restauration) : on le reprend, et ses opérations restent reconnues.
+        // Sans fin d'IBAN, ou avec plusieurs candidats, on ne devine pas.
+        val previous = ibanSuffix?.let { accountDao.linkedCurrentAccountsEndingWith(uid, it).singleOrNull() }
+        if (previous != null) {
+            database.withTransaction {
+                transactionDao.rekeyImports(previous.id, importKeyPrefix(previous.externalUid!!), importKeyPrefix(uid))
+                accountDao.link(previous.id, uid, name, ibanSuffix)
+            }
+            return previous.id
+        }
         val existing = accountDao.unlinkedCurrentAccount()
         return if (existing != null) {
             accountDao.link(existing.id, uid, name, ibanSuffix)

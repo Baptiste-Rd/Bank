@@ -294,7 +294,8 @@ class BankSyncRepository(
             operations = operations,
         )
         store.edit {
-            it[Keys.lastSync] = System.currentTimeMillis()
+            // Une restauration a pu reculer ce moment pendant l'appel à la banque (rewindTo) : on le lui laisse.
+            if (it[Keys.lastSync] == preferences[Keys.lastSync]) it[Keys.lastSync] = System.currentTimeMillis()
             if (balance != null) it[Keys.balance] = balance
             it[Keys.balanceTypes] = bankBalances.entries.joinToString(";") { (type, cents) -> "$type=$cents" }
             chosen?.let { c ->

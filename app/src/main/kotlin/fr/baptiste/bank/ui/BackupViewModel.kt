@@ -66,8 +66,16 @@ class BackupViewModel(private val repository: BackupRepository) : ViewModel() {
         onDone(backup.manifest)
     }
 
-    fun undoRestore(onDone: () -> Unit) = act {
-        if (repository.undoRestore()) onDone()
+    /** [onDone] reçoit null quand tout est revenu, sinon la phrase à montrer : la fenêtre est déjà fermée. */
+    fun undoRestore(onDone: (String?) -> Unit) {
+        viewModelScope.launch {
+            val failure = try {
+                if (repository.undoRestore()) null else BackupError.Unreadable().message
+            } catch (error: BackupError) {
+                error.message
+            }
+            onDone(failure)
+        }
     }
 
     /** Le même mot de passe donne les mêmes caractères, quel que soit le clavier (accents composés ou non). */

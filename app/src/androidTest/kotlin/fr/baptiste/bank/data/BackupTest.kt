@@ -339,6 +339,66 @@ class BackupTest {
     }
 
     @Test
+    fun aFailureAfterTheDataIsInPlaceDoesNotUndoTheRestore() = runBlocking<Unit> {
+        fill()
+        val rowsSaved = rows()
+        val settingsSaved = settings.exportAll()
+        val failing = backupRepository(afterRestore = { throw IllegalStateException("réseau") })
+        val sealed = failing.sealedBackup(password.toCharArray(), fast)
+        change()
+
+        failing.restore(failing.open(sealed, password.toCharArray()))
+
+        // Base et réglages sont ceux du fichier, ensemble, et l'état d'avant reste annulable.
+        assertEquals(rowsSaved, rows())
+        assertEquals(settingsSaved, settings.exportAll())
+        assertTrue(failing.canUndoRestore)
+    }
+
+    @Test
+    fun anEmptyBaseIsNeverRestoredInPlaceOfAFileWithoutOperations() = runBlocking<Unit> {
+        // Des enveloppes, aucune opération : le fichier illisible ne passe pas pour autant.
+        repository.saveEnvelope(
+            fr.baptiste.bank.domain.model.Envelope(
+                id = 0,
+                name = "Courses",
+                type = fr.baptiste.bank.domain.model.EnvelopeType.DAILY,
+                frequency = fr.baptiste.bank.domain.model.EnvelopeType.DAILY.defaultFrequency,
+                amount = Money.euros(300),
+                status = fr.baptiste.bank.domain.model.EnvelopeType.DAILY.defaultStatus,
+            ),
+        )
+        val rowsBefore = rows()
+        val entries = BackupFile.unpack(BackupFile.open(backup.sealedBackup(password.toCharArray(), fast), password.toCharArray()))
+        assertEquals(0, BackupManifest.decode(entries.getValue(BackupFile.MANIFEST)).operations)
+        val broken = entries + (BackupFile.DATABASE to (entries.getValue(BackupFile.DATABASE).copyOf(16) + ByteArray(4096)))
+        val loaded = backup.open(BackupFile.seal(BackupFile.pack(broken), password.toCharArray(), fast), password.toCharArray())
+        assertTrue(runCatching { backup.restore(loaded) }.exceptionOrNull() is BackupError)
+        assertEquals(rowsBefore, rows())
+    }
+
+    @Test
+    fun aBankAccountGivenUnderANewIdentifierKeepsItsOperations() = runBlocking<Unit> {
+        // Nouveau téléphone après une restauration : la banque peut redonner le même compte sous un autre identifiant.
+        val day = java.time.LocalDate.now().withDayOfMonth(1)
+        val operations = listOf(
+            fr.baptiste.bank.domain.bank.BankOperation("REF-1", day, -2_340, "CB PRIMEUR"),
+            fr.baptiste.bank.domain.bank.BankOperation(null, day, -300, "CB CAFE"),
+        )
+        repository.importBankOperations("ancien-uid", "Compte courant", "1234", operations)
+        val before = rows().getValue("transaction_record").size
+        val second = repository.importBankOperations("nouvel-uid", "Compte courant", "1234", operations)
+
+        assertEquals(0, second.added)
+        assertEquals(before, rows().getValue("transaction_record").size)
+        val accounts = database.accountDao().active().filter { it.type == fr.baptiste.bank.domain.model.AccountType.CURRENT }
+        assertEquals(listOf("nouvel-uid"), accounts.map { it.externalUid })
+        // Une fin d'IBAN différente est un autre compte : rien n'est repris.
+        repository.importBankOperations("autre-uid", "Autre compte", "9876", operations)
+        assertEquals(before + operations.size, rows().getValue("transaction_record").size)
+    }
+
+    @Test
     fun whatFollowsARestoreKnowsWhenTheFileWasSaved() = runBlocking<Unit> {
         fill()
         var told: Long? = null
