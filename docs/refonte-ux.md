@@ -150,8 +150,8 @@ et `data/Backup.kt` (la base).
   par le mot de passe ; jamais la clé de la banque ni la session. Message : « Fichier enregistré. »
 - « Restaurer » : le fichier, son mot de passe, puis une confirmation (« Remplacer tes données ? »)
   qui dit de quand date le fichier et ce qu'il contient. Rien ne change avant elle. Ensuite tout
-  est remplacé, Historique compris ; le message « Données du … restaurées. » porte « Annuler », et
-  l'état d'avant est gardé jusqu'au prochain lancement.
+  est remplacé, Historique compris ; le message « Données du … restaurées. » porte « Annuler ».
+  L'état d'avant est gardé le temps de ce message, puis supprimé (décision D7).
 - Un fichier d'une version plus ancienne se restaure : il passe par les migrations de la base. Un
   fichier d'une version plus récente, un mauvais mot de passe ou un fichier de la démo sont refusés
   avec une phrase, sans rien changer.

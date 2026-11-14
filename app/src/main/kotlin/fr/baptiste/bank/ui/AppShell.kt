@@ -163,7 +163,8 @@ class AppController(
             Tab.HOME, Tab.OPERATIONS -> "Dépense" to OpenDialog.Expense
         }
 
-    fun notify(message: String, action: String? = null, onAction: () -> Unit = {}) {
+    /** [onDismiss] : le message est parti sans que son action serve (délai, autre message, geste). */
+    fun notify(message: String, action: String? = null, onDismiss: () -> Unit = {}, onAction: () -> Unit = {}) {
         scope.launch {
             snackbar.currentSnackbarData?.dismiss()
             val result = snackbar.showSnackbar(
@@ -173,7 +174,7 @@ class AppController(
                 // Un message qui porte « Annuler » reste le temps de s'en servir.
                 duration = if (action != null) SnackbarDuration.Long else SnackbarDuration.Short,
             )
-            if (result == SnackbarResult.ActionPerformed) onAction()
+            if (result == SnackbarResult.ActionPerformed) onAction() else onDismiss()
         }
     }
 }
@@ -289,7 +290,12 @@ fun AppDialogs(
                         backupViewModel.reset()
                         close()
                         // L'état d'avant est gardé jusqu'au prochain lancement : le message permet d'y revenir.
-                        controller.notify("Données du ${restored.savedDay()} restaurées.", "Annuler") {
+                        controller.notify(
+                            "Données du ${restored.savedDay()} restaurées.",
+                            "Annuler",
+                            // Le message parti, « Annuler » n'est plus proposé : la copie d'avant non plus (D7).
+                            onDismiss = backupViewModel::forgetUndo,
+                        ) {
                             backupViewModel.undoRestore { failure -> controller.notify(failure ?: "Restauration annulée.") }
                         }
                     }

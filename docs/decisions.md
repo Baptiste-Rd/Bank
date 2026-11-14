@@ -96,6 +96,10 @@ tu veux nuancer.
   au gel, et « Restaurer » a deux sens.
 - Recommandation : A.
 - Comment le vérifier : relecture `revue-naive` de l'écran Réglages et du bas de Budget.
+- Nuance, le 2026-11-14, laissée par Baptiste au choix de Claude : les fenêtres gardent « Mot de
+  passe », « Encore une fois », « Continuer », « Remplacer tes données ? », et les messages
+  « Fichier enregistré. », « Données du … restaurées. », « Restauration annulée. ». Les deux lignes
+  des Réglages n'ont pas de détail. « Reprendre » donne « … reprise » à l'Historique.
 
 ## D7 · Que fait « Restaurer » des données déjà sur le téléphone ?
 
@@ -108,6 +112,9 @@ tu veux nuancer.
   désinstaller pour revenir à une sauvegarde.
 - Recommandation : A.
 - Comment le vérifier : recette de F1 ; un test sur l'appareil annule une restauration.
+- Nuance, le 2026-11-14, laissée par Baptiste au choix de Claude : la copie d'avant est supprimée
+  dès que le message qui porte « Annuler » disparaît (au plus tard au lancement suivant). Une copie
+  en clair qui ne peut plus servir ne reste pas sur le téléphone.
 
 ## Décisions prises avant ce registre
 

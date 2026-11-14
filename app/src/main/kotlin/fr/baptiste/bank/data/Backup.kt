@@ -132,6 +132,11 @@ class BackupRepository(
         }
     }
 
+    /** Supprime la copie d'avant la dernière restauration, quand « Annuler » n'est plus proposé. */
+    suspend fun forgetUndo() = mutex.withLock {
+        withContext(Dispatchers.IO) { previous.delete() }
+    }
+
     private fun verified(entries: Map<String, ByteArray>): LoadedBackup {
         val manifest = BackupManifest.decode(entries.getValue(BackupFile.MANIFEST))
         if (manifest.format > BackupFile.FORMAT || manifest.schema > database.openHelper.readableDatabase.version) throw BackupError.Newer()

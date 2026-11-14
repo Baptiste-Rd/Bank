@@ -271,6 +271,16 @@ class BackupTest {
     }
 
     @Test
+    fun theStateKeptByARestoreIsForgottenOnceUndoIsNoLongerOffered() = runBlocking<Unit> {
+        fill()
+        backup.restore(backup.current())
+        assertTrue(backup.canUndoRestore)
+        backup.forgetUndo()
+        assertFalse(backup.canUndoRestore)
+        assertFalse(backup.undoRestore())
+    }
+
+    @Test
     fun theStateKeptByARestoreIsForgottenAtTheNextLaunch() = runBlocking<Unit> {
         fill()
         val kept = BackupRepository(context, database, settings, demo = false, build = 1)

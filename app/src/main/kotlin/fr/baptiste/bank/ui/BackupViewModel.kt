@@ -78,6 +78,11 @@ class BackupViewModel(private val repository: BackupRepository) : ViewModel() {
         }
     }
 
+    /** Supprime la copie gardée par la dernière restauration : elle ne peut plus servir. */
+    fun forgetUndo() {
+        viewModelScope.launch { repository.forgetUndo() }
+    }
+
     /** Le même mot de passe donne les mêmes caractères, quel que soit le clavier (accents composés ou non). */
     private fun chars(password: String): CharArray = Normalizer.normalize(password, Normalizer.Form.NFC).toCharArray()
 

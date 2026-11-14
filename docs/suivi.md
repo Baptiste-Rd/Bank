@@ -128,8 +128,7 @@ lot A continue avec F2 (clé de signature hors du dépôt) une fois F1 recetté.
 ## Restes connus
 
 - Lot A : pas de capture de « Reprendre » (la démo n'a pas d'enveloppe arrêtée) ; « Annuler » une
-  restauration n'est proposé que dans le message qui la suit, la copie d'avant reste ensuite
-  inutilisée jusqu'au lancement suivant ; sur un nouveau téléphone, les opérations entre la
+  restauration n'est proposé que dans le message qui la suit ; sur un nouveau téléphone, les opérations entre la
   sauvegarde et le début du mois ne reviennent pas seules ; si la banque ne donne pas la fin
   d'IBAN, une reconnexion sous un autre identifiant crée encore un second compte courant.
 - Encart du bilan : espace vide sous ses boutons.
