@@ -201,12 +201,16 @@ fun SheetAlert(
         onDismissRequest = onDismissRequest,
         sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
     ) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) { dismissButton?.invoke() }
-            androidx.compose.runtime.CompositionLocalProvider(
-                androidx.compose.material3.LocalTextStyle provides MaterialTheme.typography.titleMedium,
-            ) { Box(Modifier.weight(2f), contentAlignment = Alignment.Center) { title() } }
-            Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) { confirmButton() }
+        // L'en-tête est de la navigation : sa taille de texte est plafonnée, et chaque bouton prend la
+        // largeur de son libellé, le titre le reste. Sans cela, à 200 %, « Annuler » se coupait en deux.
+        CappedFontScale {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(contentAlignment = Alignment.CenterStart) { dismissButton?.invoke() }
+                androidx.compose.runtime.CompositionLocalProvider(
+                    androidx.compose.material3.LocalTextStyle provides MaterialTheme.typography.titleMedium,
+                ) { Box(Modifier.weight(1f).padding(horizontal = 8.dp), contentAlignment = Alignment.Center) { title() } }
+                Box(contentAlignment = Alignment.CenterEnd) { confirmButton() }
+            }
         }
         Column(
             Modifier

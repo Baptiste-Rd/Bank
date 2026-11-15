@@ -104,7 +104,7 @@ fun SaveBackupDialog(state: BackupUiState, onSave: (Uri, String) -> Unit, onDism
             TextButton(
                 onClick = { create.launch("bank-${LocalDate.now()}.${BackupFile.EXTENSION}") },
                 enabled = password.isNotEmpty() && password == again && !state.busy,
-            ) { Text("Sauvegarder", fontWeight = FontWeight.SemiBold) }
+            ) { Text("Continuer", fontWeight = FontWeight.SemiBold) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } },
     )
