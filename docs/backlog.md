@@ -94,3 +94,4 @@ que l'app soit aboutie. À la relecture mensuelle, une idée qui ne sert aucune 
 - 2026-11-09 · Lot 9, revue du tri par Claude depuis le bilan d'un mois · T2
 - 2026-11-09 · « Prévoir une dépense » · T5
 - 2026-11-10 · Connexion à la banque sans profil de développeur (D5 = A) · aucune tâche
+- 2026-11-15 · Enveloppe à 0 € pour observer un poste avant d'en fixer le montant : sans signal de dépassement, avec sa moyenne visible sur sa fiche (le formulaire la propose déjà) · T4
