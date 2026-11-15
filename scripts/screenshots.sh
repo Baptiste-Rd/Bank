@@ -198,6 +198,10 @@ shot_budget glass-texte-200-reglages --es tab HOME --es sheet SETTINGS
 shot_budget glass-texte-200-sauvegarder --es tab HOME --es dialog BACKUP
 shot_budget glass-texte-200-restaurer --es tab HOME --es dialog RESTORE
 shot_budget glass-texte-200-restaurer-confirmer --es tab HOME --es dialog RESTORE_CONFIRM
+# Les autres fenêtres qui partagent l'en-tête « Annuler / titre / action ».
+shot_budget glass-texte-200-declasser --es tab OPERATIONS --es dialog UNSORT
+shot_budget glass-texte-200-verifier-dates --es tab OPERATIONS --es dialog DATES
+shot_budget glass-texte-200-comptes --es tab SAVINGS --es dialog ACCOUNTS
 adb shell settings put system font_scale 1.0
 # Lot 8 : rester appuyé sur Courses, la poser dans Transports (en dernier : le déplacement change la démo).
 shot_budget glass-budget-appui --es tab BUDGET

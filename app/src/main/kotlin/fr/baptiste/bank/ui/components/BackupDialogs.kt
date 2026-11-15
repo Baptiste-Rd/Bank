@@ -85,7 +85,7 @@ fun SaveBackupDialog(state: BackupUiState, onSave: (Uri, String) -> Unit, onDism
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    "Toutes tes données dans un fichier chiffré, à garder hors du téléphone. La clé de la banque n'y est pas.",
+                    "Toutes tes données dans un fichier protégé par un mot de passe, à garder hors du téléphone.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -93,9 +93,9 @@ fun SaveBackupDialog(state: BackupUiState, onSave: (Uri, String) -> Unit, onDism
                 PasswordField(
                     again,
                     { again = it },
-                    "Encore une fois",
+                    "Le même mot de passe",
                     isError = different,
-                    help = if (different) "Les deux mots de passe diffèrent." else "Sans lui, le fichier ne se lit plus.",
+                    help = if (different) "Les deux mots de passe diffèrent." else "Mot de passe oublié, fichier inutilisable.",
                 )
                 Progress(state)
             }
@@ -150,7 +150,7 @@ fun RestoreBackupDialog(
                 BlurBehindWindow()
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Fichier du ${found.savedDay()} : ${plural(found.envelopes, "enveloppe", "enveloppes")}, ${plural(found.operations, "opération", "opérations")}.")
-                    Text("Ce qui est sur ce téléphone est remplacé.")
+                    Text("Ce qui est sur ce téléphone sera remplacé. Tu pourras annuler juste après.")
                     Progress(state)
                 }
             },
@@ -166,8 +166,15 @@ fun RestoreBackupDialog(
         title = { Text("Restaurer") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                PasswordField(password, { password = it }, "Mot de passe", help = "Celui choisi au moment de sauvegarder.")
-                Progress(state)
+                PasswordField(
+                    password,
+                    { password = it },
+                    "Mot de passe",
+                    // Le refus se lit sur le champ lui-même, comme pour deux mots de passe différents.
+                    isError = state.error != null,
+                    help = state.error ?: "Celui choisi au moment de sauvegarder.",
+                )
+                if (state.busy) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
         },
         confirmButton = {

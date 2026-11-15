@@ -97,7 +97,7 @@ tu veux nuancer.
 - Recommandation : A.
 - Comment le vérifier : relecture `revue-naive` de l'écran Réglages et du bas de Budget.
 - Nuance, le 2026-11-14, laissée par Baptiste au choix de Claude : les fenêtres gardent « Mot de
-  passe », « Encore une fois », « Continuer », « Remplacer tes données ? », et les messages
+  passe », « Le même mot de passe », « Continuer », « Remplacer tes données ? », et les messages
   « Fichier enregistré. », « Données du … restaurées. », « Restauration annulée. ». Les deux lignes
   des Réglages n'ont pas de détail. « Reprendre » donne « … reprise » à l'Historique.
 
@@ -114,7 +114,9 @@ tu veux nuancer.
 - Comment le vérifier : recette de F1 ; un test sur l'appareil annule une restauration.
 - Nuance, le 2026-11-14, laissée par Baptiste au choix de Claude : la copie d'avant est supprimée
   dès que le message qui porte « Annuler » disparaît (au plus tard au lancement suivant). Une copie
-  en clair qui ne peut plus servir ne reste pas sur le téléphone.
+  en clair qui ne peut plus servir ne reste pas sur le téléphone. Ce message reste affiché jusqu'à
+  ce qu'on y touche : c'est le seul endroit où « Annuler » une restauration est proposé. Cette
+  nuance l'emporte sur « jusqu'au prochain lancement » de l'option A.
 
 ## Décisions prises avant ce registre
 

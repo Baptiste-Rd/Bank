@@ -163,16 +163,24 @@ class AppController(
             Tab.HOME, Tab.OPERATIONS -> "Dépense" to OpenDialog.Expense
         }
 
-    /** [onDismiss] : le message est parti sans que son action serve (délai, autre message, geste). */
-    fun notify(message: String, action: String? = null, onDismiss: () -> Unit = {}, onAction: () -> Unit = {}) {
+    /**
+     * [onDismiss] : le message est parti sans que son action serve (délai, autre message, croix).
+     * [sticky] : il reste jusqu'à ce qu'on y touche, avec une croix pour le fermer ; pour une action
+     * qu'on ne retrouve nulle part ailleurs.
+     */
+    fun notify(message: String, action: String? = null, sticky: Boolean = false, onDismiss: () -> Unit = {}, onAction: () -> Unit = {}) {
         scope.launch {
             snackbar.currentSnackbarData?.dismiss()
             val result = snackbar.showSnackbar(
                 message = message,
                 actionLabel = action,
-                withDismissAction = action == null,
+                withDismissAction = action == null || sticky,
                 // Un message qui porte « Annuler » reste le temps de s'en servir.
-                duration = if (action != null) SnackbarDuration.Long else SnackbarDuration.Short,
+                duration = when {
+                    sticky -> SnackbarDuration.Indefinite
+                    action != null -> SnackbarDuration.Long
+                    else -> SnackbarDuration.Short
+                },
             )
             if (result == SnackbarResult.ActionPerformed) onAction() else onDismiss()
         }
@@ -289,10 +297,11 @@ fun AppDialogs(
                     backupViewModel.restore { restored ->
                         backupViewModel.reset()
                         close()
-                        // L'état d'avant est gardé jusqu'au prochain lancement : le message permet d'y revenir.
+                        // L'état d'avant est gardé le temps de ce message, qui reste jusqu'à ce qu'on y touche (D7).
                         controller.notify(
                             "Données du ${restored.savedDay()} restaurées.",
                             "Annuler",
+                            sticky = true,
                             // Le message parti, « Annuler » n'est plus proposé : la copie d'avant non plus (D7).
                             onDismiss = backupViewModel::forgetUndo,
                         ) {

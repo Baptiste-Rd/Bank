@@ -29,7 +29,7 @@ class LoadedBackup internal constructor(val manifest: BackupManifest, internal v
  *   jour comme après n'importe quelle écriture ; si quoi que ce soit échoue, rien n'a changé.
  *
  * Avant de remplacer, l'état d'avant est gardé dans le stockage privé ([undoRestore]), jusqu'au
- * prochain lancement ([forgetPrevious]).
+ * prochain lancement au plus tard ([forgetUndo], [forgetPrevious]).
  */
 class BackupRepository(
     private val context: Context,
