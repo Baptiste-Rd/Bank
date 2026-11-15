@@ -100,7 +100,7 @@ sealed interface OpenDialog {
     data class EnvelopeEditor(val envelope: Envelope?, val returnToSort: OperationRow? = null) : OpenDialog
     data object Bank : OpenDialog
 
-    /** « Sauvegarder » : toutes les données dans un fichier chiffré. */
+    /** « Sauvegarder » : toutes les données dans un fichier protégé par un mot de passe. */
     data object Backup : OpenDialog
 
     /**
@@ -276,7 +276,7 @@ fun AppDialogs(
                     backupViewModel.save(uri, password) {
                         backupViewModel.reset()
                         close()
-                        controller.notify("Fichier enregistré.")
+                        controller.notify("Fichier enregistré. Copie-le hors du téléphone.")
                     }
                 },
                 onDismiss = {

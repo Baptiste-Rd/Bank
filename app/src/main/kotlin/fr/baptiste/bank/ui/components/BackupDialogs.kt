@@ -150,7 +150,7 @@ fun RestoreBackupDialog(
                 BlurBehindWindow()
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Fichier du ${found.savedDay()} : ${plural(found.envelopes, "enveloppe", "enveloppes")}, ${plural(found.operations, "opération", "opérations")}.")
-                    Text("Ce qui est sur ce téléphone sera remplacé. Tu pourras annuler juste après.")
+                    Text("Ce qui est sur ce téléphone sera remplacé. Le message qui suit permet d'annuler, tant qu'il est affiché.")
                     Progress(state)
                 }
             },

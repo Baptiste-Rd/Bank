@@ -98,8 +98,9 @@ tu veux nuancer.
 - Comment le vérifier : relecture `revue-naive` de l'écran Réglages et du bas de Budget.
 - Nuance, le 2026-11-14, laissée par Baptiste au choix de Claude : les fenêtres gardent « Mot de
   passe », « Le même mot de passe », « Continuer », « Remplacer tes données ? », et les messages
-  « Fichier enregistré. », « Données du … restaurées. », « Restauration annulée. ». Les deux lignes
-  des Réglages n'ont pas de détail. « Reprendre » donne « … reprise » à l'Historique.
+  « Fichier enregistré. Copie-le hors du téléphone. », « Données du … restaurées. » et
+  « Restauration annulée. ». Les deux lignes des Réglages n'ont pas de détail. « Reprendre » donne
+  « … reprise » à l'Historique.
 
 ## D7 · Que fait « Restaurer » des données déjà sur le téléphone ?
 
