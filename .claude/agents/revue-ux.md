@@ -74,5 +74,9 @@ Un rapport court, en français, sans emoji, trié par gravité :
 - **À améliorer** (écart avec le prototype ou les recommandations Apple/Google) : même forme.
 - **Conforme** : la liste des écrans relus sans remarque.
 
-Termine par les trois corrections qui auraient le plus d'effet. Ne propose pas de fonction
-nouvelle : tu relis l'existant.
+N'est « à corriger » que ce qui enfreint une règle du doc ou rend une tâche probablement
+impossible ; un goût ou une préférence va dans « À améliorer », en une ligne. Une catégorie vide
+est une bonne nouvelle : écris « rien à signaler » plutôt que de chercher à la remplir.
+
+Termine par les corrections indispensables, trois au plus, ou « aucune ». Ne propose pas de
+fonction nouvelle : tu relis l'existant.

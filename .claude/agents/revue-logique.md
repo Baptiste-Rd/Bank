@@ -103,6 +103,13 @@ Un rapport court, en français, sans emoji, trié par gravité :
 - **Règle non respectée** : vocabulaire, confidentialité, démo, annulation, tests.
 - **Conforme** : ce qui a été vérifié sans remarque, en quelques lignes.
 
+- **Optionnel** : tout le reste, une ligne par point, sans correction détaillée.
+
+Ne classe au-dessus d'« Optionnel » que ce qui rend un chiffre faux, casse un invariant de
+`docs/produit.md`, une règle de `CLAUDE.md` ou la fiche du lot. Une catégorie vide est une bonne
+nouvelle : écris « rien à signaler » plutôt que de chercher à la remplir. Ne propose ni couche,
+ni garde-fou, ni test pour un cas qui ne peut pas arriver.
+
 Chaque point dit : où (fichier et fonction, ou écran), ce qui se passe, la règle ou le principe
-en jeu, et la correction la plus simple. Termine par les trois corrections qui auraient le plus
-d'effet. Ne propose pas de fonction nouvelle sauf pour lever un blocage.
+en jeu, et la correction la plus simple. Termine par les corrections indispensables, trois au
+plus, ou « aucune ». Ne propose pas de fonction nouvelle sauf pour lever un blocage.

@@ -48,7 +48,8 @@ Un lot traite un à trois éléments du backlog qui touchent le même écran ou 
      dire les gestes que Baptiste fera sur son téléphone et ce qu'il devra voir ;
    - ce qui est retiré (mots, boutons, écrans, code) ;
    - ce qui est hors du lot.
-   Baptiste valide la fiche. Sans validation, pas de code.
+   Baptiste valide la fiche. Sans validation, pas de code. La fiche validée s'écrit dans
+   « Suite » de `docs/suivi.md`, pour qu'une nouvelle conversation reparte d'elle.
 2. **Décision,** si la fiche contient un choix de produit (voir plus haut).
 3. **Prototype cliquable** seulement pour une interaction nouvelle, testé avec la tâche concernée.
 4. **Développement** sur une branche `feature/...`. Pour une règle de calcul, le test s'écrit
@@ -60,6 +61,11 @@ Un lot traite un à trois éléments du backlog qui touchent le même écran ou 
    - `revue-ux` : rendu, textes, mots autorisés, règles d'Apple et de Google.
    On corrige, ils relisent. Si `revue-naive` échoue sur une tâche que le lot sert, le lot n'est
    pas fini, même si les deux autres passent.
+   - Seul est « à corriger » ce qui rend un chiffre faux, casse un invariant, une règle de ce
+     fichier ou la fiche. Le reste est optionnel : une ligne dans « Idées » ou « Restes connus ».
+   - Une correction issue d'une relecture n'ajoute aucun mécanisme absent de la fiche. S'il en
+     faut un, on revient vers Baptiste.
+   - Deux tours au plus (corriger, puis relire). Au-delà, on s'arrête et on revient vers Baptiste.
 6. **CI,** puis fusion en avance rapide sur `main` et release `build-N`.
 7. **Recette par Baptiste** sur son téléphone, avec les gestes de la fiche. Le lot est terminé
    quand Baptiste l'écrit, pas avant.
@@ -70,6 +76,11 @@ Un lot traite un à trois éléments du backlog qui touchent le même écran ou 
 
 - **Dire ce qui n'a pas été vérifié.** Un compte rendu de lot sépare ce qui est prouvé (test,
   capture relue) de ce qui est supposé. « Fait » sans preuve s'écrit « fait, non vérifié ».
+- **Une conversation par lot.** Une conversation longue oublie ses consignes et accumule les
+  corrections. Un lot démarre dans une conversation neuve, depuis `docs/suivi.md`. Une enquête qui
+  lit beaucoup de fichiers se fait dans un sous-agent, qui rend ses preuves (fichier, ligne, calcul).
+- **Un écart de chiffre se prouve avant de se corriger** : un test qui échoue d'abord, puis la plus
+  petite correction qui le fait passer.
 - **Deux essais, pas trois.** Si le critère de réussite échoue deux fois, on arrête de coder et on
   revient vers Baptiste avec l'analyse et deux options.
 - **Pas de reste silencieux.** Ce qui est repoussé s'écrit dans « Restes connus » de `suivi.md`.
