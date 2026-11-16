@@ -19,6 +19,21 @@ tu veux nuancer.
 - Comment le vérifier : la tâche ou la mesure qui dira si le choix était bon.
 ```
 
+## D8 · Que montre le plan du mois quand de l'argent vient d'ailleurs que du salaire ?
+
+- État : proposée
+- Pourquoi maintenant : L10. I5 dit « somme des lignes = salaire », mais un ajout depuis
+  « Disponible sur le compte » ou depuis une autre famille gonfle « Au quotidien » (constat :
+  2 079 € de lignes pour 1 986 € de salaire).
+- Option A, le plan reste le salaire : « Au quotidien » ne compte que sa part du salaire ; l'ajout
+  s'écrit dessous, « + 93 € ajoutés depuis le compte » · I5 tient tel quel, le plan se vérifie
+  d'un coup d'œil · une ligne de plus sous « Au quotidien » quand cela arrive.
+- Option B, le plan devient tout l'argent du mois : une ligne « Disponible sur le compte » en tête,
+  et I5 devient « somme des lignes = salaire + ajouts » · la carte dit d'où vient tout l'argent ·
+  l'invariant change, et « Salaire 1 986 € » ne suffit plus comme titre.
+- Recommandation : A.
+- Comment le vérifier : test `I5` ; la carte de Baptiste additionne à son salaire.
+
 ## D5 · Pour qui est l'app ?
 
 - État : prise le 2026-11-10 : option A

@@ -35,6 +35,20 @@ Sévérité : 4 perte de données ou blocage · 3 gêne majeure sur une tâche �
   Vacances affiche le réuni en grand et l'objectif de l'année en second.
 - [ ] **L5** (2) Sources d'une couverture. *Réussi quand :* une enveloppe en retard n'est jamais
   proposée d'office ; test sur `coverSources`.
+- [ ] **L10** (3) Plan du mois : I5 cassé et sans test. Constat du 2026-11-16 (téléphone) : lignes
+  2 079 € pour un salaire de 1 986 €. Cause : « Au quotidien » ajoute les ajouts du mois venus de
+  « Disponible sur le compte » ou d'une enveloppe d'une autre famille, sans les retirer d'ailleurs
+  (`Dashboard.kt` 209-224). Décision D8. *Réussi quand :* le test `I5` (salaire 2 000 €, 93 €
+  ajoutés depuis le compte à une enveloppe du quotidien) donne 2 000 € pour la somme des lignes.
+- [ ] **L11** (3) « À surveiller » oublie une enveloppe dépassée. Constat du 2026-11-16 : Transports
+  (dépassé de 28 €) absent, trois « Prévu » affichés. Cause : `alerts.take(3)` sans tri, ordre
+  alphabétique de la base (`GlassHome.kt` 162). T3. *Réussi quand :* un test met les dépassées
+  avant les prévues, puis par montant ; quatre alertes dont une dépassée gardent celle-ci.
+- [ ] **L12** (2) Arrondis contradictoires sur une même ligne (I1). Constat du 2026-11-16 :
+  « −27 € » et « Dépassé 28 € » ; « 26 € » et « −175 € vs 200 € ». Cause : `Money.summary()`
+  arrondit −27,50 vers −27 (`MoneyFormat.kt` 38), et l'écart d'épargne se calcule avant
+  l'arrondi. *Réussi quand :* `Money(-2750).summary()` donne « −28 € » ; la puce d'épargne est
+  l'écart des deux montants affichés.
 - [ ] **L9** (1) Démo calculée par les vraies fonctions. *Réussi quand :* I10 a son test ;
   l'objectif Voiture de la démo affiche la part que `goalMonthly` calcule.
 
@@ -85,6 +99,21 @@ Sévérité : 4 perte de données ou blocage · 3 gêne majeure sur une tâche �
 - [ ] **M2** (2) Grille de `revue-ux` complétée (fait dans le fichier de l'agent ; à vérifier au
   premier lot qui touche l'interface).
 - [ ] **E13**, **F8** (1) Finitions : avec le lot qui touche le même écran.
+
+Constats de l'audit du 2026-11-16 (captures du téléphone), à ranger dans le lot qui touche
+l'écran :
+
+- [ ] **E14** (2) Bilan de l'année : la moyenne par catégorie porte sur les mois terminés, le total
+  inclut le mois en cours (« 117 € », « 3,66 € / mois »). Le calcul est juste, l'écran ne le dit
+  pas. Un mot à changer : décision de Baptiste.
+- [ ] **E15** (2) Une même enveloppe change de couleur selon l'écran (Nourriture orange dans Budget,
+  grise dans Résumé et Opérations).
+- [ ] **E16** (2) Épargne : « Épargne prévue 26 € » et « Si tu dépenses 23 € par jour : 200 € » se
+  contredisent pour le lecteur.
+- [ ] **E17** (1) Totaux par jour des Opérations : signe affiché pour une sortie, absent pour une
+  entrée (« −56,60 € », « 11,41 € »).
+- [ ] **L13** (2) Libellés avec « Carte 1567 » : vérifier que l'avis de Claude, qui annonce
+  « aucun numéro », les retire bien avant l'envoi.
 
 ## Idées (gelées)
 
