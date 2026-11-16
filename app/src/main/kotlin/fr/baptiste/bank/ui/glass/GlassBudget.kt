@@ -38,6 +38,8 @@ import androidx.compose.ui.unit.dp
 import fr.baptiste.bank.data.YearOverview
 import fr.baptiste.bank.domain.budget.CurrentAccountExplained
 import fr.baptiste.bank.domain.budget.Dashboard
+import fr.baptiste.bank.domain.budget.MonthPlan
+import fr.baptiste.bank.domain.budget.monthPlan
 import fr.baptiste.bank.domain.budget.closings
 import fr.baptiste.bank.domain.budget.monthClosing
 import fr.baptiste.bank.domain.budget.EnvelopeLine
@@ -79,16 +81,23 @@ private data class PlanPart(val family: EnvelopeFamily, val amount: Money)
 /** Vue de l'onglet Budget. */
 enum class BudgetView { MONTH, YEAR }
 
-private fun planParts(dashboard: Dashboard): List<PlanPart> {
-    val byFamily = dashboard.envelopes.groupBy { it.envelope.type.family }
-    fun share(family: EnvelopeFamily) = byFamily[family].orEmpty().fold(Money.ZERO) { sum, line -> sum + line.monthlyShare }
-    return listOf(
-        PlanPart(EnvelopeFamily.FIXED, share(EnvelopeFamily.FIXED)),
-        PlanPart(EnvelopeFamily.PROVISIONS, share(EnvelopeFamily.PROVISIONS)),
-        PlanPart(EnvelopeFamily.SAVINGS, share(EnvelopeFamily.SAVINGS)),
-        PlanPart(EnvelopeFamily.DAILY, dashboard.dailyBudget),
-    )
+/** Les lignes du plan, calculées par le domaine ([monthPlan]) : avec un salaire, leur somme est ce salaire (I5). */
+private fun planParts(plan: MonthPlan): List<PlanPart> = listOf(
+    PlanPart(EnvelopeFamily.FIXED, plan.charges),
+    PlanPart(EnvelopeFamily.PROVISIONS, plan.provisions),
+    PlanPart(EnvelopeFamily.SAVINGS, plan.savings),
+    PlanPart(EnvelopeFamily.DAILY, plan.daily),
+)
+
+/** Ce que sont les mouvements du mois du quotidien (D8) ; rien à 0 €. */
+private fun movesLabel(moves: Money): String? = when {
+    moves.isPositive -> "ajoutés hors salaire"
+    moves.isNegative -> "mis dans d'autres enveloppes"
+    else -> null
 }
+
+/** « +93 € ajoutés hors salaire », « −40 € mis dans d'autres enveloppes ». */
+internal fun movesLine(moves: Money): String? = movesLabel(moves)?.let { "${moves.signed()} $it" }
 
 @Composable
 fun GlassBudgetContent(
@@ -114,7 +123,8 @@ fun GlassBudgetContent(
 ) {
     val listState = rememberTabListState()
     var showInfo by remember { mutableStateOf(false) }
-    val parts = dashboard?.let(::planParts).orEmpty()
+    val plan = dashboard?.monthPlan()
+    val parts = plan?.let(::planParts).orEmpty()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -131,6 +141,7 @@ fun GlassBudgetContent(
                     monthContent(
                         dashboard = dashboard,
                         parts = parts,
+                        moves = plan?.moves,
                         monthlyIncome = monthlyIncome,
                         archived = archived,
                         onShowInfo = { showInfo = true },
@@ -162,7 +173,15 @@ fun GlassBudgetContent(
             title = "Comment le salaire est réparti",
             lines = listOfNotNull(monthlyIncome?.let { InfoLine("Salaire", it.formatted()) }) +
                 parts.filter { it.family != EnvelopeFamily.DAILY }.map { InfoLine(it.family.label, "−${it.amount.formatted()}") } +
-                listOfNotNull(parts.firstOrNull { it.family == EnvelopeFamily.DAILY }?.let { InfoLine("Budget du quotidien", it.amount.formatted()) }),
+                // Même « Budget du quotidien » que dans le Résumé (I1) : la part du salaire, plus les mouvements du mois.
+                listOfNotNull(
+                    plan?.let { p ->
+                        movesLabel(p.moves)?.let {
+                            InfoLine(it.replaceFirstChar(Char::uppercase), (if (p.moves.isNegative) "−" + (-p.moves).formatted() else "+" + p.moves.formatted()))
+                        }
+                    },
+                    dashboard?.let { InfoLine("Budget du quotidien", it.dailyBudget.formatted()) },
+                ),
             note = "Chaque enveloppe prend sa part chaque mois (une enveloppe annuelle, un douzième). Ce qui reste " +
                 "fait le budget du quotidien, partagé en reste du jour. Un achat prévu prend sa part ici : " +
                 "le quotidien, donc l'épargne prévue, baisse d'autant.",
@@ -175,6 +194,7 @@ fun GlassBudgetContent(
 private fun LazyListScope.monthContent(
     dashboard: Dashboard,
     parts: List<PlanPart>,
+    moves: Money?,
     monthlyIncome: Money?,
     archived: List<Envelope>,
     onShowInfo: () -> Unit,
@@ -221,6 +241,8 @@ private fun LazyListScope.monthContent(
                         },
                         // Du salaire que rien ne réclame : un bénéfice, en vert.
                         detailColor = BankTheme.status.gain,
+                        // L'argent du quotidien qui ne vient pas du salaire, ou qui en est sorti (D8).
+                        extra = if (part.family == EnvelopeFamily.DAILY) moves?.let(::movesLine) else null,
                     )
                 }
                 // « Essayer un plan » vit dans Épargne : une seule maison par fonction.

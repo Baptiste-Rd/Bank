@@ -481,7 +481,6 @@ private fun RestDetailSheet(dashboard: Dashboard, salary: Money?, onDismiss: () 
             if (moves.cents != 0L) add(fr.baptiste.bank.ui.components.InfoLine("Ajouts et retraits du mois", moves.signed()))
         }
         add(fr.baptiste.bank.ui.components.InfoLine("Budget du quotidien", dashboard.dailyBudget.formatted()))
-        add(fr.baptiste.bank.ui.components.InfoLine("   dont enveloppes du quotidien", dashboard.dailyAssigned.formatted()))
         dashboard.unallocated?.takeIf { it.cents != 0L }?.let { add(fr.baptiste.bank.ui.components.InfoLine("   dont à répartir", it.formatted())) }
         add(fr.baptiste.bank.ui.components.InfoLine("Déjà dépensé au quotidien", "−" + dashboard.dailySpent.formatted()))
         add(fr.baptiste.bank.ui.components.InfoLine("Reste du mois", rest.formatted()))

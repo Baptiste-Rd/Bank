@@ -119,7 +119,16 @@ data class Dashboard(
     /** Mis de côté ce mois-ci sur les enveloppes d'épargne depuis la réserve (hors épargne du mois). */
     val reserveToSavings: Money = Money.ZERO,
 ) {
-    val alerts: List<EnvelopeLine> get() = envelopes.filter { it.needsCover }
+    /**
+     * Les enveloppes à couvrir, les plus urgentes d'abord : les dépassées, par dépassement
+     * décroissant, puis les prévues, par dépassement prévu décroissant. L'écran n'en montre que
+     * les premières : une dépassée ne doit jamais céder sa place à une prévue.
+     */
+    val alerts: List<EnvelopeLine>
+        get() = envelopes.filter { it.needsCover }.sortedWith(
+            compareBy<EnvelopeLine> { !it.remaining.isNegative }
+                .thenByDescending { if (it.remaining.isNegative) -it.remaining.cents else it.projection.overrun.cents },
+        )
 }
 
 /**
