@@ -9,9 +9,9 @@ compris. Ce qu'il reste à faire est dans `docs/backlog.md`, les décisions de p
 
 ## Où en est l'app
 
-- `main` = lot 8e, commit `4c898ec`, release `build-245` (10 novembre 2026). Base de données v20
-  (schémas jusqu'à `20.json` dans `app/schemas/`). CI verte : 250 tests du domaine, 57 sur
-  l'émulateur ; relectures logique et UX passées.
+- `main` = lot B1, commit `8a726aa`, release `build-266` (16 novembre 2026), en attente de la
+  recette de Baptiste. Base de données v20 (inchangée). CI verte : 263 tests du domaine,
+  `MoneyFormatTest` dans l'app ; relectures logique (deux tours), naïve et UX passées.
 - Rien en attente de fusion : aucune branche `feature/...` n'a de contenu absent de `main`
   (vérifié le 11 novembre ; le seul commit propre à `feature/schema-v7`, les schémas publiés avec
   les captures, est déjà dans `screenshots.yml`). Leur suppression est demandée.
@@ -133,7 +133,8 @@ Suite (point de départ d'une nouvelle conversation) :
    - Désinstaller, réinstaller, Restaurer : même « Reste du mois ».
    - Reconnecter la banque, synchroniser : un seul compte courant, aucune opération en double.
 2. Lot B1 (L10, L11, L12), choisi par Baptiste le 16 novembre avant F2. Fiche validée le
-   16 novembre, en cours sur `feature/lot-b1` :
+   16 novembre, livré dans `build-266`, en attente de la recette de Baptiste (L10, L11, L12
+   restent ouverts jusque-là) :
    - Preuve : constats du 16 novembre. L10 : plan à 2 079 € pour 1 986 € de salaire, la part
      « Au quotidien » reprend `dailyBudget`, qui compte les ajouts venus d'ailleurs que du salaire
      (`Dashboard.kt` 209-224, `planParts` de `GlassBudget.kt`). L11 : `alerts.take(3)` sans tri
@@ -155,6 +156,12 @@ Suite (point de départ d'une nouvelle conversation) :
 Le lot 9 (revue du tri par Claude) est gelé, voir « Idées » de `docs/backlog.md`.
 
 ## Restes connus
+
+- Lot B1 : la ligne des mouvements sous « Au quotidien » n'a pas de capture (la démo n'a aucun
+  mouvement hors salaire), ni les deux fenêtres d'info ; Budget n'a pas de capture à 200 % ;
+  TalkBack lit le détail de cette ligne avant son montant (pas de sémantique fusionnée) ; une
+  puce d'épargne avec une prévision sous 10 € (centimes gardés) s'arrondit encore à l'euro ; la
+  somme des lignes du plan, arrondies une à une, peut s'écarter de 1 € du salaire affiché.
 
 - Lot A : pas de capture de « Reprendre » (la démo n'a pas d'enveloppe arrêtée) ; « Annuler » une
   restauration n'est proposé que dans le message qui la suit ; sur un nouveau téléphone, les opérations entre la
