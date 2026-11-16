@@ -75,4 +75,18 @@ class MonthPlanTest {
         assertEquals(Money.euros(1133), before.dailyBudget)
         assertEquals(Money.euros(1013), before.monthLeft)
     }
+
+    @Test
+    fun `I5 a lump sum taken on the month counts in the rare and occasional line`() {
+        val lump = Envelope(
+            id = 4, name = "Vacances", type = EnvelopeType.LUMP, frequency = EnvelopeType.LUMP.defaultFrequency,
+            amount = Money.euros(500), status = EnvelopeType.LUMP.defaultStatus,
+            start = today.withDayOfMonth(1), anchor = today.withDayOfMonth(1), repeats = false,
+            fundingStart = java.time.YearMonth.from(today),
+        )
+        val plan = computeDashboard(listOf(courses, loyer, epargne, lump), emptyMap(), emptyList(), salary, today).monthPlan()
+        assertEquals(Money.euros(500), plan.provisions)
+        assertEquals(Money.ZERO, plan.moves)
+        assertEquals(salary, plan.lines.fold(Money.ZERO) { sum, it -> sum + it })
+    }
 }

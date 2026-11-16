@@ -41,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.background
 import fr.baptiste.bank.domain.budget.Dashboard
+import fr.baptiste.bank.domain.budget.monthPlan
 import fr.baptiste.bank.domain.budget.EnvelopeLine
 import fr.baptiste.bank.domain.budget.HoldingLine
 import fr.baptiste.bank.domain.budget.Holdings
@@ -460,25 +461,17 @@ private fun Legend(color: Color, label: String, dashed: Boolean = false) {
  */
 @Composable
 private fun RestDetailSheet(dashboard: Dashboard, salary: Money?, onDismiss: () -> Unit) {
-    fun share(vararg types: fr.baptiste.bank.domain.model.EnvelopeType) =
-        dashboard.envelopes.filter { it.envelope.type in types }.fold(Money.ZERO) { sum, it -> sum + it.monthlyShare }
-    val charges = share(fr.baptiste.bank.domain.model.EnvelopeType.FIXED)
-    val rare = share(
-        fr.baptiste.bank.domain.model.EnvelopeType.RECURRING,
-        fr.baptiste.bank.domain.model.EnvelopeType.ANNUAL,
-        fr.baptiste.bank.domain.model.EnvelopeType.PLANNED,
-    )
-    val savings = share(fr.baptiste.bank.domain.model.EnvelopeType.SAVINGS)
+    // Le même plan que l'onglet Budget (un chiffre, une fonction) : sommes mises à part comprises.
+    val plan = dashboard.monthPlan()
     val rest = dashboard.dailyBudget - dashboard.dailySpent
     val lines = buildList {
         if (salary != null) {
             add(fr.baptiste.bank.ui.components.InfoLine("Salaire du mois", salary.formatted()))
-            if (charges.isPositive) add(fr.baptiste.bank.ui.components.InfoLine("Charges fixes", "−" + charges.formatted()))
-            if (rare.isPositive) add(fr.baptiste.bank.ui.components.InfoLine("Rares et ponctuels (part du mois)", "−" + rare.formatted()))
-            if (savings.isPositive) add(fr.baptiste.bank.ui.components.InfoLine("Épargne", "−" + savings.formatted()))
-            // Ce qui a été ajouté ou retiré aux enveloppes ce mois-ci (le reste de l'écart).
-            val moves = dashboard.dailyBudget - (salary - charges - rare - savings)
-            if (moves.cents != 0L) add(fr.baptiste.bank.ui.components.InfoLine("Ajouts et retraits du mois", moves.signed()))
+            if (plan.charges.isPositive) add(fr.baptiste.bank.ui.components.InfoLine("Charges fixes", "−" + plan.charges.formatted()))
+            if (plan.provisions.isPositive) add(fr.baptiste.bank.ui.components.InfoLine("Rares et ponctuels (part du mois)", "−" + plan.provisions.formatted()))
+            if (plan.savings.isPositive) add(fr.baptiste.bank.ui.components.InfoLine("Épargne", "−" + plan.savings.formatted()))
+            // Ce qui a été ajouté au quotidien d'ailleurs que du salaire, ou qui en est sorti (D8).
+            movesInfoLine(plan.moves)?.let { add(it) }
         }
         add(fr.baptiste.bank.ui.components.InfoLine("Budget du quotidien", dashboard.dailyBudget.formatted()))
         dashboard.unallocated?.takeIf { it.cents != 0L }?.let { add(fr.baptiste.bank.ui.components.InfoLine("   dont à répartir", it.formatted())) }

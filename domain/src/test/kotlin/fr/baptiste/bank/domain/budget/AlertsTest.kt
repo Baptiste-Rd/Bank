@@ -57,4 +57,17 @@ class AlertsTest {
         val overruns = board.alerts.drop(1).map { it.projection.overrun.cents }
         assertEquals(overruns.sortedDescending(), overruns)
     }
+
+    @Test
+    fun `two overspent envelopes are ordered by overrun, largest first`() {
+        val loisirs = envelope(5, "Loisirs", 50)
+        val board = computeDashboard(
+            listOf(alimentation, loisirs, transports),
+            emptyMap(),
+            listOf(spent(alimentation, 240), spent(loisirs, 60), spent(transports, 128)),
+            null,
+            today,
+        )
+        assertEquals(listOf("Transports", "Loisirs", "Alimentation"), board.alerts.map { it.envelope.name })
+    }
 }

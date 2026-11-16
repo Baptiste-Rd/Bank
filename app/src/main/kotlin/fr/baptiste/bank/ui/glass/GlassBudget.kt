@@ -99,6 +99,11 @@ private fun movesLabel(moves: Money): String? = when {
 /** « +93 € ajoutés hors salaire », « −40 € mis dans d'autres enveloppes ». */
 internal fun movesLine(moves: Money): String? = movesLabel(moves)?.let { "${moves.signed()} $it" }
 
+/** La même chose en ligne de détail, au centime : « Ajoutés hors salaire   +93,00 € ». */
+internal fun movesInfoLine(moves: Money): InfoLine? = movesLabel(moves)?.let {
+    InfoLine(it.replaceFirstChar(Char::uppercase), if (moves.isNegative) "−" + (-moves).formatted() else "+" + moves.formatted())
+}
+
 @Composable
 fun GlassBudgetContent(
     dashboard: Dashboard?,
@@ -175,11 +180,7 @@ fun GlassBudgetContent(
                 parts.filter { it.family != EnvelopeFamily.DAILY }.map { InfoLine(it.family.label, "−${it.amount.formatted()}") } +
                 // Même « Budget du quotidien » que dans le Résumé (I1) : la part du salaire, plus les mouvements du mois.
                 listOfNotNull(
-                    plan?.let { p ->
-                        movesLabel(p.moves)?.let {
-                            InfoLine(it.replaceFirstChar(Char::uppercase), (if (p.moves.isNegative) "−" + (-p.moves).formatted() else "+" + p.moves.formatted()))
-                        }
-                    },
+                    plan?.let { movesInfoLine(it.moves) },
                     dashboard?.let { InfoLine("Budget du quotidien", it.dailyBudget.formatted()) },
                 ),
             note = "Chaque enveloppe prend sa part chaque mois (une enveloppe annuelle, un douzième). Ce qui reste " +
