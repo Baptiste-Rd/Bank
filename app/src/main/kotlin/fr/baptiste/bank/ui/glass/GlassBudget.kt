@@ -230,20 +230,12 @@ private fun LazyListScope.monthContent(
             } else {
                 PlanBar(parts, Modifier.padding(vertical = 12.dp))
                 parts.forEach { part ->
-                    val unallocated = dashboard.unallocated
                     LegendRow(
                         color = part.family.color,
                         label = part.family.label,
                         value = part.amount.summary(),
-                        detail = if (part.family == EnvelopeFamily.DAILY && unallocated != null && unallocated.isPositive) {
-                            "dont ${unallocated.summary()} à répartir"
-                        } else {
-                            null
-                        },
-                        // Du salaire que rien ne réclame : un bénéfice, en vert.
-                        detailColor = BankTheme.status.gain,
                         // L'argent du quotidien qui ne vient pas du salaire, ou qui en est sorti (D8).
-                        extra = if (part.family == EnvelopeFamily.DAILY) moves?.let(::movesLine) else null,
+                        detail = if (part.family == EnvelopeFamily.DAILY) moves?.let(::movesLine) else null,
                     )
                 }
                 // « Essayer un plan » vit dans Épargne : une seule maison par fonction.

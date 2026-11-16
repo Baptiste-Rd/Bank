@@ -148,7 +148,7 @@ Suite (point de départ d'une nouvelle conversation) :
      Transports en tête de « À surveiller » ; « −28 € » et « Dépassé 28 € » sur la même ligne ;
      puce d'Épargne exacte.
    - Retiré : `planParts` de l'écran (calcul dans le domaine) ; « dont enveloppes du quotidien »
-     du détail du reste du mois. Ajouté : une ligne signée sous « Au quotidien » (D8, nuance).
+     du détail du reste du mois ; « dont X à répartir » de la carte du plan. Ajouté : une ligne signée sous « Au quotidien » (D8, nuance).
    - Hors du lot : E14 à E17, L13, L1 à L9 ; le calcul du « par jour » ne change pas.
 3. Ensuite, dans l'ordre du backlog : F2 (clé de signature hors du dépôt), puis F3.
 

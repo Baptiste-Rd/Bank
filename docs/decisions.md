@@ -37,7 +37,9 @@ tu veux nuancer.
   du mois, signé : « +93 € ajoutés hors salaire » ou « −40 € mis dans d'autres enveloppes »
   (par exemple 40 € pris sur À répartir pour une enveloppe d'épargne). Elle n'apparaît pas à 0 €.
   En échange, la ligne « dont enveloppes du quotidien » du détail du reste du mois (Résumé) est
-  retirée.
+  retirée. Le 2026-11-16, à la relecture : le « dont X à répartir » sous « Au quotidien » de la
+  carte du plan est retiré aussi (il pouvait dépasser la ligne) ; il reste dans le détail du reste
+  du mois et dans « Pris sur ».
 
 ## D5 · Pour qui est l'app ?
 

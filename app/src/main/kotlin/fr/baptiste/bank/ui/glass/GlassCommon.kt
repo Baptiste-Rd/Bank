@@ -136,16 +136,13 @@ internal fun Chevron() {
 
 /** Ligne de légende : pastille de couleur, libellé, valeur ; un détail facultatif dessous. */
 @Composable
-internal fun LegendRow(color: Color, label: String, value: String, detail: String? = null, detailColor: Color? = null, extra: String? = null) {
+internal fun LegendRow(color: Color, label: String, value: String, detail: String? = null, detailColor: Color? = null) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
         Box(Modifier.size(10.dp).clip(CircleShape).background(color))
         Column(Modifier.weight(1f).padding(start = 10.dp)) {
             Text(label, style = MaterialTheme.typography.bodyMedium)
             if (detail != null) {
                 Text(detail, style = MaterialTheme.typography.bodySmall, color = detailColor ?: MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            if (extra != null) {
-                Text(extra, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         Text(value, style = MaterialTheme.typography.titleSmall)
