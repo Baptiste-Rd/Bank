@@ -19,7 +19,7 @@ Onglets, dans l'ordre : **Résumé** (où j'en suis ce mois ?), **Budget** (où 
   (le plan) et Épargne restent sur le mois en cours ; le bilan d'un mois et le compte courant sont
   dans Résumé.
 - Résumé du mois en cours : deux grands chiffres (Reste du mois, Par jour) ; « N à trier » ; À surveiller (trois enveloppes au plus, celles qui
-  dépassent ou vont dépasser) ; Compte courant (et salaire reçu) et Autres comptes en deux lignes ;
+  dépassent ou vont dépasser ; les dépassées d'abord, puis par montant) ; Compte courant (et salaire reçu) et Autres comptes en deux lignes ;
   Dernières dépenses (trois) ; Rythme du mois (et, dessous, l'écart à la même date du mois précédent).
 - Résumé d'un mois terminé : ce qu'il a coûté, son bilan d'épargne, le chemin vers le détail.
 - Épargne : épargne prévue et « Mettre de côté » ; Objectifs (« Répartir » partage une fois ce qui
@@ -238,4 +238,4 @@ Chaque carte suit la même règle : un chiffre clé, une ligne d'aide au plus, l
 - **« Couvrir » devient « Ajouter de l'argent »** : la fenêtre dit combien il manque, d'où vient l'argent et ce que devient le reste du mois. « Pris sur » propose d'abord la répartition de l'app (À répartir ce mois-ci, puis les enveloppes souples) ; on peut choisir une source (À répartir, Disponible sur le compte, une enveloppe), complétée au besoin par les autres. Le bouton n'existe que dans la fiche.
 - **Enveloppe arrêtée** : elle garde son budget et ses dépenses dans le mois de son arrêt (le reste du mois ne gagne rien), mais n'est plus proposée nulle part (À surveiller, sources d'un ajout, simulateur). Mois en cours : elle n'est que dans « Arrêtées ». Mois passé : elle reste dans sa famille.
 - **Formulaire d'enveloppe** : Nom, C'est pour, Combien, Catégorie (et la remise à zéro pour un budget rare). Le départ, le rythme, la suite d'un budget rare et la protection sont dans « Plus d'options ».
-- **Plan du mois** : la barre et sa légende seulement ; « Essayer un plan » vit dans Épargne.
+- **Plan du mois** : la barre et sa légende seulement ; « Essayer un plan » vit dans Épargne. Les lignes font le salaire (I5) : « Au quotidien » est la part que les autres familles lui laissent ; dessous, une ligne signée dit le solde des mouvements du mois (« +93 € ajoutés hors salaire », « −40 € mis dans d'autres enveloppes »), absente à 0 € (D8).
