@@ -2,6 +2,7 @@ package fr.baptiste.bank.domain.budget
 
 import fr.baptiste.bank.domain.model.EnvelopeType
 import fr.baptiste.bank.domain.money.Money
+import fr.baptiste.bank.domain.money.displayed
 
 /**
  * Épargne d'un mois : ce qui était visé, et ce qui sera réellement mis de côté à la fin du mois.
@@ -53,6 +54,9 @@ data class SavingsOutlook(
 
     /** Écart à l'objectif : négatif si la prévision est en dessous. */
     val gapToTarget: Money get() = forecast - target
+
+    /** L'écart tel qu'il s'affiche : la différence des deux montants affichés (I1). */
+    val shownGapToTarget: Money get() = forecast.displayed() - target.displayed()
 }
 
 /**

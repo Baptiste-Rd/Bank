@@ -55,6 +55,18 @@ value class Money(val cents: Long) : Comparable<Money> {
     }
 }
 
+/**
+ * Le montant tel qu'un chiffre de synthèse l'affiche : à l'euro près, sauf sous 10 € où les
+ * centimes restent (« 0,50 € » ne doit pas devenir « 1 € »).
+ */
+fun Money.displayed(): Money {
+    if (Math.abs(cents) < 1000 && cents % 100 != 0L) return this
+    // Une moitié s'arrondit en s'éloignant de zéro, quel que soit le signe : −27,50 € donne
+    // « −28 € » comme 27,50 € donne « 28 € » (Math.round arrondirait −27,5 vers −27).
+    val euros = (Math.abs(cents) + 50) / 100
+    return Money(if (cents < 0) -euros * 100 else euros * 100)
+}
+
 fun Iterable<Money>.sum(): Money = fold(Money.ZERO) { total, amount -> total + amount }
 
 fun <T> Iterable<T>.sumOfMoney(selector: (T) -> Money): Money =

@@ -34,4 +34,19 @@ class MoneyTest {
         assertEquals("24,05 €", Money(2405).toString())
         assertEquals("-0,50 €", Money(-50).toString())
     }
+
+    @Test
+    fun `I1 a displayed half euro rounds away from zero on both signs`() {
+        assertEquals(Money(-2800), Money(-2750).displayed())
+        assertEquals(Money(2800), Money(2750).displayed())
+        assertEquals(Money(-2700), Money(-2749).displayed())
+        assertEquals(-Money(2750).displayed(), Money(-2750).displayed())
+    }
+
+    @Test
+    fun `displayed keeps the cents below ten euros`() {
+        assertEquals(Money(950), Money(950).displayed())
+        assertEquals(Money(-950), Money(-950).displayed())
+        assertEquals(Money(1000), Money(1000).displayed())
+    }
 }

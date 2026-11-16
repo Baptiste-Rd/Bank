@@ -134,7 +134,8 @@ fun GlassSavingsContent(
                     color = if (outlook.forecast.isNegative) BankTheme.status.over else MaterialTheme.colorScheme.onSurface,
                 )
                 // L'écart à l'objectif, en une ligne, plutôt que deux tuiles.
-                val gap = outlook.gapToTarget
+                // L'écart des deux montants affichés, pour que la puce se vérifie d'un coup d'œil (I1).
+                val gap = outlook.shownGapToTarget
                 fr.baptiste.bank.ui.components.StatusChip(
                     "${if (gap.isNegative) "−" else "+"}${(if (gap.isNegative) -gap else gap).summary()} vs ${outlook.target.summary()} par mois",
                     if (gap.isNegative) fr.baptiste.bank.ui.components.StatusKind.WARNING else fr.baptiste.bank.ui.components.StatusKind.GAIN,

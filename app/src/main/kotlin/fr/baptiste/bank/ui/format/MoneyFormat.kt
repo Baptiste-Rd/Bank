@@ -1,6 +1,7 @@
 package fr.baptiste.bank.ui.format
 
 import fr.baptiste.bank.domain.money.Money
+import fr.baptiste.bank.domain.money.displayed
 import java.text.NumberFormat
 import java.util.Currency
 import java.util.Locale
@@ -34,8 +35,9 @@ private val wholeEuroFormat: NumberFormat = NumberFormat.getCurrencyInstance(Loc
  * ne doit pas devenir « 1 € ».
  */
 fun Money.summary(): String {
-    if (kotlin.math.abs(cents) < 1000 && cents % 100 != 0L) return formatted()
-    return wholeEuroFormat.format(Math.round(cents / 100.0).toDouble())
+    val shown = displayed()
+    if (shown.cents % 100 != 0L) return formatted()
+    return wholeEuroFormat.format(shown.cents / 100.0)
         .replace('\u202F', '\u00A0')
         .replace('-', '−')
 }

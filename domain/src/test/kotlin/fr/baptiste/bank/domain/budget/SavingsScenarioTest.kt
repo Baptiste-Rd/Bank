@@ -120,4 +120,19 @@ class SavingsScenarioTest {
         assertEquals(Money.euros(600), velo.savedSoFar(LocalDate.of(2027, 8, 1)))
         assertEquals(Money.ZERO, velo.savedSoFar(LocalDate.of(2026, 9, 30)))
     }
+
+    @Test
+    fun `I1 the savings chip is the gap between the two displayed amounts`() {
+        // Prévision 25,60 € (affichée « 26 € »), objectif 200,40 € (affiché « 200 € ») : la puce dit
+        // −174 €, pas −175 € (l'écart exact, −174,80 €, arrondi).
+        val outlook = SavingsOutlook(
+            target = Money(20040),
+            transferred = Money.ZERO,
+            dailyMargin = Money(2560) - Money(20040),
+            overruns = Money.ZERO,
+            isFinal = false,
+        )
+        assertEquals(Money(2560), outlook.forecast)
+        assertEquals(Money(-17400), outlook.shownGapToTarget)
+    }
 }
