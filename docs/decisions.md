@@ -21,7 +21,7 @@ tu veux nuancer.
 
 ## D8 · Que montre le plan du mois quand de l'argent vient d'ailleurs que du salaire ?
 
-- État : proposée
+- État : prise le 2026-11-16 : option A
 - Pourquoi maintenant : L10. I5 dit « somme des lignes = salaire », mais un ajout depuis
   « Disponible sur le compte » ou depuis une autre famille gonfle « Au quotidien » (constat :
   2 079 € de lignes pour 1 986 € de salaire).

@@ -38,7 +38,7 @@ Sévérité : 4 perte de données ou blocage · 3 gêne majeure sur une tâche �
 - [ ] **L10** (3) Plan du mois : I5 cassé et sans test. Constat du 2026-11-16 (téléphone) : lignes
   2 079 € pour un salaire de 1 986 €. Cause : « Au quotidien » ajoute les ajouts du mois venus de
   « Disponible sur le compte » ou d'une enveloppe d'une autre famille, sans les retirer d'ailleurs
-  (`Dashboard.kt` 209-224). Décision D8. *Réussi quand :* le test `I5` (salaire 2 000 €, 93 €
+  (`Dashboard.kt` 209-224). Décision D8 prise : option A. *Réussi quand :* le test `I5` (salaire 2 000 €, 93 €
   ajoutés depuis le compte à une enveloppe du quotidien) donne 2 000 € pour la somme des lignes.
 - [ ] **L11** (3) « À surveiller » oublie une enveloppe dépassée. Constat du 2026-11-16 : Transports
   (dépassé de 28 €) absent, trois « Prévu » affichés. Cause : `alerts.take(3)` sans tri, ordre

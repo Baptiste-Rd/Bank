@@ -122,8 +122,22 @@ sur » compte, objectif ou À répartir du mois, « Terminer » rend le reste), 
 (supprimer, défauts ci-dessous, doc UX, démo, export Claude, skill, code mort de l'ancien
 SavingsGoals), 9 revue du tri par Claude (propositions applicables une à une depuis le bilan).
 
-Suite : le lot 9 (revue du tri par Claude) est gelé, voir « Idées » de `docs/backlog.md`. Le
-lot A continue avec F2 (clé de signature hors du dépôt) une fois F1 recetté.
+Suite (point de départ d'une nouvelle conversation) :
+
+1. F1 attend la recette de Baptiste sur `build-259` (gestes dans la fiche du lot A, résumés
+   ci-dessous). Tant qu'il ne l'a pas écrite, F1 reste ouvert ; s'il signale un défaut, il passe
+   avant tout le reste.
+   - Sauvegarder, noter le « Reste du mois », modifier une enveloppe, Restaurer : la modification
+     disparaît ; « Annuler » dans le message la fait revenir.
+   - Désinstaller, réinstaller, Restaurer : même « Reste du mois ».
+   - Reconnecter la banque, synchroniser : un seul compte courant, aucune opération en double.
+2. Prochain lot, dans l'ordre du backlog : F2 (clé de signature hors du dépôt), puis F3. Fiche à
+   proposer à Baptiste avant tout code.
+3. Écarts de chiffres trouvés le 16 novembre sur le téléphone de Baptiste, prouvés dans le code :
+   L10 (I5, décision D8 prise : option A), L11 (« À surveiller »), L12 (arrondis), au lot B.
+   Baptiste peut choisir de les faire passer avant F2 : c'est l'ordre des lots, donc sa décision.
+
+Le lot 9 (revue du tri par Claude) est gelé, voir « Idées » de `docs/backlog.md`.
 
 ## Restes connus
 
