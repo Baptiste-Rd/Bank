@@ -125,17 +125,32 @@ SavingsGoals), 9 revue du tri par Claude (propositions applicables une à une de
 Suite (point de départ d'une nouvelle conversation) :
 
 1. F1 attend la recette de Baptiste sur `build-259` (gestes dans la fiche du lot A, résumés
-   ci-dessous). Tant qu'il ne l'a pas écrite, F1 reste ouvert ; s'il signale un défaut, il passe
-   avant tout le reste.
+   ci-dessous). Le 16 novembre, Baptiste l'a reportée : il la fera plus tard, de lui-même, et
+   elle ne bloque pas les autres lots. F1 reste ouvert jusqu'à ce qu'il l'écrive ; s'il signale
+   un défaut, il passe avant tout le reste.
    - Sauvegarder, noter le « Reste du mois », modifier une enveloppe, Restaurer : la modification
      disparaît ; « Annuler » dans le message la fait revenir.
    - Désinstaller, réinstaller, Restaurer : même « Reste du mois ».
    - Reconnecter la banque, synchroniser : un seul compte courant, aucune opération en double.
-2. Prochain lot, dans l'ordre du backlog : F2 (clé de signature hors du dépôt), puis F3. Fiche à
-   proposer à Baptiste avant tout code.
-3. Écarts de chiffres trouvés le 16 novembre sur le téléphone de Baptiste, prouvés dans le code :
-   L10 (I5, décision D8 prise : option A), L11 (« À surveiller »), L12 (arrondis), au lot B.
-   Baptiste peut choisir de les faire passer avant F2 : c'est l'ordre des lots, donc sa décision.
+2. Lot B1 (L10, L11, L12), choisi par Baptiste le 16 novembre avant F2. Fiche validée le
+   16 novembre, en cours sur `feature/lot-b1` :
+   - Preuve : constats du 16 novembre. L10 : plan à 2 079 € pour 1 986 € de salaire, la part
+     « Au quotidien » reprend `dailyBudget`, qui compte les ajouts venus d'ailleurs que du salaire
+     (`Dashboard.kt` 209-224, `planParts` de `GlassBudget.kt`). L11 : `alerts.take(3)` sans tri
+     (`GlassHome.kt` 162). L12 : `Math.round(-27.5)` donne −27 (`MoneyFormat.kt` 38), écart
+     d'épargne calculé avant l'arrondi (`GlassSavings.kt` 139).
+   - Tâches : T3 (L11, L12), T4 (L10).
+   - Tests : `I5` (salaire 2 000 €, 93 € depuis le compte vers le quotidien, 40 € pris sur une
+     enveloppe d'épargne : lignes = 2 000 €, « par jour » et « Reste du mois » inchangés) ;
+     alertes dépassées d'abord puis par montant ; `Money(-2750).summary()` = « −28 € » ; puce
+     d'épargne = écart des montants affichés (26 € et 200 € : « −174 € »).
+   - Recette : Budget, lignes du plan = salaire, ligne des ajouts sous « Au quotidien » ; Résumé,
+     Transports en tête de « À surveiller » ; « −28 € » et « Dépassé 28 € » sur la même ligne ;
+     puce d'Épargne exacte.
+   - Retiré : `planParts` de l'écran (calcul dans le domaine) ; « dont enveloppes du quotidien »
+     du détail du reste du mois. Ajouté : une ligne signée sous « Au quotidien » (D8, nuance).
+   - Hors du lot : E14 à E17, L13, L1 à L9 ; le calcul du « par jour » ne change pas.
+3. Ensuite, dans l'ordre du backlog : F2 (clé de signature hors du dépôt), puis F3.
 
 Le lot 9 (revue du tri par Claude) est gelé, voir « Idées » de `docs/backlog.md`.
 

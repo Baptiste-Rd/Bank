@@ -33,6 +33,11 @@ tu veux nuancer.
   l'invariant change, et « Salaire 1 986 € » ne suffit plus comme titre.
 - Recommandation : A.
 - Comment le vérifier : test `I5` ; la carte de Baptiste additionne à son salaire.
+- Nuance, le 2026-11-16 (fiche du lot B1) : une seule ligne sous « Au quotidien », le solde net
+  du mois, signé : « + 93 € ajoutés hors salaire » ou « −40 € mis dans d'autres enveloppes »
+  (par exemple 40 € pris sur À répartir pour une enveloppe d'épargne). Elle n'apparaît pas à 0 €.
+  En échange, la ligne « dont enveloppes du quotidien » du détail du reste du mois (Résumé) est
+  retirée.
 
 ## D5 · Pour qui est l'app ?
 
